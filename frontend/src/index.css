@@ -13,7 +13,7 @@
         --card-foreground: 0.16 0.01 255;
         --popover: 1 0 0;
         --popover-foreground: 0.16 0.01 255;
-        --primary: 0.55 0.22 262;
+        --primary: 0.592704 0.222246 260.830;
         --primary-foreground: 1 0 0;
         --secondary: 0.96 0.008 260;
         --secondary-foreground: 0.24 0.02 255;
@@ -25,20 +25,20 @@
         --destructive-foreground: 1 0 0;
         --border: 0.91 0.01 260;
         --input: 0.89 0.012 260;
-        --ring: 0.55 0.22 262;
-        --chart-1: 0.55 0.22 262;
+        --ring: 0.592704 0.222246 260.830;
+        --chart-1: 0.592704 0.222246 260.830;
         --chart-2: 0.68 0.15 230;
         --chart-3: 0.62 0.14 290;
         --chart-4: 0.76 0.13 195;
         --chart-5: 0.72 0.16 315;
-        --sidebar: 1 0 0;
+        --sidebar: 0.985 0.003 260;
         --sidebar-foreground: 0.16 0.01 255;
-        --sidebar-primary: 0.55 0.22 262;
+        --sidebar-primary: 0.592704 0.222246 260.830;
         --sidebar-primary-foreground: 1 0 0;
-        --sidebar-accent: 0.96 0.008 260;
+        --sidebar-accent: 0.95 0.005 260;
         --sidebar-accent-foreground: 0.24 0.02 255;
         --sidebar-border: 0.91 0.01 260;
-        --sidebar-ring: 0.55 0.22 262;
+        --sidebar-ring: 0.592704 0.222246 260.830;
         --radius: 0.75rem;
     }
 
@@ -49,8 +49,8 @@
         --card-foreground: 0.96 0.005 260;
         --popover: 0.22 0.014 255;
         --popover-foreground: 0.96 0.005 260;
-        --primary: 0.7 0.16 255;
-        --primary-foreground: 0.12 0.02 255;
+        --primary: 0.592704 0.222246 260.830;
+        --primary-foreground: 1 0 0;
         --secondary: 0.25 0.016 255;
         --secondary-foreground: 0.92 0.008 260;
         --muted: 0.23 0.014 255;
@@ -61,20 +61,20 @@
         --destructive-foreground: 1 0 0;
         --border: 0.31 0.016 255;
         --input: 0.31 0.016 255;
-        --ring: 0.7 0.16 255;
-        --chart-1: 0.7 0.16 255;
+        --ring: 0.592704 0.222246 260.830;
+        --chart-1: 0.592704 0.222246 260.830;
         --chart-2: 0.78 0.13 230;
         --chart-3: 0.75 0.13 290;
         --chart-4: 0.79 0.12 195;
         --chart-5: 0.8 0.14 315;
         --sidebar: 0.17 0.014 255;
         --sidebar-foreground: 0.96 0.005 260;
-        --sidebar-primary: 0.7 0.16 255;
-        --sidebar-primary-foreground: 0.12 0.02 255;
+        --sidebar-primary: 0.592704 0.222246 260.830;
+        --sidebar-primary-foreground: 1 0 0;
         --sidebar-accent: 0.25 0.016 255;
         --sidebar-accent-foreground: 0.92 0.008 260;
         --sidebar-border: 0.31 0.016 255;
-        --sidebar-ring: 0.7 0.16 255;
+        --sidebar-ring: 0.592704 0.222246 260.830;
         --radius: 0.75rem;
     }
 }

@@ -13,6 +13,7 @@ import {
   Sparkles,
   Users,
 } from "lucide-react";
+import { toast } from "sonner";
 import api, { timeAgo } from "@/lib/api";
 import { PageHead, EmptyState } from "@/components/common";
 
@@ -46,7 +47,7 @@ export default function Notifications() {
       const params =
         activeCategory === "all"
           ? {}
-          : { origin: activeCategory === "creators" ? "creator" : "company" };
+          : { origin: activeCategory };
       return (await api.get("/notifications", { params })).data;
     },
   });
@@ -55,7 +56,7 @@ export default function Notifications() {
     api
       .post("/notifications/read")
       .then(() => qc.invalidateQueries({ queryKey: ["notifications"] }))
-      .catch(() => {});
+      .catch(() => toast.error("Could not mark notifications as read."));
   }, [qc]);
 
   const items = data?.notifications || [];
@@ -146,7 +147,7 @@ export default function Notifications() {
               <button
                 key={n.notif_id}
                 onClick={() => n.link && navigate(n.link)}
-                className="flex w-full items-start gap-4 rounded-2xl border border-border bg-card p-4 text-left transition-colors hover:border-primary/40 group"
+                className="group flex w-full items-start gap-4 rounded-2xl border border-border bg-card p-4 text-left transition-colors hover:border-primary/40"
                 data-testid={`notification-${n.notif_id}`}
               >
                 <div
@@ -167,14 +168,14 @@ export default function Notifications() {
                     </p>
                     {n.origin === "creator" ? (
                       <span
-                        className="inline-flex items-center gap-1 rounded-full border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-600 dark:text-blue-400"
+                        className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary"
                         data-testid="origin-badge-creator"
                       >
                         <Users className="h-2.5 w-2.5" /> Creator
                       </span>
                     ) : n.origin === "company" ? (
                       <span
-                        className="inline-flex items-center gap-1 rounded-full border border-purple-500/20 bg-purple-500/10 px-2 py-0.5 text-[10px] font-medium text-purple-600 dark:text-purple-400"
+                        className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary"
                         data-testid="origin-badge-company"
                       >
                         <Building2 className="h-2.5 w-2.5" /> Company

@@ -2,7 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-route
 import { Toaster } from "sonner";
 import { Loader2 } from "lucide-react";
 import { AuthProvider, useAuth } from "@/lib/auth";
-import { ThemeProvider, useTheme } from "@/lib/theme";
+import { ThemeProvider } from "@/lib/theme";
 import AuthCallback from "@/components/AuthCallback";
 import Shell from "@/components/Shell";
 import Landing from "@/pages/Landing";
@@ -92,6 +92,5 @@ export default function App() {
 }
 
 function ThemedToaster() {
-  const { theme } = useTheme();
-  return <Toaster theme={theme} position="top-right" />;
+  return <Toaster theme="light" position="top-right" />;
 }

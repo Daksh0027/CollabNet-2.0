@@ -9,7 +9,6 @@ import {
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import ThemeToggle from "@/components/ThemeToggle";
 
 const GoogleIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
@@ -216,7 +215,6 @@ export default function Landing() {
             <span className="font-display text-sm font-semibold tracking-wide">CollaboNet</span>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
-            <ThemeToggle />
             <button
               onClick={loginWithGoogle}
               className="rounded-full border border-border bg-card/50 px-4 py-2 text-sm font-semibold backdrop-blur-md transition-colors hover:border-primary hover:text-primary"

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDownWideNarrow, CalendarDays, ChevronRight, Filter,
   LayoutGrid, MessageSquare, MoreHorizontal, Plus, Search, SlidersHorizontal,
@@ -18,8 +18,7 @@ import {
 const STORAGE_KEY = "collabonet-project-board-v1";
 
 const COLUMNS = [
-  { id: "backlog", name: "Backlog", limit: 8, dot: "bg-muted-foreground" },
-  { id: "todo", name: "To do", limit: 5, dot: "bg-primary" },
+  { id: "todo", name: "To do", limit: 8, dot: "bg-primary" },
   { id: "progress", name: "In progress", limit: 4, dot: "bg-chart-3" },
   { id: "review", name: "Review", limit: 3, dot: "bg-chart-5" },
   { id: "done", name: "Done", limit: 6, dot: "bg-chart-2" },
@@ -42,9 +41,9 @@ const AVATAR_STYLES = [
 ];
 
 const INITIAL_TICKETS = [
-  { id: "FE-86", project: "Project board", title: "Add saved views for each project team", priority: "Low", tag: "firstview", status: "backlog", createdAt: "2026-09-13", assignees: ["MC"], comments: 2 },
-  { id: "BE-23", project: "Activity API", title: "Record an audit trail for agent actions", priority: "Medium", tag: "vibl", status: "backlog", createdAt: "2026-09-12", assignees: ["JL"], comments: 4 },
-  { id: "DS-38", project: "Agent handoff", title: "Explore approval cards for agent handoffs", priority: "Low", tag: "vibl", status: "backlog", createdAt: "2026-09-14", assignees: ["AK", "MC"], comments: 1 },
+  { id: "FE-86", project: "Project board", title: "Add saved views for each project team", priority: "Low", tag: "firstview", status: "todo", createdAt: "2026-09-13", assignees: ["MC"], comments: 2 },
+  { id: "BE-23", project: "Activity API", title: "Record an audit trail for agent actions", priority: "Medium", tag: "vibl", status: "todo", createdAt: "2026-09-12", assignees: ["JL"], comments: 4 },
+  { id: "DS-38", project: "Agent handoff", title: "Explore approval cards for agent handoffs", priority: "Low", tag: "vibl", status: "todo", createdAt: "2026-09-14", assignees: ["AK", "MC"], comments: 1 },
   { id: "DS-34", project: "Foundations", title: "Define semantic tokens for elevated surfaces", priority: "High", tag: "BoardUI", status: "todo", createdAt: "2026-09-12", assignees: ["TR"], comments: 3 },
   { id: "FE-82", project: "Composer", title: "Add keyboard navigation to model picker", priority: "Low", tag: "firstview", status: "todo", createdAt: "2026-09-11", assignees: ["MC", "JL"], comments: 2 },
   { id: "BE-19", project: "Usage API", title: "Return rolling limits with reset timestamps", priority: "Low", tag: "vibl", status: "todo", createdAt: "2026-09-10", assignees: ["AK"], comments: 0 },
@@ -63,7 +62,7 @@ const EMPTY_FORM = {
   description: "",
   priority: "Medium",
   tag: "",
-  status: "backlog",
+  status: "todo",
   dueDate: "",
 };
 
@@ -74,9 +73,11 @@ function loadTickets() {
     const parsed = JSON.parse(saved);
     if (Array.isArray(parsed) && parsed.every((ticket) => (
       ticket && typeof ticket.id === "string" && typeof ticket.title === "string"
-      && COLUMNS.some((column) => column.id === ticket.status)
+      && (ticket.status === "backlog" || COLUMNS.some((column) => column.id === ticket.status))
     ))) {
-      return parsed;
+      return parsed.map((ticket) => (
+        ticket.status === "backlog" ? { ...ticket, status: "todo" } : ticket
+      ));
     }
     console.error("Saved project board data is invalid; using the starter board.");
   } catch (error) {
@@ -113,14 +114,12 @@ function AssigneeAvatars({ assignees = [] }) {
   );
 }
 
-function TicketCard({ ticket, onOpen, onDragStart, onDragEnd }) {
+function TicketCard({ ticket, onOpen, onPointerDown, onClick }) {
   return (
     <button
       type="button"
-      draggable
-      onDragStart={(event) => onDragStart(event, ticket.id)}
-      onDragEnd={onDragEnd}
-      onClick={() => onOpen(ticket)}
+      onPointerDown={(event) => onPointerDown(event, ticket.id)}
+      onClick={(event) => onClick(event, ticket)}
       className="group w-full rounded-xl border border-border bg-card p-3 text-left shadow-sm transition hover:border-primary/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       data-testid={`ticket-card-${ticket.id}`}
       aria-label={`${ticket.id}: ${ticket.title}. Open ticket details or drag to move.`}
@@ -176,6 +175,14 @@ export default function ProjectBoard() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [dropTarget, setDropTarget] = useState("");
   const storageWarningShown = useRef(false);
+  const pointerDragRef = useRef(null);
+  const suppressClickRef = useRef(false);
+  const dragPreviewRef = useRef(null);
+
+  const clearDragPreview = useCallback(() => {
+    document.querySelectorAll("[data-project-board-drag-preview]").forEach((preview) => preview.remove());
+    dragPreviewRef.current = null;
+  }, []);
 
   useEffect(() => {
     try {
@@ -209,7 +216,7 @@ export default function ProjectBoard() {
     });
   }, [visibleTickets, sortBy]);
 
-  const openNewTicket = (status = "backlog") => {
+  const openNewTicket = (status = "todo") => {
     setActiveTicket(null);
     setForm({ ...EMPTY_FORM, status });
     setDialogOpen(true);
@@ -271,17 +278,103 @@ export default function ProjectBoard() {
     toast.success("Ticket removed.");
   };
 
-  const moveTicket = (ticketId, status) => {
+  const moveTicket = useCallback((ticketId, status) => {
     if (!COLUMNS.some((column) => column.id === status)) return;
     setTickets((current) => current.map((ticket) => (
       ticket.id === ticketId ? { ...ticket, status } : ticket
     )));
+  }, []);
+
+  const beginCardDrag = (event, ticketId) => {
+    if (event.button !== 0) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    pointerDragRef.current = {
+      ticketId,
+      element: event.currentTarget,
+      startX: event.clientX,
+      startY: event.clientY,
+      offsetX: event.clientX - bounds.left,
+      offsetY: event.clientY - bounds.top,
+      moved: false,
+    };
   };
 
-  const startDrag = (event, ticketId) => {
-    event.dataTransfer.setData("text/plain", ticketId);
-    event.dataTransfer.effectAllowed = "move";
+  const handlePointerMove = useCallback((event) => {
+    const drag = pointerDragRef.current;
+    if (!drag) return;
+    if (!drag.moved) {
+      if (Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < 6) return;
+      drag.moved = true;
+      suppressClickRef.current = true;
+      const bounds = drag.element.getBoundingClientRect();
+      const preview = drag.element.cloneNode(true);
+      preview.removeAttribute("data-testid");
+      preview.removeAttribute("aria-label");
+      preview.setAttribute("aria-hidden", "true");
+      preview.removeAttribute("draggable");
+      preview.dataset.projectBoardDragPreview = "true";
+      Object.assign(preview.style, {
+        position: "fixed",
+        left: `${bounds.left}px`,
+        top: `${bounds.top}px`,
+        width: `${bounds.width}px`,
+        margin: "0",
+        opacity: "1",
+        zIndex: "9999",
+        pointerEvents: "none",
+      });
+      document.body.appendChild(preview);
+      dragPreviewRef.current = preview;
+    }
+
+    event.preventDefault();
+    const preview = dragPreviewRef.current;
+    preview.style.left = `${event.clientX - drag.offsetX}px`;
+    preview.style.top = `${event.clientY - drag.offsetY}px`;
+    const target = document.elementFromPoint(event.clientX, event.clientY)
+      ?.closest("[data-testid^='project-board-column-']");
+    setDropTarget(target?.dataset.testid?.replace("project-board-column-", "") || "");
+  }, []);
+
+  const handlePointerUp = useCallback((event) => {
+    const drag = pointerDragRef.current;
+    if (!drag) return;
+    const didDrag = drag.moved;
+    if (didDrag) {
+      const target = document.elementFromPoint(event.clientX, event.clientY)
+        ?.closest("[data-testid^='project-board-column-']");
+      const status = target?.dataset.testid?.replace("project-board-column-", "");
+      if (status && COLUMNS.some((column) => column.id === status)) {
+        moveTicket(drag.ticketId, status);
+      }
+    }
+    pointerDragRef.current = null;
+    clearDragPreview();
+    setDropTarget("");
+    if (didDrag) window.setTimeout(() => { suppressClickRef.current = false; }, 0);
+  }, [clearDragPreview, moveTicket]);
+
+  const handleCardClick = (event, ticket) => {
+    if (suppressClickRef.current) {
+      event.preventDefault();
+      suppressClickRef.current = false;
+      return;
+    }
+    openTicket(ticket);
   };
+
+  useEffect(() => {
+    window.addEventListener("pointermove", handlePointerMove, { passive: false });
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+      pointerDragRef.current = null;
+      clearDragPreview();
+    };
+  }, [clearDragPreview, handlePointerMove, handlePointerUp]);
 
   return (
     <section className="space-y-5" data-testid="project-board-page">
@@ -381,19 +474,6 @@ export default function ProjectBoard() {
               <section
                 key={column.id}
                 className={`flex min-h-[min(64vh,720px)] flex-col rounded-2xl border p-2.5 transition-colors ${dropTarget === column.id ? "border-primary/50 bg-primary/5" : "border-transparent bg-muted/70"}`}
-                onDragOver={(event) => {
-                  event.preventDefault();
-                  setDropTarget(column.id);
-                }}
-                onDragLeave={(event) => {
-                  if (!event.currentTarget.contains(event.relatedTarget)) setDropTarget("");
-                }}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  const ticketId = event.dataTransfer.getData("text/plain");
-                  if (ticketId) moveTicket(ticketId, column.id);
-                  setDropTarget("");
-                }}
                 aria-label={`${column.name}, ${columnTickets.length} tickets`}
                 data-testid={`project-board-column-${column.id}`}
               >
@@ -429,9 +509,8 @@ export default function ProjectBoard() {
                     <TicketCard
                       key={ticket.id}
                       ticket={ticket}
-                      onOpen={openTicket}
-                      onDragStart={startDrag}
-                      onDragEnd={() => setDropTarget("")}
+                      onPointerDown={beginCardDrag}
+                      onClick={handleCardClick}
                     />
                   ))}
                   {columnTickets.length === 0 ? (
