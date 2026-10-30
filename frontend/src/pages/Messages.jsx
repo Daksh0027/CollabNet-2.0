@@ -30,6 +30,7 @@ import { Badge } from "@/components/ui/badge";
 import { DoubleCheck, isTimestampRead } from "@/components/chat/ReadReceipt";
 import { VoiceNotePlayer } from "@/components/chat/VoiceNotePlayer";
 import { AttachmentPreview, StagedAttachmentsBar } from "@/components/chat/AttachmentPreview";
+import { UploadDropzone } from "@/components/chat/UploadDropzone";
 import { highlightText, formatDuration } from "@/lib/chatMedia";
 
 export default function Messages() {
@@ -57,6 +58,7 @@ export default function Messages() {
 
   // Attachments
   const [stagedFiles, setStagedFiles] = useState([]);
+  const [showUploadDropzone, setShowUploadDropzone] = useState(false);
   const fileInputRef = useRef(null);
 
   // Voice note recording
@@ -102,6 +104,7 @@ export default function Messages() {
       setChatSearchQuery("");
       setShowEmojiPicker(false);
       setStagedFiles([]);
+      setShowUploadDropzone(false);
     }
   }, [tid]);
 
@@ -135,8 +138,7 @@ export default function Messages() {
   }, [showEmojiPicker]);
 
   // File attachments handler
-  const handleFileSelect = (e) => {
-    const files = Array.from(e.target.files || []);
+  const handleFiles = (files) => {
     if (!files.length) return;
     files.forEach((file) => {
       if (file.size > 10 * 1024 * 1024) {
@@ -155,8 +157,13 @@ export default function Messages() {
           },
         ]);
       };
+      reader.onerror = () => toast.error(`Could not read "${file.name}".`);
       reader.readAsDataURL(file);
     });
+  };
+
+  const handleFileSelect = (e) => {
+    handleFiles(Array.from(e.target.files || []));
     e.target.value = "";
   };
 
@@ -759,6 +766,14 @@ export default function Messages() {
                 </div>
               )}
 
+              {showUploadDropzone ? (
+                <UploadDropzone
+                  onFiles={handleFiles}
+                  onBrowse={() => fileInputRef.current?.click()}
+                  onClose={() => setShowUploadDropzone(false)}
+                />
+              ) : null}
+
               {/* Staged attachments preview */}
               <StagedAttachmentsBar files={stagedFiles} onRemove={removeStagedFile} />
 
@@ -846,7 +861,9 @@ export default function Messages() {
                     variant="ghost"
                     className="h-8 w-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary/70 shrink-0"
                     title="Attach document or media"
-                    onClick={() => fileInputRef.current?.click()}
+                    aria-label="Attach document or media"
+                    aria-expanded={showUploadDropzone}
+                    onClick={() => setShowUploadDropzone((open) => !open)}
                     data-testid="attach-file-button"
                   >
                     <Paperclip className="h-4 w-4 rotate-45" />
