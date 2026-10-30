@@ -19,7 +19,7 @@ export function isTimestampRead(readTimestamp, messageTimestamp) {
  * WhatsApp-style read receipt icon:
  * - "sent": single grey checkmark
  * - "delivered": double grey checkmark
- * - "read": double blue/sky checkmark
+ * - "read": double blue checkmark
  */
 export function DoubleCheck({ status = "read", className = "" }) {
   if (status === "sent") {
@@ -42,7 +42,7 @@ export function DoubleCheck({ status = "read", className = "" }) {
 
   const isRead = status === "read";
   const hasCustomColor = className.includes("text-");
-  const colorClass = hasCustomColor ? "" : (isRead ? "text-sky-400" : "text-muted-foreground/60");
+  const colorClass = hasCustomColor ? "" : (isRead ? "text-primary" : "text-muted-foreground/60");
 
   return (
     <span

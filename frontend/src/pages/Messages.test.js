@@ -46,19 +46,19 @@ describe("DoubleCheck Component Rendering", () => {
     expect((html.match(/<svg/g) || []).length).toBe(2);
   });
 
-  it("renders double checkmarks with WhatsApp blue color for read status", () => {
+  it("renders double checkmarks with the brand color for read status", () => {
     const html = ReactDOMServer.renderToStaticMarkup(<DoubleCheck status="read" />);
     expect(html).toContain('data-testid="check-read"');
-    expect(html).toContain("text-sky-400");
+    expect(html).toContain("text-primary");
     expect((html.match(/<svg/g) || []).length).toBe(2);
   });
 
   it("supports custom colors for message bubble contrast", () => {
     const html = ReactDOMServer.renderToStaticMarkup(
-      <DoubleCheck status="read" className="text-sky-300" />
+      <DoubleCheck status="read" className="text-primary/80" />
     );
     expect(html).toContain('data-testid="check-read"');
-    expect(html).toContain("text-sky-300");
+    expect(html).toContain("text-primary/80");
   });
 });
 

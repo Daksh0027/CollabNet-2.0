@@ -12,9 +12,46 @@ module.exports = {
       borderRadius: {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)'
+        sm: 'calc(var(--radius) - 4px)',
+        '2lg': '10px'
+      },
+      boxShadow: {
+        sidebar: '0 1px 0 0 rgb(0 0 0 / 0.02), 0 1px 12px 0 rgb(0 0 0 / 0.06), 0 0 1px 0 rgb(0 0 0 / 0.32)',
+        'nav-selected': '0 0 0 1px oklch(var(--primary)), inset 0 1px 0 0 rgb(255 255 255 / 0.25)'
+      },
+      fontSize: {
+        'body-medium': ['0.875rem', { lineHeight: '1.25rem', fontWeight: '500' }],
+        'body-regular': ['0.875rem', { lineHeight: '1.25rem', fontWeight: '400' }],
+        'caption-1-semibold': ['0.75rem', { lineHeight: '1rem', fontWeight: '600' }]
       },
       colors: {
+        'background-full': 'oklch(var(--background) / <alpha-value>)',
+        'background-primary-default': 'oklch(var(--card) / <alpha-value>)',
+        'background-primary-hover': 'oklch(var(--accent) / <alpha-value>)',
+        'background-secondary-default': 'oklch(var(--secondary) / <alpha-value>)',
+        'background-secondary-hover': 'oklch(var(--secondary) / <alpha-value>)',
+        'background-tertiary-default': 'oklch(var(--muted) / <alpha-value>)',
+        'background-tertiary-hover': 'oklch(var(--accent) / <alpha-value>)',
+        'border-button-default': 'oklch(var(--border) / <alpha-value>)',
+        'border-button-white': 'oklch(var(--border) / <alpha-value>)',
+        'border-button-hover': 'oklch(var(--ring) / <alpha-value>)',
+        'border-button-active': 'oklch(var(--ring) / <alpha-value>)',
+        'border-focus-ring': 'oklch(var(--ring) / <alpha-value>)',
+        'text-primary': 'oklch(var(--foreground) / <alpha-value>)',
+        'text-secondary': 'oklch(var(--muted-foreground) / <alpha-value>)',
+        'text-tertiary': 'oklch(var(--muted-foreground) / <alpha-value>)',
+        'foreground-icon-secondary': 'oklch(var(--muted-foreground) / <alpha-value>)',
+        'foreground-icon-tertiary': 'oklch(var(--muted-foreground) / <alpha-value>)',
+        'badge-neutral-background': 'oklch(var(--secondary) / <alpha-value>)',
+        'kbd-background': 'oklch(var(--secondary) / <alpha-value>)',
+        'kbd-foreground': 'oklch(var(--muted-foreground) / <alpha-value>)',
+        accent: {
+          400: 'oklch(var(--primary) / <alpha-value>)',
+          500: 'oklch(var(--primary) / <alpha-value>)',
+          600: 'oklch(var(--primary) / <alpha-value>)',
+          DEFAULT: 'oklch(var(--accent) / <alpha-value>)',
+          foreground: 'oklch(var(--accent-foreground) / <alpha-value>)'
+        },
         background: 'oklch(var(--background) / <alpha-value>)',
         foreground: 'oklch(var(--foreground) / <alpha-value>)',
         card: {
@@ -36,10 +73,6 @@ module.exports = {
         muted: {
           DEFAULT: 'oklch(var(--muted) / <alpha-value>)',
           foreground: 'oklch(var(--muted-foreground) / <alpha-value>)'
-        },
-        accent: {
-          DEFAULT: 'oklch(var(--accent) / <alpha-value>)',
-          foreground: 'oklch(var(--accent-foreground) / <alpha-value>)'
         },
         destructive: {
           DEFAULT: 'oklch(var(--destructive) / <alpha-value>)',

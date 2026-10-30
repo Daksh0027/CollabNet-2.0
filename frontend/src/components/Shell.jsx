@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard, Compass, Bell, MessagesSquare, Megaphone, Columns3,
@@ -8,6 +8,7 @@ import api from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { UserAvatar } from "@/components/common";
 import ThemeToggle from "@/components/ThemeToggle";
+import { DashboardSidebar } from "@/components/application/dashboard/dashboard-sidebar";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -42,91 +43,68 @@ export default function Shell() {
   });
 
   const unreadChatsCount = threads?.filter((t) => (t.unread || 0) > 0).length || 0;
-
-  const renderBadge = (badgeType) => {
-    if (badgeType === "notifications" && notif?.unread > 0) {
-      return (
-        <span
-          className="font-num rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground"
-          data-testid="nav-notification-badge"
-        >
-          {notif.unread}
-        </span>
-      );
-    }
-    if (badgeType === "messages" && unreadChatsCount > 0) {
-      return (
-        <span
-          className="font-num flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground shadow-xs"
-          data-testid="nav-messages-badge"
-        >
-          {unreadChatsCount}
-        </span>
-      );
-    }
-    return null;
-  };
-
-  const navItems = (
-    <div className="flex-1 space-y-1 overflow-y-auto px-3 py-1" data-testid="sidebar-nav">
-      {NAV.map(({ to, label, icon: Icon, badgeType }) => (
-        <NavLink
-          key={to}
-          to={to}
-          className={({ isActive }) =>
-            `group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors ${
-              isActive
-                ? "bg-primary/10 text-foreground font-semibold"
-                : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-            }`
-          }
-          data-testid={`nav-${label.toLowerCase().replace(/[^a-z]+/g, "-")}`}
-        >
-          {({ isActive }) => (
-            <>
-              <span className={`absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-primary transition-opacity ${isActive ? "opacity-100" : "opacity-0"}`} />
-              <Icon className={`h-4 w-4 ${isActive ? "text-primary" : ""}`} />
-              <span className="flex-1">{label}</span>
-              {renderBadge(badgeType)}
-            </>
-          )}
-        </NavLink>
-      ))}
-    </div>
-  );
+  const activeNav = NAV.find(({ to }) => (
+    location.pathname === to || location.pathname.startsWith(`${to}/`)
+  ));
+  const sidebarItems = NAV.map(({ to, label, icon: Icon, badgeType }) => {
+    const badge = badgeType === "notifications"
+      ? notif?.unread
+      : badgeType === "messages"
+        ? unreadChatsCount
+        : 0;
+    return {
+      key: to,
+      label,
+      icon: Icon,
+      href: to,
+      testId: `nav-${label.toLowerCase().replace(/[^a-z]+/g, "-")}`,
+      ...(badge > 0 && {
+        badge,
+        badgeTestId: badgeType === "notifications"
+          ? "nav-notification-badge"
+          : "nav-messages-badge",
+      }),
+    };
+  });
 
   return (
     <div className="min-h-screen lg:flex">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border bg-card lg:flex" data-testid="sidebar">
-        <div className="flex items-center gap-2 px-5 py-6">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary font-display text-sm font-bold text-primary-foreground">C</div>
-          <span className="font-display text-sm font-semibold tracking-wide">CollaboNet</span>
-        </div>
-        {navItems}
-        <div className="border-t border-border p-4">
-          <div className="mb-2 flex items-center justify-between px-2">
-            <span className="eyebrow">Appearance</span>
-            <ThemeToggle />
+      <DashboardSidebar
+        className="fixed inset-y-3 left-3 z-30 hidden h-[calc(100dvh-1.5rem)] lg:flex"
+        items={sidebarItems}
+        selected={activeNav?.to}
+        headerContent={
+          <div className="flex items-center gap-2 px-1">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary font-display text-sm font-bold text-primary-foreground">C</div>
+            <span className="truncate font-display text-sm font-semibold tracking-wide">CollaboNet</span>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-secondary" data-testid="sidebar-user-menu">
-                <UserAvatar user={user} />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold">{user?.display_name}</p>
-                  <p className="truncate text-xs capitalize text-muted-foreground">{user?.role === "company" ? "Company / Sponsor" : "Creator"}</p>
-                </div>
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-52">
-              <DropdownMenuItem onClick={() => navigate("/app/account")} data-testid="menu-account">Account settings</DropdownMenuItem>
-              <DropdownMenuItem onClick={logout} className="text-red-600 dark:text-red-400" data-testid="menu-logout">
-                <LogOut className="mr-2 h-4 w-4" /> Log out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </aside>
+        }
+        footerContent={
+          <div className="w-full border-t border-border pt-3">
+            <div className="mb-2 flex items-center justify-between px-2">
+              <span className="eyebrow">Appearance</span>
+              <ThemeToggle />
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-secondary" data-testid="sidebar-user-menu">
+                  <UserAvatar user={user} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">{user?.display_name}</p>
+                    <p className="truncate text-xs capitalize text-muted-foreground">{user?.role === "company" ? "Company / Sponsor" : "Creator"}</p>
+                  </div>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-52">
+                <DropdownMenuItem onClick={() => navigate("/app/account")} data-testid="menu-account">Account settings</DropdownMenuItem>
+                <DropdownMenuItem onClick={logout} className="text-red-600 dark:text-red-400" data-testid="menu-logout">
+                  <LogOut className="mr-2 h-4 w-4" /> Log out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        }
+      />
 
       <header className="sticky top-0 z-20 flex items-center justify-between border-b border-border bg-background/85 px-4 py-3 backdrop-blur lg:hidden" data-testid="mobile-header">
         <div className="flex items-center gap-2">
@@ -162,7 +140,7 @@ export default function Shell() {
       </header>
 
       <main
-        className={`min-w-0 flex-1 lg:ml-60 ${
+        className={`min-w-0 flex-1 lg:ml-[284px] ${
           isFullBleed
             ? "h-[calc(100dvh-57px)] lg:h-screen overflow-hidden p-0"
             : isProjectBoard
