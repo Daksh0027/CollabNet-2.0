@@ -28,7 +28,6 @@ import {
 import { NavLink } from "react-router-dom";
 import { Badge } from "@/components/base/badges/badge";
 import { CloseButton } from "@/components/base/buttons/close-button";
-import { Kbd } from "@/components/base/kbd/kbd";
 import { cx } from "@/utils/cx";
 
 /**
@@ -115,20 +114,20 @@ function NavItem({
         "transition-[width,background-color] duration-300 ease-in-out",
         collapsed ? "w-9" : "w-full",
         isSelected
-          ? "bg-gradient-to-b from-accent-500 to-accent-600 shadow-nav-selected"
-          : "hover:bg-background-secondary-hover",
+          ? "bg-[#EBEBEB]"
+          : "hover:bg-sidebar-accent",
       )}
     >
       <span className="flex min-w-0 items-center gap-2">
         <Icon
-          className={cx("size-5 shrink-0", isSelected ? "text-white" : "text-foreground-icon-secondary")}
+          className={cx("size-5 shrink-0", isSelected ? "text-[#171717]" : "text-foreground-icon-secondary")}
           aria-hidden
         />
         <Collapsible collapsed={collapsed}>
           <span
             className={cx(
               "text-body-medium whitespace-nowrap",
-              isSelected ? "text-white" : "text-text-secondary",
+              isSelected ? "text-[#171717]" : "text-text-secondary",
             )}
           >
             {label}
@@ -304,7 +303,7 @@ export function DashboardSidebar({
         "flex h-full shrink-0 flex-col justify-between overflow-hidden",
         flat
           ? "bg-background-full"
-          : "rounded-3xl border border-border-button-white bg-background-secondary-default shadow-sidebar",
+          : "rounded-3xl border border-sidebar-border bg-sidebar shadow-sidebar",
         "transition-[width] duration-300 ease-in-out",
         // Collapsed rail keeps the 60px spec: 1px border + 11px padding on each
         // side leaves an exactly 36px column so the w-9 (36px) icon items center.
@@ -323,7 +322,7 @@ export function DashboardSidebar({
           margin borrows that space back from the rail's own padding, leaving
           every child exactly where it was. */}
       <div
-        className="-m-2 flex min-h-0 w-[calc(100%+16px)] flex-col gap-3 overflow-y-auto p-2 [scrollbar-width:none]"
+        className="-m-2 flex min-h-0 w-[calc(100%+16px)] flex-col gap-4 overflow-y-auto p-2 [scrollbar-width:none]"
       >
         {/* Workspace switcher / collapse control */}
         <div
@@ -355,7 +354,7 @@ export function DashboardSidebar({
             <div
               ref={searchFieldRef}
               className={cx(
-                "flex h-9 items-center overflow-hidden rounded-full bg-background-tertiary-default transition-[width,box-shadow] duration-300 ease-in-out",
+                "flex h-9 items-center overflow-hidden rounded-full bg-sidebar-accent transition-[width,box-shadow] duration-300 ease-in-out",
                 searchActive
                   ? "w-full gap-2 pe-2.5 ps-2 ring-2 ring-inset ring-border-button-active"
                   : "w-9 gap-0 px-2",
@@ -422,7 +421,7 @@ export function DashboardSidebar({
                 setCollapsed(!collapsedState);
               }}
               className={cx(
-                "cursor-pointer text-foreground-icon-secondary transition-transform duration-300 ease-in-out",
+                "cursor-pointer text-[#737373] transition-transform duration-300 ease-in-out",
                 collapsed && "flex w-9 items-center justify-center",
               )}
             >
@@ -435,11 +434,10 @@ export function DashboardSidebar({
         </div>
 
         <div className="flex w-full flex-col gap-3">
-          {/* Quick search */}
-          {!flat && (searchActive && !collapsed ? (
+          {!flat && searchActive && !collapsed ? (
             <div
               ref={searchFieldRef}
-              className="flex w-full items-center gap-2 rounded-full bg-background-tertiary-default py-2 pe-2.5 ps-2 ring-2 ring-inset ring-border-button-active transition-[background-color,box-shadow] duration-[var(--input-transition-ms)] ease"
+              className="flex w-full items-center gap-2 rounded-full bg-sidebar-accent py-2 pe-2.5 ps-2 ring-2 ring-inset ring-border-button-active transition-[background-color,box-shadow] duration-[var(--input-transition-ms)] ease"
             >
               <RiSearchLine className="size-5 shrink-0 text-foreground-icon-secondary" aria-hidden />
               <input
@@ -464,34 +462,7 @@ export function DashboardSidebar({
                 className="bg-background-tertiary-hover"
               />
             </div>
-          ) : (
-            <button
-              ref={searchTriggerRef}
-              type="button"
-              aria-label="Quick Search"
-              title={collapsed ? "Quick Search" : undefined}
-              onClick={activateSearch}
-              className={cx(
-                "flex cursor-pointer items-center gap-2 p-2 hover:bg-background-tertiary-hover/55",
-                "transition-[width,border-radius,background-color] duration-300 ease-in-out",
-                collapsed
-                  ? "w-9 rounded-full bg-background-tertiary-default"
-                  : "w-full rounded-full bg-background-tertiary-default",
-              )}
-            >
-              <span className={cx("flex min-w-0 items-center gap-2", !collapsed && "flex-1")}>
-                <RiSearchLine className="size-5 shrink-0 text-foreground-icon-secondary" aria-hidden />
-                <Collapsible collapsed={collapsed}>
-                  <span className="text-body-medium whitespace-nowrap text-text-secondary">
-                    Quick Search
-                  </span>
-                </Collapsible>
-              </span>
-              <Collapsible collapsed={collapsed}>
-                <Kbd>⌘L</Kbd>
-              </Collapsible>
-            </button>
-          ))}
+          ) : null}
 
           {/* Primary nav. The 2px inset is for the expanded rail only: the
               collapsed column is exactly as wide as a 36px item, so padding

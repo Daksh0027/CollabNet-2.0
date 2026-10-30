@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, ChevronLeft, ChevronRight, Columns3, Loader2, Plus } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Loader2, Plus } from "lucide-react";
 import dayjs from "dayjs";
 import { toast } from "sonner";
 import api, { fmtDate } from "@/lib/api";
@@ -10,11 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-const COLS = ["scheduled", "active", "completed"];
-
 export default function CalendarPage() {
   const qc = useQueryClient();
-  const [view, setView] = useState("kanban");
   const [month, setMonth] = useState(dayjs().format("YYYY-MM"));
   const { data: events, isLoading } = useQuery({
     queryKey: ["events"],
@@ -23,13 +20,6 @@ export default function CalendarPage() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ title: "", date: dayjs().format("YYYY-MM-DD"), type: "milestone" });
   const [busy, setBusy] = useState(false);
-
-  const move = async (eventId, status) => {
-    try {
-      await api.post(`/events/${eventId}/status`, { status });
-      qc.invalidateQueries({ queryKey: ["events"] });
-    } catch (e) { toast.error("Could not move event"); }
-  };
 
   const create = async () => {
     if (!form.title || !form.date) { toast.error("Title and date required"); return; }
@@ -55,45 +45,10 @@ export default function CalendarPage() {
       <PageHead
         title="Calendar"
         sub="Scheduled campaigns, meetings and milestones."
-        action={
-          <div className="flex gap-2">
-            <Button size="sm" variant={view === "kanban" ? "default" : "secondary"} className="rounded-full" onClick={() => setView("kanban")} data-testid="view-kanban-button"><Columns3 className="mr-1 h-4 w-4" /> Kanban</Button>
-            <Button size="sm" variant={view === "month" ? "default" : "secondary"} className="rounded-full" onClick={() => setView("month")} data-testid="view-month-button"><CalendarDays className="mr-1 h-4 w-4" /> Month</Button>
-            <Button size="sm" className="rounded-full" onClick={() => setOpen(true)} data-testid="new-event-button"><Plus className="mr-1 h-4 w-4" /> New event</Button>
-          </div>
-        }
+        action={<Button size="sm" className="rounded-full" onClick={() => setOpen(true)} data-testid="new-event-button"><Plus className="mr-1 h-4 w-4" /> New event</Button>}
       />
       {isLoading ? (
         <div className="py-24 text-center text-sm text-muted-foreground">Loading…</div>
-      ) : view === "kanban" ? (
-        <div className="grid gap-4 lg:grid-cols-3" data-testid="kanban-board">
-          {COLS.map((col) => (
-            <div key={col} className="rounded-2xl border border-border bg-card p-4" data-testid={`kanban-column-${col}`}>
-              <p className="eyebrow mb-3 capitalize">{col.replace("_", " ")}</p>
-              <div className="space-y-3">
-                {(events || []).filter((e) => e.status === col).map((e) => {
-                  const idx = COLS.indexOf(e.status);
-                  return (
-                    <div key={e.event_id} className="rounded-xl border border-border bg-secondary/40 p-3" data-testid={`event-card-${e.event_id}`}>
-                      <span className="mb-2 block h-1 w-8 rounded-full" style={{ background: e.color }} />
-                      <p className="text-sm font-semibold">{e.title}</p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">{fmtDate(e.date)} · {e.type}</p>
-                      <div className="mt-2 flex justify-end gap-1">
-                        {idx > 0 ? (
-                          <button onClick={() => move(e.event_id, COLS[idx - 1])} className="rounded-full border border-border px-2 text-xs hover:border-primary" data-testid={`event-move-back-${e.event_id}`}>←</button>
-                        ) : null}
-                        {idx < COLS.length - 1 ? (
-                          <button onClick={() => move(e.event_id, COLS[idx + 1])} className="rounded-full border border-border px-2 text-xs hover:border-primary" data-testid={`event-move-forward-${e.event_id}`}>→</button>
-                        ) : null}
-                      </div>
-                    </div>
-                  );
-                })}
-                {!(events || []).some((e) => e.status === col) ? <p className="text-xs text-muted-foreground">Nothing here.</p> : null}
-              </div>
-            </div>
-          ))}
-        </div>
       ) : (
         <div className="rounded-2xl border border-border bg-card p-5" data-testid="month-grid">
           <div className="mb-4 flex items-center justify-between">

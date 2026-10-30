@@ -7,7 +7,6 @@ import {
 import api from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { UserAvatar } from "@/components/common";
-import ThemeToggle from "@/components/ThemeToggle";
 import { DashboardSidebar } from "@/components/application/dashboard/dashboard-sidebar";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -81,10 +80,6 @@ export default function Shell() {
         }
         footerContent={
           <div className="w-full border-t border-border pt-3">
-            <div className="mb-2 flex items-center justify-between px-2">
-              <span className="eyebrow">Appearance</span>
-              <ThemeToggle />
-            </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-secondary" data-testid="sidebar-user-menu">
@@ -112,7 +107,6 @@ export default function Shell() {
           <span className="font-display text-xs font-semibold tracking-wide">CollaboNet</span>
         </div>
         <div className="flex items-center gap-1">
-          <ThemeToggle />
           <button onClick={() => navigate("/app/notifications")} className="relative rounded-lg p-2 hover:bg-secondary" data-testid="mobile-notifications-button">
             <Bell className="h-4 w-4" />
             {notif?.unread > 0 ? (

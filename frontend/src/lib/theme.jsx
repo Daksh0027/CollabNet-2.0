@@ -1,30 +1,19 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect } from "react";
 
-const Ctx = createContext(null);
+const lightTheme = { theme: "light", toggle: () => {} };
+const Ctx = createContext(lightTheme);
 
 export function ThemeProvider({ children }) {
-  const [theme, setTheme] = useState(() => {
-    try {
-      return localStorage.getItem("theme") === "dark" ? "dark" : "light";
-    } catch {
-      return "light";
-    }
-  });
-
   useEffect(() => {
-    const root = document.documentElement;
-    if (theme === "dark") root.classList.add("dark");
-    else root.classList.remove("dark");
+    document.documentElement.classList.remove("dark");
     try {
-      localStorage.setItem("theme", theme);
+      localStorage.removeItem("theme");
     } catch {
-      // private mode — theme just won't persist
+      // Theme is fixed to light mode even when storage is unavailable.
     }
-  }, [theme]);
+  }, []);
 
-  const toggle = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
-
-  return <Ctx.Provider value={{ theme, toggle }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={lightTheme}>{children}</Ctx.Provider>;
 }
 
 export const useTheme = () => useContext(Ctx);
