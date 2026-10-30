@@ -16,7 +16,7 @@ export function highlightText(text, query) {
     regex.test(part) ? (
       <mark
         key={i}
-        className="bg-amber-400/35 text-amber-200 rounded px-0.5 font-semibold"
+        className="rounded bg-primary/15 px-0.5 font-semibold text-foreground"
         data-testid="search-highlight"
       >
         {part}

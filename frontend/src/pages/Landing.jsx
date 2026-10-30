@@ -94,7 +94,7 @@ function JudgeConsole({ role, setRole, onEnter, busy }) {
           >
             {/* identity */}
             <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-green-800 font-display text-sm font-bold text-primary-foreground">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary font-display text-sm font-bold text-primary-foreground">
                 {isCreator ? "MC" : "NA"}
               </div>
               <div>
@@ -390,7 +390,7 @@ export default function Landing() {
             <div className="mt-5 space-y-2">
               {[["Maya Chen", "Tech · 850k"], ["Priya Nair", "Beauty · 310k"], ["Dario Velez", "Travel · 420k"]].map(([n, m]) => (
                 <div key={n} className="flex items-center gap-3 rounded-xl border border-border bg-background/50 p-2.5">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-400 to-green-800 text-[0.65rem] font-bold text-primary-foreground">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-[0.65rem] font-bold text-primary-foreground">
                     {n.split(" ").map((w) => w[0]).join("")}
                   </div>
                   <div className="min-w-0 flex-1">

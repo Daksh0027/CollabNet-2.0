@@ -22,6 +22,7 @@ import {
 import { toast } from "sonner";
 import api, { timeAgo, fmtNum } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { useTheme } from "@/lib/theme";
 import { UserAvatar, EmptyState, VerifiedBadge } from "@/components/common";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,7 @@ export default function Messages() {
   const tid = params.get("thread") || "";
   const qc = useQueryClient();
   const { user } = useAuth();
+  const { theme } = useTheme();
   const [text, setText] = useState("");
   const [summary, setSummary] = useState(null);
   const [sumBusy, setSumBusy] = useState(false);
@@ -460,7 +462,7 @@ export default function Messages() {
                       {isMineLast && (
                         <DoubleCheck
                           status={isReadByOther ? "read" : "delivered"}
-                          className={isReadByOther ? "text-sky-400" : "text-muted-foreground/60"}
+                          className={isReadByOther ? "text-primary" : "text-muted-foreground/60"}
                         />
                       )}
                       <p
@@ -672,9 +674,9 @@ export default function Messages() {
                     <div
                       className={`group relative max-w-[85%] sm:max-w-[70%] rounded-2xl px-4 py-2.5 text-sm shadow-xs transition-all ${
                         isActiveMatch
-                          ? "ring-2 ring-amber-400 shadow-md"
+                        ? "ring-2 ring-primary shadow-md"
                           : isMatch
-                          ? "ring-1 ring-amber-400/50"
+                        ? "ring-1 ring-primary/50"
                           : ""
                       } ${
                         mine
@@ -712,7 +714,7 @@ export default function Messages() {
                         {mine && (
                           <DoubleCheck
                             status={isRead ? "read" : "delivered"}
-                            className={isRead ? "text-sky-300" : "text-primary-foreground/50"}
+                            className={isRead ? "text-primary-foreground" : "text-primary-foreground/50"}
                           />
                         )}
                       </div>
@@ -745,7 +747,7 @@ export default function Messages() {
                   data-testid="emoji-picker-popover"
                 >
                   <EmojiPicker
-                    theme={Theme.DARK}
+                    theme={theme === "dark" ? Theme.DARK : Theme.LIGHT}
                     onEmojiClick={(emojiData) => {
                       setText((prev) => prev + emojiData.emoji);
                       inputRef.current?.focus();
@@ -795,15 +797,15 @@ export default function Messages() {
               {/* Active Voice Recording Bar (WhatsApp style) */}
               {isRecording ? (
                 <div
-                  className="flex items-center justify-between gap-3 rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-2.5 shadow-xs animate-in fade-in duration-150"
+                  className="flex items-center justify-between gap-3 rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-2.5 shadow-xs animate-in fade-in duration-150"
                   data-testid="voice-recording-bar"
                 >
                   <div className="flex items-center gap-2.5">
                     <span className="relative flex h-3 w-3">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500" />
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75" />
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-destructive" />
                     </span>
-                    <span className="font-num text-xs font-bold text-red-400">
+                    <span className="font-num text-xs font-bold text-destructive">
                       {formatDuration(recordingSeconds)}
                     </span>
                     <span className="text-xs text-muted-foreground hidden sm:inline ml-2">
@@ -971,7 +973,7 @@ function CounterpartyCard({ user, summarySlot }) {
         <div className="relative">
           <UserAvatar user={user} className="h-16 w-16 ring-2 ring-primary/20" />
           {user?.verified && (
-            <span className="absolute bottom-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-[10px] text-white ring-2 ring-card">
+            <span className="absolute bottom-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground ring-2 ring-card">
               ✓
             </span>
           )}
@@ -982,7 +984,7 @@ function CounterpartyCard({ user, summarySlot }) {
             {user?.role === "company" ? co.industry || "Company" : c.niche || "Creator"}
           </span>
           {user?.verified && (
-            <Badge className="h-4 px-1.5 text-[9px] bg-emerald-500/15 text-emerald-500 border-emerald-500/30">
+            <Badge className="h-4 border-primary/25 bg-primary/10 px-1.5 text-[9px] text-primary">
               Verified
             </Badge>
           )}

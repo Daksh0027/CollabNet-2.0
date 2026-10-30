@@ -4,6 +4,7 @@
   "private": true,
   "dependencies": {
     "@hookform/resolvers": "5.0.1",
+    "@internationalized/date": "3.12.1",
     "@radix-ui/react-accordion": "1.2.8",
     "@radix-ui/react-alert-dialog": "1.1.11",
     "@radix-ui/react-aspect-ratio": "1.1.4",
@@ -31,6 +32,7 @@
     "@radix-ui/react-toggle": "1.1.6",
     "@radix-ui/react-toggle-group": "1.1.7",
     "@radix-ui/react-tooltip": "1.2.4",
+    "@remixicon/react": "4.9.0",
     "@tanstack/react-query": "5.56.2",
     "axios": "1.20.0",
     "class-variance-authority": "0.7.1",
@@ -45,8 +47,10 @@
     "input-otp": "1.4.2",
     "lodash": "4.18.1",
     "lucide-react": "0.516.0",
+    "motion": "12.42.2",
     "next-themes": "0.4.6",
     "react": "19.0.0",
+    "react-aria-components": "1.17.0",
     "react-day-picker": "8.10.1",
     "react-dom": "19.0.0",
     "react-hook-form": "7.56.2",
@@ -93,7 +97,8 @@
     "eslint-plugin-react-hooks": "5.2.0",
     "globals": "15.15.0",
     "postcss": "8.5.28",
-    "tailwindcss": "3.4.17"
+    "tailwindcss": "3.4.17",
+    "typescript": "5.8.3"
   },
   "resolutions": {
     "react-router": "7.18.4",
