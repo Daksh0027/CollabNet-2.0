@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard, Compass, Bell, MessagesSquare, Megaphone,
@@ -15,8 +15,8 @@ import {
 const NAV = [
   { to: "/app/overview", label: "Overview", icon: LayoutDashboard },
   { to: "/app/explore", label: "Explore", icon: Compass },
-  { to: "/app/notifications", label: "Notifications", icon: Bell, badge: true },
-  { to: "/app/messages", label: "Messages", icon: MessagesSquare },
+  { to: "/app/notifications", label: "Notifications", icon: Bell, badgeType: "notifications" },
+  { to: "/app/messages", label: "Messages", icon: MessagesSquare, badgeType: "messages" },
   { to: "/app/campaigns", label: "Campaigns & Events", icon: Megaphone },
   { to: "/app/contracts", label: "Contracts", icon: FileSignature },
   { to: "/app/calendar", label: "Calendar", icon: CalendarDays },
@@ -26,15 +26,48 @@ const NAV = [
 export default function Shell() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isFullBleed = location.pathname.startsWith("/app/messages");
   const { data: notif } = useQuery({
     queryKey: ["notifications"],
     queryFn: async () => (await api.get("/notifications")).data,
     refetchInterval: 30000,
   });
+  const { data: threads } = useQuery({
+    queryKey: ["threads"],
+    queryFn: async () => (await api.get("/threads")).data,
+    refetchInterval: 20000,
+  });
+
+  const unreadChatsCount = threads?.filter((t) => (t.unread || 0) > 0).length || 0;
+
+  const renderBadge = (badgeType) => {
+    if (badgeType === "notifications" && notif?.unread > 0) {
+      return (
+        <span
+          className="font-num rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground"
+          data-testid="nav-notification-badge"
+        >
+          {notif.unread}
+        </span>
+      );
+    }
+    if (badgeType === "messages" && unreadChatsCount > 0) {
+      return (
+        <span
+          className="font-num flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground shadow-xs"
+          data-testid="nav-messages-badge"
+        >
+          {unreadChatsCount}
+        </span>
+      );
+    }
+    return null;
+  };
 
   const navItems = (
     <div className="flex-1 space-y-1 px-3" data-testid="sidebar-nav">
-      {NAV.map(({ to, label, icon: Icon, badge }) => (
+      {NAV.map(({ to, label, icon: Icon, badgeType }) => (
         <NavLink
           key={to}
           to={to}
@@ -52,11 +85,7 @@ export default function Shell() {
               <span className={`absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-primary transition-opacity ${isActive ? "opacity-100" : "opacity-0"}`} />
               <Icon className={`h-4 w-4 ${isActive ? "text-primary" : ""}`} />
               <span className="flex-1">{label}</span>
-              {badge && notif?.unread > 0 ? (
-                <span className="font-num rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground" data-testid="nav-notification-badge">
-                  {notif.unread}
-                </span>
-              ) : null}
+              {renderBadge(badgeType)}
             </>
           )}
         </NavLink>
@@ -130,7 +159,15 @@ export default function Shell() {
         </div>
       </header>
 
-      <main className="min-w-0 flex-1 px-5 py-6 lg:ml-60 lg:px-10 lg:py-8" data-testid="app-main">        <div className="mx-auto max-w-6xl rise">
+      <main
+        className={`min-w-0 flex-1 lg:ml-60 ${
+          isFullBleed
+            ? "h-[calc(100dvh-57px)] lg:h-screen overflow-hidden p-0"
+            : "px-5 py-6 lg:px-10 lg:py-8"
+        }`}
+        data-testid="app-main"
+      >
+        <div className={isFullBleed ? "h-full w-full" : "mx-auto max-w-6xl rise"}>
           <Outlet />
         </div>
       </main>

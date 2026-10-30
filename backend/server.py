@@ -188,8 +188,11 @@ async def start_session(response: Response, user: dict, token: str):
         "session_id": uid("sess"), "user_id": user["user_id"], "session_token": token,
         "expires_at": iso_offset(7), "created_at": now(),
     })
-    response.set_cookie(key=SESSION_COOKIE, value=token, httponly=True, secure=True,
-                        samesite="none", path="/", max_age=7 * 24 * 3600)
+    cors_env = os.environ.get("CORS_ORIGINS", "*")
+    is_secure = not ("localhost" in cors_env or cors_env == "*")
+    samesite = "none" if is_secure else "lax"
+    response.set_cookie(key=SESSION_COOKIE, value=token, httponly=True, secure=is_secure,
+                        samesite=samesite, path="/", max_age=7 * 24 * 3600)
 
 
 @api_router.post("/auth/session")
@@ -641,7 +644,12 @@ async def list_threads(request: Request):
         unread = await db.messages.count_documents({
             "thread_id": t["thread_id"], "sender_id": {"$ne": user["user_id"]},
             "created_at": {"$gt": last_read}})
-        out.append({**t, "other": other, "unread": unread})
+        last_sender_id = t.get("last_sender_id")
+        if not last_sender_id:
+            last_msg = await db.messages.find_one({"thread_id": t["thread_id"]}, sort=[("created_at", -1)])
+            if last_msg:
+                last_sender_id = last_msg.get("sender_id")
+        out.append({**t, "other": other, "unread": unread, "last_sender_id": last_sender_id})
     return out
 
 
@@ -652,8 +660,12 @@ async def get_thread(thread_id: str, request: Request):
     if not t or user["user_id"] not in t["participants"]:
         raise HTTPException(404, "Thread not found")
     msgs = await db.messages.find({"thread_id": thread_id}, {"_id": 0}).sort("created_at", 1).to_list(500)
+    current_time = now()
     await db.threads.update_one({"thread_id": thread_id},
-                                {"$set": {f"reads.{user['user_id']}": now()}})
+                                {"$set": {f"reads.{user['user_id']}": current_time}})
+    if "reads" not in t:
+        t["reads"] = {}
+    t["reads"][user["user_id"]] = current_time
     other_id = next(p for p in t["participants"] if p != user["user_id"])
     return {"thread": t, "messages": msgs, "other": await enrich_user(other_id)}
 
@@ -674,7 +686,11 @@ async def send_message(thread_id: str, payload: MsgIn, request: Request):
            "text": payload.text, "created_at": now()}
     await db.messages.insert_one({**msg})
     await db.threads.update_one({"thread_id": thread_id},
-                                {"$set": {"last_message": payload.text[:120], "last_at": msg["created_at"]}})
+                                {"$set": {
+                                    "last_message": payload.text[:120],
+                                    "last_at": msg["created_at"],
+                                    "last_sender_id": user["user_id"]
+                                }})
     other_id = next(p for p in t["participants"] if p != user["user_id"])
     await notify(other_id, "message", f"New message from {display_name(user)}",
                  payload.text[:80], "/app/messages")
@@ -1328,12 +1344,29 @@ async def seed():
     for c in campaigns:
         await db.campaigns.insert_one(c)
 
+    marcus = companies[1]
+    ava = companies[2]
+    leo = creators[5]
+    dario = creators[1]
+
     conns = [
         {"conn_id": uid("con"), "from_id": elena["user_id"], "to_id": maya["user_id"],
          "from_role": "company", "to_role": "creator", "status": "accepted",
          "message": "Loved the smart-home series. Want to work on our runner launch?",
          "created_at": iso_offset(-10), "updated_at": iso_offset(-9)},
-        {"conn_id": uid("con"), "from_id": companies[1]["user_id"], "to_id": priya["user_id"],
+        {"conn_id": uid("con"), "from_id": marcus["user_id"], "to_id": maya["user_id"],
+         "from_role": "company", "to_role": "creator", "status": "accepted",
+         "message": "Loved your desk setup video!", "created_at": iso_offset(-2), "updated_at": iso_offset(-2)},
+        {"conn_id": uid("con"), "from_id": ava["user_id"], "to_id": maya["user_id"],
+         "from_role": "company", "to_role": "creator", "status": "accepted",
+         "message": "Collab on smart wellness device", "created_at": iso_offset(-1), "updated_at": iso_offset(-1)},
+        {"conn_id": uid("con"), "from_id": leo["user_id"], "to_id": maya["user_id"],
+         "from_role": "creator", "to_role": "creator", "status": "accepted",
+         "message": "Gaming collab", "created_at": iso_offset(-3), "updated_at": iso_offset(-3)},
+        {"conn_id": uid("con"), "from_id": dario["user_id"], "to_id": maya["user_id"],
+         "from_role": "creator", "to_role": "creator", "status": "accepted",
+         "message": "Travel tech setup", "created_at": iso_offset(-5), "updated_at": iso_offset(-5)},
+        {"conn_id": uid("con"), "from_id": marcus["user_id"], "to_id": priya["user_id"],
          "from_role": "company", "to_role": "creator", "status": "pending",
          "message": "Your ingredient breakdowns are excellent — open to a coffee collab?",
          "created_at": iso_offset(-2), "updated_at": iso_offset(-2)},
@@ -1341,11 +1374,14 @@ async def seed():
     for c in conns:
         await db.connections.insert_one(c)
 
+    # 1. Elena (Nova Athletics) - Read
     tid = thread_id_for(elena["user_id"], maya["user_id"])
+    last_maya_msg = "I'll review the draft agreement and send it over shortly!"
     await db.threads.insert_one({
         "thread_id": tid, "participants": [elena["user_id"], maya["user_id"]],
-        "last_message": "Perfect, let's draft the deal room.", "last_at": iso_offset(-1),
-        "reads": {elena["user_id"]: iso_offset(-1), maya["user_id"]: iso_offset(-1)},
+        "last_message": last_maya_msg, "last_at": iso_offset(-0.02),
+        "last_sender_id": maya["user_id"],
+        "reads": {elena["user_id"]: iso_offset(-0.01), maya["user_id"]: iso_offset(-0.02)},
         "created_at": iso_offset(-9)})
     msgs = [
         (elena["user_id"], "Hi Maya! We're launching a zero-drop runner and your training series is exactly the tone we want.", -8),
@@ -1353,10 +1389,59 @@ async def seed():
         (elena["user_id"], "One dedicated YouTube review, three reels, and stories with a link sticker. Budget is flexible around $9.5k.", -6),
         (maya["user_id"], "That works. Send over the brief and I'll review timelines.", -5),
         (elena["user_id"], "Perfect, let's draft the deal room.", -1),
+        (maya["user_id"], last_maya_msg, -0.02),
     ]
     for sender, text, off in msgs:
         await db.messages.insert_one({"msg_id": uid("msg"), "thread_id": tid, "sender_id": sender,
                                       "text": text, "created_at": iso_offset(off)})
+
+    # 2. Marcus (Brewhaus Coffee) - UNREAD (2 msgs)
+    tid_m = thread_id_for(marcus["user_id"], maya["user_id"])
+    await db.threads.insert_one({
+        "thread_id": tid_m, "participants": [marcus["user_id"], maya["user_id"]],
+        "last_message": "Would you be open to featuring our precision cold-brew system in your next workspace makeover? Budget is flexible around $3,500.",
+        "last_at": iso_offset(-0.025), "last_sender_id": marcus["user_id"],
+        "reads": {marcus["user_id"]: iso_offset(-0.02), maya["user_id"]: iso_offset(-0.1)},
+        "created_at": iso_offset(-2)})
+    await db.messages.insert_one({"msg_id": uid("msg"), "thread_id": tid_m, "sender_id": marcus["user_id"],
+                                  "text": "Hey Maya! We really love your desk setup videos and your morning routine content.", "created_at": iso_offset(-0.08)})
+    await db.messages.insert_one({"msg_id": uid("msg"), "thread_id": tid_m, "sender_id": marcus["user_id"],
+                                  "text": "Would you be open to featuring our precision cold-brew system in your next workspace makeover? Budget is flexible around $3,500.", "created_at": iso_offset(-0.025)})
+
+    # 3. Ava (Lumen Skincare) - UNREAD (1 msg)
+    tid_a = thread_id_for(ava["user_id"], maya["user_id"])
+    await db.threads.insert_one({
+        "thread_id": tid_a, "participants": [ava["user_id"], maya["user_id"]],
+        "last_message": "Hi Maya! We are preparing our holiday smart-wellness lineup. Would love to send you our smart LED rejuvenation mask for an honest review.",
+        "last_at": iso_offset(-0.01), "last_sender_id": ava["user_id"],
+        "reads": {ava["user_id"]: iso_offset(-0.01), maya["user_id"]: iso_offset(-1)},
+        "created_at": iso_offset(-1)})
+    await db.messages.insert_one({"msg_id": uid("msg"), "thread_id": tid_a, "sender_id": ava["user_id"],
+                                  "text": "Hi Maya! We are preparing our holiday smart-wellness lineup. Would love to send you our smart LED rejuvenation mask for an honest review.", "created_at": iso_offset(-0.01)})
+
+    # 4. Leo Tanaka (Gaming) - Read
+    tid_l = thread_id_for(leo["user_id"], maya["user_id"])
+    await db.threads.insert_one({
+        "thread_id": tid_l, "participants": [leo["user_id"], maya["user_id"]],
+        "last_message": "Yes! Got the review unit yesterday, let me know if you want to test co-op.",
+        "last_at": iso_offset(-1.2), "last_sender_id": maya["user_id"],
+        "reads": {leo["user_id"]: iso_offset(-1.0), maya["user_id"]: iso_offset(-1.2)},
+        "created_at": iso_offset(-3)})
+    await db.messages.insert_one({"msg_id": uid("msg"), "thread_id": tid_l, "sender_id": maya["user_id"], "text": "Hey Leo! Loved the stream yesterday, that 1v4 clutch was unbelievable.", "created_at": iso_offset(-2)})
+    await db.messages.insert_one({"msg_id": uid("msg"), "thread_id": tid_l, "sender_id": leo["user_id"], "text": "Haha thanks Maya! Are you checking out the new handheld OLED console launch?", "created_at": iso_offset(-1.8)})
+    await db.messages.insert_one({"msg_id": uid("msg"), "thread_id": tid_l, "sender_id": maya["user_id"], "text": "Yes! Got the review unit yesterday, let me know if you want to test co-op.", "created_at": iso_offset(-1.2)})
+
+    # 5. Dario Velez (Travel) - Read
+    tid_d = thread_id_for(dario["user_id"], maya["user_id"])
+    await db.threads.insert_one({
+        "thread_id": tid_d, "participants": [dario["user_id"], maya["user_id"]],
+        "last_message": "Awesome, just ordered one. Appreciate the tip!",
+        "last_at": iso_offset(-3.5), "last_sender_id": dario["user_id"],
+        "reads": {dario["user_id"]: iso_offset(-3.5), maya["user_id"]: iso_offset(-3.2)},
+        "created_at": iso_offset(-5)})
+    await db.messages.insert_one({"msg_id": uid("msg"), "thread_id": tid_d, "sender_id": dario["user_id"], "text": "Hey Maya, what portable power bank do you recommend for heavy camera gear on flights?", "created_at": iso_offset(-4)})
+    await db.messages.insert_one({"msg_id": uid("msg"), "thread_id": tid_d, "sender_id": maya["user_id"], "text": "Definitely the Anker Prime 27k mAh with 140W fast charge. It charges both laptop and camera quickly.", "created_at": iso_offset(-3.8)})
+    await db.messages.insert_one({"msg_id": uid("msg"), "thread_id": tid_d, "sender_id": dario["user_id"], "text": "Awesome, just ordered one. Appreciate the tip!", "created_at": iso_offset(-3.5)})
 
     deal1 = {
         "deal_id": uid("deal"), "company_id": elena["user_id"], "creator_id": maya["user_id"],
