@@ -114,6 +114,57 @@
     background: var(--chat-bubble-in);
 }
 
+.notification-filter-list {
+    display: inline-flex;
+    max-width: 100%;
+    align-items: center;
+    gap: 3px;
+    padding: 4px;
+    border-radius: 999px;
+    background: #f1f3f7;
+}
+
+.notification-filter-button {
+    display: inline-flex;
+    min-height: 34px;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0 14px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: transparent;
+    color: #667085;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1;
+    transition: background-color 140ms ease, box-shadow 140ms ease, color 140ms ease;
+}
+
+.notification-filter-button:hover:not(.is-active) {
+    color: #111827;
+}
+
+.notification-filter-button.is-active {
+    border-color: #e7eaf0;
+    background: #ffffff;
+    box-shadow: 0 1px 3px rgba(16, 24, 40, 0.12);
+    color: #111827;
+}
+
+.notification-filter-button:focus-visible {
+    outline: 2px solid #2273ff;
+    outline-offset: 2px;
+}
+
+.notification-filter-count {
+    color: inherit;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    opacity: 0.72;
+}
+
 .messages-sidebar,
 .messages-list-header,
 .messages-chat-header,
@@ -263,6 +314,128 @@
 
 .messages-meta.is-mine {
     color: color-mix(in srgb, var(--chat-text-muted) 90%, var(--chat-text));
+}
+
+.attachment-document-card {
+    width: min(100%, 380px);
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--chat-divider) 75%, transparent);
+    border-radius: 12px;
+    background: var(--chat-bubble-in);
+    box-shadow: 0 1px 2px rgba(11, 20, 26, 0.06);
+}
+
+.attachment-document-card.is-mine {
+    border-color: color-mix(in srgb, var(--chat-brand) 18%, var(--chat-divider));
+    background: color-mix(in srgb, var(--chat-brand-soft) 64%, var(--chat-bubble-in));
+}
+
+.attachment-document-details {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+}
+
+.attachment-file-type {
+    display: flex;
+    width: 42px;
+    height: 48px;
+    flex: 0 0 auto;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    border-radius: 8px;
+    background: var(--chat-brand);
+    color: var(--chat-on-brand);
+}
+
+.attachment-file-type span {
+    max-width: 38px;
+    overflow: hidden;
+    font-size: 8px;
+    font-weight: 700;
+    line-height: 1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.attachment-document-info {
+    min-width: 0;
+    flex: 1;
+}
+
+.attachment-document-name {
+    display: -webkit-box;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    color: var(--chat-text);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.35;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.attachment-document-size {
+    margin-top: 3px;
+    color: var(--chat-text-muted);
+    font-size: 11px;
+    line-height: 1.2;
+}
+
+.attachment-message-meta {
+    display: flex;
+    flex: 0 0 auto;
+    align-self: flex-end;
+    align-items: center;
+    gap: 3px;
+    color: var(--chat-text-muted);
+    font-size: 10px;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.attachment-message-meta svg {
+    width: 15px;
+    height: 15px;
+    color: var(--chat-text-muted);
+}
+
+.attachment-message-meta svg.text-primary {
+    color: var(--chat-brand);
+}
+
+.attachment-document-actions {
+    display: flex;
+    border-top: 1px solid color-mix(in srgb, var(--chat-brand) 14%, var(--chat-divider));
+}
+
+.attachment-document-action {
+    display: inline-flex;
+    min-height: 42px;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    color: var(--chat-brand);
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background-color 120ms ease, color 120ms ease;
+}
+
+.attachment-document-action:hover {
+    background: var(--chat-brand-softer);
+    color: var(--chat-brand-hover);
+}
+
+.attachment-document-action:focus-visible {
+    position: relative;
+    z-index: 1;
+    outline: 2px solid var(--chat-brand);
+    outline-offset: -3px;
 }
 
 .messages-voice-note.is-mine [data-testid="voice-play-button"] {
@@ -713,6 +886,114 @@
         background: currentColor;
         content: "";
     }
+}
+
+.signature-consent-panel,
+.signature-saved-block {
+    display: grid;
+    gap: 12px;
+    padding: 16px;
+    border: 1px solid oklch(var(--border));
+    border-radius: 16px;
+    background: oklch(var(--card));
+}
+
+.signature-pad {
+    display: grid;
+    gap: 6px;
+    width: min(100%, 300px);
+}
+
+.signature-pad-frame {
+    position: relative;
+    width: 300px;
+    height: 180px;
+    max-width: 100%;
+    overflow: hidden;
+    border: 1px solid oklch(var(--border));
+    border-radius: 12px;
+    background: oklch(var(--background));
+    box-shadow: 0 1px 2px rgb(16 24 40 / 0.06);
+}
+
+.signature-pad.is-disabled {
+    opacity: 0.6;
+}
+
+.signature-pad-svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    user-select: none;
+    cursor: crosshair;
+}
+
+.signature-pad-svg[aria-label="Captured signature"] {
+    cursor: default;
+}
+
+.signature-pad-baseline {
+    stroke: oklch(var(--muted-foreground) / 0.35);
+    stroke-width: 0.8;
+}
+
+.signature-pad-hint {
+    fill: oklch(var(--muted-foreground) / 0.75);
+    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-size: 12px;
+    text-anchor: middle;
+}
+
+.signature-pad-ink {
+    fill: none;
+    stroke: #111b21;
+    stroke-width: 2.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    pointer-events: none;
+}
+
+.signature-pad-clear {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: inline-flex;
+    height: 28px;
+    align-items: center;
+    gap: 5px;
+    padding: 0 9px;
+    border: 0;
+    border-radius: 8px;
+    background: oklch(var(--card) / 0.9);
+    color: oklch(var(--muted-foreground));
+    cursor: pointer;
+    font-size: 11px;
+}
+
+.signature-pad-clear:hover {
+    background: oklch(var(--accent));
+    color: oklch(var(--foreground));
+}
+
+.signature-pad-clear:focus-visible {
+    outline: 2px solid oklch(var(--ring));
+    outline-offset: 2px;
+}
+
+.signature-pad-helper {
+    color: oklch(var(--muted-foreground));
+    font-size: 11px;
+}
+
+.signature-agreement-check {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    color: oklch(var(--foreground));
+    font-size: 12px;
+    line-height: 1.5;
+    cursor: pointer;
 }
 
 @layer base {

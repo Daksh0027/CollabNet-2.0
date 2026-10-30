@@ -210,7 +210,37 @@ describe("Voice Note & Media Utilities", () => {
     expect(html).toContain('data-testid="attachment-doc-0"');
     expect(html).toContain("Agreement_Draft.pdf");
     expect(html).toContain("512 KB");
+    expect(html).not.toContain('data-testid="view-attachment-button"');
     expect(html).toContain('data-testid="download-attachment-button"');
+    expect(html).toContain(">Download</a>");
+  });
+
+  it("renders sent document time and read receipt in the themed card", () => {
+    const { AttachmentPreview } = require("../components/chat/AttachmentPreview");
+    const html = ReactDOMServer.renderToStaticMarkup(
+      <AttachmentPreview
+        attachments={[
+          {
+            name: "Creator_Brief.pdf",
+            size: 73728,
+            type: "application/pdf",
+            data_url: "data:application/pdf;base64,JVBE...",
+          },
+        ]}
+        mine
+        messageTime="11:51"
+        read
+        showMessageMeta
+      />
+    );
+
+    expect(html).toContain('class="attachment-document-card is-mine"');
+    expect(html).toContain('data-testid="attachment-message-meta"');
+    expect(html).toContain("11:51");
+    expect(html).toContain("PDF · 72 KB");
+    expect(html).toContain('download="Creator_Brief.pdf"');
+    expect(html).toContain(">Download</a>");
+    expect(html).not.toContain('target="_blank"');
   });
 
   it("renders image attachments cleanly", () => {

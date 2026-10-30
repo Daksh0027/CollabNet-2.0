@@ -1,30 +1,19 @@
 "use client";
 
 import { useDirection } from "@/components/foundations/direction/direction";
-import { useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ComponentType, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import {
-  RiBankCardLine,
-  RiBookOpenLine,
   RiCheckboxCircleFill,
   RiCloseLine,
-  RiCodeBlock,
   RiDatabase2Line,
-  RiGitMergeLine,
-  RiOrganizationChart,
-  RiPaletteLine,
-  RiPlugLine,
   RiSchoolLine,
   RiSettings6Line,
-  RiSettingsLine,
   RiToolsFill,
-  RiStore2Line,
 } from "@remixicon/react";
 import { cx } from "@/utils/cx";
-import { SettingsGeneral } from "./settings-general";
-import { SettingsProfile } from "./settings-profile";
-import { SettingsStorage } from "./settings-storage";
-import { SettingsTools } from "./settings-tools";
+import { useAuth } from "@/lib/auth";
+import { SettingsProductPages } from "./SettingsProductPages";
 
 /**
  * Figma sources: Board UI → "Settings/Profile" (node 4081:13943) and
@@ -47,7 +36,7 @@ import { SettingsTools } from "./settings-tools";
  * and the modal unmounts only after the exit transition finishes.
  */
 
-export type SettingsPage = "general" | "profile" | "storage" | "tools" | "marketplace";
+export type SettingsPage = "general" | "profile" | "storage" | "tools";
 
 export interface SettingsModalProps {
   /** Controlled open state, owned by the host page, sidebar, or menu. */
@@ -56,10 +45,6 @@ export interface SettingsModalProps {
   onClose: () => void;
   /** Page selected each time the modal opens. */
   defaultPage?: SettingsPage;
-  /** Optional product artwork used by the animated Current plan card. */
-  planArtSrc?: string;
-  /** Optional marketplace pane, including its own fixed header and scroll region. */
-  marketplace?: ReactNode;
 }
 
 type IconComponent = ComponentType<{
@@ -70,39 +55,14 @@ type IconComponent = ComponentType<{
 interface NavEntry {
   label: string;
   icon: IconComponent;
-  /** Only pages that exist are navigable; the rest render as static rows. */
-  page?: SettingsPage;
+  page: SettingsPage;
 }
 
-const NAV_GROUPS: { label: string; items: NavEntry[] }[] = [
-  {
-    label: "Settings",
-    items: [
-      { label: "General", icon: RiSettings6Line, page: "general" },
-      { label: "Profile", icon: RiSchoolLine, page: "profile" },
-      { label: "Marketplace", icon: RiStore2Line, page: "marketplace" },
-      { label: "Appearance", icon: RiPaletteLine },
-      { label: "Billing", icon: RiBankCardLine },
-      { label: "Rules and Workflows", icon: RiOrganizationChart },
-      { label: "Tools", icon: RiToolsFill, page: "tools" },
-      { label: "Storage", icon: RiDatabase2Line, page: "storage" },
-    ],
-  },
-  {
-    label: "Desktop app",
-    items: [
-      { label: "General", icon: RiSettingsLine },
-      { label: "Plugins", icon: RiPlugLine },
-      { label: "Developer", icon: RiCodeBlock },
-    ],
-  },
-  {
-    label: "Customize",
-    items: [
-      { label: "Skills", icon: RiBookOpenLine },
-      { label: "Git", icon: RiGitMergeLine },
-    ],
-  },
+const NAV_ITEMS: NavEntry[] = [
+  { label: "General", icon: RiSettings6Line, page: "general" },
+  { label: "Profile", icon: RiSchoolLine, page: "profile" },
+  { label: "Tools", icon: RiToolsFill, page: "tools" },
+  { label: "Storage", icon: RiDatabase2Line, page: "storage" },
 ];
 
 const PAGE_TITLES: Record<SettingsPage, string> = {
@@ -110,18 +70,17 @@ const PAGE_TITLES: Record<SettingsPage, string> = {
   profile: "Profile",
   storage: "Storage",
   tools: "Tools",
-  marketplace: "Marketplace",
 };
 
 export function SettingsModal({
   isOpen,
   onClose,
   defaultPage = "general",
-  planArtSrc,
-  marketplace,
 }: SettingsModalProps) {
   const direction = useDirection();
+  const { user } = useAuth();
   const [page, setPage] = useState<SettingsPage>(defaultPage);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   // Mount/visible two-phase state so both the enter and the exit play the
   // full fade + blur + scale transition before the DOM goes away.
@@ -129,6 +88,8 @@ export function SettingsModal({
   const [visible, setVisible] = useState(false);
   const unmountTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const requestCloseRef = useRef<() => void>(() => {});
 
   // "Saved" toast — floats half-out of the panel's bottom edge for ~2s
   // whenever a profile field commits a change (Enter / blur). Three phases
@@ -155,6 +116,7 @@ export function SettingsModal({
     if (isOpen) {
       if (unmountTimer.current) clearTimeout(unmountTimer.current);
       setPage(defaultPage);
+      setHasUnsavedChanges(false);
       setMounted(true);
       // Double rAF: the panel must commit its hidden state before the
       // transition to visible starts, or the browser skips the animation.
@@ -162,7 +124,7 @@ export function SettingsModal({
     } else {
       setVisible(false);
       setSavedPhase("hidden");
-      unmountTimer.current = setTimeout(() => setMounted(false), 320);
+      unmountTimer.current = setTimeout(() => setMounted(false), 180);
     }
     return () => {
       if (unmountTimer.current) clearTimeout(unmountTimer.current);
@@ -171,29 +133,91 @@ export function SettingsModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- defaultPage only matters at the open transition
   }, [isOpen]);
 
-  // Escape closes; focus moves into the dialog on open.
+  const requestClose = () => {
+    if (hasUnsavedChanges && !window.confirm("Discard your unsaved changes?")) return false;
+    setHasUnsavedChanges(false);
+    onClose();
+    return true;
+  };
+  requestCloseRef.current = requestClose;
+
+  // Keep keyboard focus within the dialog, lock page scroll, and restore focus.
   useEffect(() => {
     if (!isOpen) return;
+    previousFocusRef.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") {
+        event.preventDefault();
+        requestCloseRef.current();
+      }
+      if (event.key !== "Tab" || !panelRef.current) return;
+      const focusable = panelRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])',
+      );
+      if (!focusable.length) {
+        event.preventDefault();
+        panelRef.current.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === panelRef.current)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || document.activeElement === panelRef.current)) {
+        event.preventDefault();
+        first.focus();
+      } else if (!panelRef.current.contains(document.activeElement)) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     document.addEventListener("keydown", onKeyDown);
-    panelRef.current?.focus();
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [isOpen, onClose]);
+    requestAnimationFrame(() => panelRef.current?.focus());
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      requestAnimationFrame(() => previousFocusRef.current?.focus());
+    };
+  }, [isOpen]);
+
+  const selectPage = (nextPage: SettingsPage) => {
+    if (nextPage === page) return;
+    if (hasUnsavedChanges && !window.confirm("Discard your unsaved changes?")) return;
+    setHasUnsavedChanges(false);
+    setPage(nextPage);
+    setContentScrolled(false);
+  };
+
+  const handleTabKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
+    if (!["ArrowDown", "ArrowUp", "ArrowRight", "ArrowLeft", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const currentIndex = NAV_ITEMS.findIndex((item) => item.page === page);
+    const nextIndex = event.key === "Home"
+      ? 0
+      : event.key === "End"
+        ? NAV_ITEMS.length - 1
+        : (currentIndex + (event.key === "ArrowDown" || event.key === "ArrowRight" ? 1 : -1) + NAV_ITEMS.length) % NAV_ITEMS.length;
+    const nextItem = NAV_ITEMS[nextIndex];
+    selectPage(nextItem.page);
+    requestAnimationFrame(() => document.getElementById(`settings-tab-${nextItem.page}`)?.focus());
+  };
 
   if (!mounted || typeof document === "undefined") return null;
 
   return createPortal(
-    <div dir={direction} className="fixed inset-0 z-100 flex items-center justify-center p-4" role="presentation">
-      {/* Backdrop — dark-mode modal reference uses black at 70%. */}
+    <div dir={direction} className="fixed inset-0 z-100 flex items-center justify-center p-4 max-sm:p-0" role="presentation">
       <button
         type="button"
-        aria-label="Close settings"
+        aria-label="Close Account settings"
         tabIndex={-1}
-        onClick={onClose}
+        onClick={requestClose}
         className={cx(
-          "absolute inset-0 cursor-default bg-black/70 transition-opacity duration-300 ease-out",
+          "absolute inset-0 cursor-default bg-black/45 backdrop-blur-sm transition-opacity duration-150 ease-out",
           visible ? "opacity-100" : "opacity-0",
         )}
       />
@@ -207,7 +231,7 @@ export function SettingsModal({
           // Kept light on purpose: an 8px blur over the full 871×614 panel
           // forces a huge re-filter every frame of the scale-down, which is
           // what made the close stutter. 4px + GPU promotion stays smooth.
-          "transform-gpu transition-[opacity,transform,filter] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] will-change-[opacity,transform,filter]",
+          "transform-gpu transition-[opacity,transform,filter] duration-150 ease-[cubic-bezier(0.32,0.72,0,1)] will-change-[opacity,transform,filter]",
           visible ? "scale-100 opacity-100 blur-0" : "scale-[0.85] opacity-0 blur-[4px]",
         )}
       >
@@ -216,91 +240,66 @@ export function SettingsModal({
         ref={panelRef}
         role="dialog"
         aria-modal="true"
-        aria-label="Settings"
+        aria-labelledby="account-settings-title"
         tabIndex={-1}
         className={cx(
-          "relative flex h-[614px] max-h-[calc(100dvh-32px)] w-[871px] max-w-[calc(100vw-32px)]",
+          "relative flex h-[min(700px,calc(100dvh-32px))] max-h-[calc(100dvh-32px)] w-[min(880px,calc(100vw-32px))]",
           // overflow-CLIP, not hidden: hidden boxes are still programmatically
           // scrollable, so focusing a switch's hidden input in a row clipped
           // by the inner scroller made the browser scroll-reveal it through
           // the panel too — shifting the whole modal content up with no way
           // back. clip forbids scrolling outright.
-          "overflow-clip rounded-3xl bg-background-full shadow-xs outline-none",
+          "overflow-hidden rounded-2xl border border-border bg-background shadow-2xl outline-none max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:w-full max-sm:max-w-full max-sm:rounded-none",
         )}
       >
-        {/* Nav rail — the board-team dropdown group/item recipe */}
         <nav
           aria-label="Settings sections"
-          className="flex w-14 shrink-0 flex-col gap-5 overflow-y-auto border-e border-separator-border bg-background-secondary-default p-2.5 sm:w-48 lg:w-60"
+          role="tablist"
+          aria-orientation="vertical"
+          className="flex w-14 shrink-0 flex-col gap-1 overflow-y-auto border-e border-border bg-secondary/60 p-2.5 sm:w-48 lg:w-56 max-sm:absolute max-sm:inset-x-0 max-sm:top-[68px] max-sm:z-10 max-sm:h-12 max-sm:w-full max-sm:flex-row max-sm:overflow-x-auto max-sm:border-e-0 max-sm:border-b max-sm:bg-background max-sm:p-1"
         >
-          {NAV_GROUPS.map((group) => (
-            <div key={group.label} className="flex w-full flex-col gap-1.5 pt-1">
-              <span className="hidden ps-2 text-body-medium text-text-secondary sm:block">{group.label}</span>
-              <div className="flex w-full flex-col gap-1">
-                {group.items.filter(item => item.page !== "marketplace" || marketplace != null).map((item) => {
-                  const selected = item.page !== undefined && item.page === page;
-                  return (
-                    <button
-                      key={`${group.label}:${item.label}`}
-                      type="button"
-                      aria-label={item.label}
-                      title={item.label}
-                      aria-current={selected ? "page" : undefined}
-                      onClick={
-                        item.page
-                          ? () => {
-                              setPage(item.page!);
-                              setContentScrolled(false);
-                            }
-                          : undefined
-                      }
-                      className={cx(
-                        "flex w-full cursor-pointer items-center gap-2 rounded-2lg p-2 text-start",
-                        "outline-none transition-colors duration-150 ease focus-visible:ring-2 focus-visible:ring-border-focus-ring",
-                        selected
-                          ? "bg-background-secondary-hover"
-                          : "hover:bg-background-secondary-hover/60",
-                      )}
-                    >
-                      <item.icon className="size-5 shrink-0 text-foreground-icon-secondary" aria-hidden />
-                      <span
-                        className={cx(
-                          "hidden truncate text-body-medium sm:block",
-                          selected ? "text-text-primary" : "text-text-secondary",
-                        )}
-                      >
-                        {item.label}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
+          {NAV_ITEMS.map((item) => {
+            const selected = item.page === page;
+            return (
+              <button
+                key={item.page}
+                id={`settings-tab-${item.page}`}
+                type="button"
+                role="tab"
+                aria-label={item.label}
+                aria-selected={selected}
+                aria-controls="settings-panel"
+                tabIndex={selected ? 0 : -1}
+                onClick={() => selectPage(item.page)}
+                onKeyDown={handleTabKeyDown}
+                className={cx(
+                  "flex min-h-10 w-full shrink-0 cursor-pointer items-center gap-2 rounded-lg px-2.5 text-start text-sm font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 max-sm:w-auto max-sm:min-h-9 max-sm:justify-center max-sm:px-3",
+                  selected ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                )}
+              >
+                <item.icon className="size-5 shrink-0" aria-hidden />
+                <span className="hidden truncate sm:block">{item.label}</span>
+              </button>
+            );
+          })}
         </nav>
 
-        {/* Content pane — fixed title row, scrollable page below */}
         <div className="flex min-w-0 flex-1 flex-col">
-          {page === "marketplace" && marketplace != null ? marketplace : <>
-          {/* Storage keeps a tighter title gap: its page already carries
-              10px of scroll-safe headroom for the upload progress badge, so
-              the shared pb-3 read as a double margin above the dropzone. */}
           <div
-            className={cx(
-              "flex shrink-0 items-center justify-between px-8 pt-8",
-              page === "storage" ? "pb-1.5" : "pb-3",
-            )}
+            className="flex shrink-0 items-center justify-between border-b border-border px-5 py-4 sm:px-7"
           >
-            <h2 className="text-title-3-medium text-text-primary">{PAGE_TITLES[page]}</h2>
+            <div>
+              <h2 id="account-settings-title" className="text-base font-semibold text-foreground">Account settings</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">{PAGE_TITLES[page]}</p>
+            </div>
             <button
               type="button"
-              aria-label="Close settings"
-              onClick={onClose}
+              aria-label="Close Account settings"
+              onClick={requestClose}
               className={cx(
-                "flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-full",
-                "bg-background-tertiary-default text-foreground-icon-secondary",
-                "transition-colors duration-150 ease hover:bg-background-tertiary-hover",
-                "outline-none focus-visible:ring-2 focus-visible:ring-border-focus-ring",
+                "flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border",
+                "text-muted-foreground transition-colors duration-150 hover:bg-accent hover:text-foreground",
+                "outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
               )}
             >
               <RiCloseLine className="size-4" aria-hidden />
@@ -308,18 +307,20 @@ export function SettingsModal({
           </div>
           <div className="relative min-h-0 flex-1">
             <div
-              className="h-full overflow-y-auto px-8 pb-8"
+              id="settings-panel"
+              role="tabpanel"
+              aria-labelledby={`settings-tab-${page}`}
+              tabIndex={0}
+              className="h-full overflow-y-auto px-5 py-4 sm:px-7 sm:py-5 max-sm:pt-[68px]"
               onScroll={(e) => setContentScrolled(e.currentTarget.scrollTop > 0)}
             >
-              {page === "profile" ? (
-                <SettingsProfile onSaved={showSavedToast} />
-              ) : page === "storage" ? (
-                <SettingsStorage />
-              ) : page === "tools" ? (
-                <SettingsTools />
-              ) : (
-                <SettingsGeneral planArtSrc={planArtSrc} />
-              )}
+              <SettingsProductPages
+                page={page}
+                user={user}
+                onDirty={setHasUnsavedChanges}
+                onSaved={showSavedToast}
+                onNavigate={requestClose}
+              />
             </div>
             {/* Progressive top fade — eases in once the page is scrolled so
                 content dissolves under the title row instead of hard-cutting. */}
@@ -332,7 +333,6 @@ export function SettingsModal({
               )}
             />
           </div>
-          </>}
         </div>
       </div>
 

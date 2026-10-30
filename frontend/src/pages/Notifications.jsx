@@ -1,13 +1,12 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Bell,
   Building2,
   FileSignature,
   Handshake,
   Heart,
-  Layers,
   MessageSquare,
   Megaphone,
   Sparkles,
@@ -31,9 +30,9 @@ const ICONS = {
 };
 
 const CATEGORIES = [
-  { id: "all", label: "All", icon: Layers },
-  { id: "creators", label: "Creators", icon: Users },
-  { id: "companies", label: "Companies", icon: Building2 },
+  { id: "all", label: "All" },
+  { id: "creators", label: "Creators" },
+  { id: "companies", label: "Companies" },
 ];
 
 export default function Notifications() {
@@ -41,25 +40,90 @@ export default function Notifications() {
   const navigate = useNavigate();
   const [activeCategory, setActiveCategory] = useState("all");
 
-  const { data, isLoading } = useQuery({
+  const {
+    data,
+    isLoading,
+    isError,
+    refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
     queryKey: ["notifications", activeCategory],
-    queryFn: async () => {
+    queryFn: async ({ pageParam = 0 }) => {
       const params =
         activeCategory === "all"
-          ? {}
-          : { origin: activeCategory };
+          ? { offset: pageParam, limit: 50 }
+          : { origin: activeCategory, offset: pageParam, limit: 50 };
       return (await api.get("/notifications", { params })).data;
     },
+    getNextPageParam: (lastPage) =>
+      lastPage.has_more ? lastPage.next_offset : undefined,
+    initialPageParam: 0,
   });
 
-  useEffect(() => {
-    api
-      .post("/notifications/read")
-      .then(() => qc.invalidateQueries({ queryKey: ["notifications"] }))
-      .catch(() => toast.error("Could not mark notifications as read."));
-  }, [qc]);
+  const items = data?.pages.flatMap((page) => page.notifications || []) || [];
+  const counts = data?.pages[0]?.counts;
 
-  const items = data?.notifications || [];
+  const handleNotificationClick = async (notification) => {
+    if (notification.link) navigate(notification.link);
+    if (notification.read) return;
+
+    qc.setQueriesData({ queryKey: ["notifications"] }, (cached) => {
+      if (!cached?.pages) return cached;
+      return {
+        ...cached,
+        pages: cached.pages.map((page) => {
+          const wasUnread = page.notifications?.some(
+            (item) => item.notif_id === notification.notif_id && !item.read
+          );
+          if (!wasUnread) return page;
+          const unreadCategory =
+            notification.origin === "creator"
+              ? "creators"
+              : notification.origin === "company"
+                ? "companies"
+                : null;
+          return {
+            ...page,
+            notifications: page.notifications.map((item) =>
+              item.notif_id === notification.notif_id ? { ...item, read: true } : item
+            ),
+            unread: Math.max(0, (page.unread || 0) - 1),
+            unread_counts: page.unread_counts
+              ? {
+                  ...page.unread_counts,
+                  all: Math.max(0, (page.unread_counts.all || 0) - 1),
+                  ...(unreadCategory
+                    ? {
+                        [unreadCategory]: Math.max(
+                          0,
+                          (page.unread_counts[unreadCategory] || 0) - 1
+                        ),
+                      }
+                    : {}),
+                }
+              : page.unread_counts,
+          };
+        }),
+      };
+    });
+
+    try {
+      await api.post(`/notifications/${notification.notif_id}/read`);
+    } catch (error) {
+      toast.error(error?.response?.data?.detail || "Could not mark notification as read.");
+      qc.invalidateQueries({ queryKey: ["notifications"] });
+    }
+  };
+
+  const handleLoadMore = async () => {
+    try {
+      await fetchNextPage({ throwOnError: true });
+    } catch (error) {
+      toast.error(error?.response?.data?.detail || "Could not load more notifications.");
+    }
+  };
 
   let emptyIcon = Bell;
   let emptyTitle = "All caught up";
@@ -84,42 +148,27 @@ export default function Notifications() {
 
       {/* Origin category filters */}
       <div
-        className="mb-6 flex flex-wrap items-center gap-2"
+        className="notification-filter-list mb-6"
         data-testid="notification-filters"
+        role="group"
+        aria-label="Filter notifications"
       >
         {CATEGORIES.map((cat) => {
-          const Icon = cat.icon;
           const isSelected = activeCategory === cat.id;
-          const count = data?.counts ? data.counts[cat.id] : undefined;
+          const count = counts ? counts[cat.id] : undefined;
 
           return (
             <button
               key={cat.id}
               type="button"
               onClick={() => setActiveCategory(cat.id)}
-              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition-all duration-150 cursor-pointer ${
-                isSelected
-                  ? "bg-primary text-primary-foreground shadow-sm shadow-primary/20"
-                  : "bg-card border border-border text-muted-foreground hover:bg-secondary hover:text-foreground"
-              }`}
+              className={`notification-filter-button${isSelected ? " is-active" : ""}`}
               data-testid={`filter-${cat.id}`}
               aria-pressed={isSelected}
             >
-              <Icon
-                className={`h-3.5 w-3.5 ${
-                  isSelected ? "text-primary-foreground" : "text-muted-foreground"
-                }`}
-              />
               <span>{cat.label}</span>
               {typeof count === "number" ? (
-                <span
-                  className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none ${
-                    isSelected
-                      ? "bg-primary-foreground/20 text-primary-foreground"
-                      : "bg-secondary text-muted-foreground"
-                  }`}
-                  data-testid={`filter-count-${cat.id}`}
-                >
+                <span className="notification-filter-count" data-testid={`filter-count-${cat.id}`}>
                   {count}
                 </span>
               ) : null}
@@ -131,6 +180,18 @@ export default function Notifications() {
       {isLoading ? (
         <div className="py-20 text-center text-sm text-muted-foreground">
           Loading notifications…
+        </div>
+      ) : isError ? (
+        <div className="py-20 text-center" data-testid="notifications-error">
+          <p className="text-sm text-muted-foreground">Could not load notifications.</p>
+          <button
+            type="button"
+            className="mt-3 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium text-foreground hover:bg-secondary"
+            onClick={() => refetch()}
+            data-testid="retry-notifications"
+          >
+            Try again
+          </button>
         </div>
       ) : !items.length ? (
         <EmptyState
@@ -146,9 +207,10 @@ export default function Notifications() {
             return (
               <button
                 key={n.notif_id}
-                onClick={() => n.link && navigate(n.link)}
+                onClick={() => handleNotificationClick(n)}
                 className="group flex w-full items-start gap-4 rounded-2xl border border-border bg-card p-4 text-left transition-colors hover:border-primary/40"
                 data-testid={`notification-${n.notif_id}`}
+                aria-label={`${n.title}${n.read ? "" : ", unread"}`}
               >
                 <div
                   className={`rounded-full p-2 shrink-0 ${
@@ -204,6 +266,19 @@ export default function Notifications() {
           })}
         </div>
       )}
+      {!isLoading && items.length > 0 && hasNextPage ? (
+        <div className="mt-5 flex justify-center">
+          <button
+            type="button"
+            className="rounded-full border border-border bg-card px-5 py-2 text-sm font-medium text-foreground transition-colors hover:border-primary/40 hover:bg-secondary disabled:cursor-wait disabled:opacity-60"
+            onClick={handleLoadMore}
+            disabled={isFetchingNextPage}
+            data-testid="load-more-notifications"
+          >
+            {isFetchingNextPage ? "Loading…" : "Load more"}
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

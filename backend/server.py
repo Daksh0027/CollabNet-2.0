@@ -8,6 +8,8 @@ import os
 import re
 import uuid
 import json
+import hashlib
+import math
 import httpx
 import logging
 import zipfile
@@ -843,6 +845,7 @@ async def create_contract(payload: ContractIn, request: Request):
 
 class SignIn(BaseModel):
     name: str
+    strokes: Optional[List[List[dict]]] = None
 
 
 @api_router.post("/contracts/{deal_id}/sign")
@@ -854,7 +857,41 @@ async def sign_contract(deal_id: str, payload: SignIn, request: Request):
     role = "company" if user["user_id"] == c["company_id"] else "creator"
     if c["signatures"][role]["signed"]:
         raise HTTPException(400, "Already signed")
-    sig = {f"signatures.{role}": {"signed": True, "name": payload.name, "signed_at": now()}}
+    strokes = payload.strokes or []
+    point_count = sum(len(stroke) for stroke in strokes)
+    if not payload.name.strip():
+        raise HTTPException(400, "Signer name is required")
+    if not 1 <= len(strokes) <= 100 or point_count < 2 or point_count > 5000:
+        raise HTTPException(400, "A drawn signature is required")
+    for stroke in strokes:
+        for point in stroke:
+            if not isinstance(point, dict) or not all(
+                isinstance(point.get(axis), (int, float))
+                and math.isfinite(point[axis])
+                and 0 <= point[axis] <= (300 if axis == "x" else 180)
+                for axis in ("x", "y")
+            ):
+                raise HTTPException(400, "Invalid signature stroke data")
+
+    signed_at = now()
+    signature_json = json.dumps(strokes, sort_keys=True, separators=(",", ":"))
+    audit = {
+        "signer_id": user["user_id"],
+        "ip_address": request.client.host if request.client else "",
+        "user_agent": request.headers.get("user-agent", "")[:500],
+        "signed_at": signed_at,
+        "document_hash": hashlib.sha256(c.get("agreement_text", "").encode("utf-8")).hexdigest(),
+        "signature_hash": hashlib.sha256(signature_json.encode("utf-8")).hexdigest(),
+        "verification_id": uid("verify"),
+    }
+    sig = {f"signatures.{role}": {
+        "signed": True,
+        "name": payload.name.strip(),
+        "signed_at": signed_at,
+        "strokes": strokes,
+        "audit": audit,
+        "verification_id": audit["verification_id"],
+    }}
     both = (c["signatures"]["company"]["signed"] or role == "company") and \
            (c["signatures"]["creator"]["signed"] or role == "creator")
     upd = {**sig, "updated_at": now()}
@@ -1001,29 +1038,51 @@ async def move_event(event_id: str, request: Request):
 
 # ---------------------------------------------------------------- notifications
 @api_router.get("/notifications")
-async def list_notifications(request: Request, origin: Optional[str] = None):
+async def list_notifications(
+    request: Request,
+    origin: Optional[str] = None,
+    offset: int = 0,
+    limit: int = 50,
+):
     user = await get_user(request)
     user_id = user["user_id"]
 
-    all_docs = await db.notifications.find({"user_id": user_id}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    offset = max(0, offset)
+    limit = min(100, max(1, limit))
+    user_query = {"user_id": user_id}
+    creator_query = {**user_query, "origin": "creator"}
+    company_query = {**user_query, "origin": "company"}
+    unread_query = {**user_query, "read": {"$ne": True}}
 
-    count_all = len(all_docs)
-    count_creators = sum(1 for n in all_docs if n.get("origin") == "creator")
-    count_companies = sum(1 for n in all_docs if n.get("origin") == "company")
-
-    unread_all = sum(1 for n in all_docs if not n.get("read"))
-    unread_creators = sum(1 for n in all_docs if not n.get("read") and n.get("origin") == "creator")
-    unread_companies = sum(1 for n in all_docs if not n.get("read") and n.get("origin") == "company")
+    count_all = await db.notifications.count_documents(user_query)
+    count_creators = await db.notifications.count_documents(creator_query)
+    count_companies = await db.notifications.count_documents(company_query)
+    unread_all = await db.notifications.count_documents(unread_query)
+    unread_creators = await db.notifications.count_documents({**creator_query, "read": {"$ne": True}})
+    unread_companies = await db.notifications.count_documents({**company_query, "read": {"$ne": True}})
 
     if origin and origin.lower() in ("creator", "creators"):
-        filtered = [n for n in all_docs if n.get("origin") == "creator"]
+        filtered_query = creator_query
+        filtered_count = count_creators
     elif origin and origin.lower() in ("company", "companies"):
-        filtered = [n for n in all_docs if n.get("origin") == "company"]
+        filtered_query = company_query
+        filtered_count = count_companies
     else:
-        filtered = all_docs
+        filtered_query = user_query
+        filtered_count = count_all
+
+    notifications = await (
+        db.notifications.find(filtered_query, {"_id": 0})
+        .sort("created_at", -1)
+        .skip(offset)
+        .to_list(limit)
+    )
+    next_offset = offset + len(notifications)
 
     return {
-        "notifications": filtered[:50],
+        "notifications": notifications,
+        "has_more": next_offset < filtered_count,
+        "next_offset": next_offset,
         "unread": unread_all,
         "counts": {
             "all": count_all,
@@ -1036,6 +1095,18 @@ async def list_notifications(request: Request, origin: Optional[str] = None):
             "companies": unread_companies,
         },
     }
+
+
+@api_router.post("/notifications/{notif_id}/read")
+async def read_notification(notif_id: str, request: Request):
+    user = await get_user(request)
+    result = await db.notifications.update_one(
+        {"notif_id": notif_id, "user_id": user["user_id"]},
+        {"$set": {"read": True}},
+    )
+    if not result.matched_count:
+        raise HTTPException(404, "Notification not found")
+    return {"ok": True}
 
 
 @api_router.post("/notifications/read")

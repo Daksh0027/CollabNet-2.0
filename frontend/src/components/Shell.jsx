@@ -1,5 +1,7 @@
+import { lazy, Suspense, useRef, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { motion, useReducedMotion } from "motion/react";
 import {
   LayoutDashboard, Compass, Bell, MessagesSquare, Megaphone, Columns3,
   FileSignature, CalendarDays, CircleUserRound, LogOut, Menu,
@@ -8,9 +10,16 @@ import api from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { UserAvatar } from "@/components/common";
 import { DashboardSidebar } from "@/components/application/dashboard/dashboard-sidebar";
+import { AccountSettingsTrigger } from "@/components/application/settings/AccountSettingsTrigger";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
+const LazySettingsModal = lazy(() =>
+  import("@/components/application/settings/settings-modal").then((module) => ({
+    default: module.SettingsModal,
+  }))
+);
 
 const NAV = [
   { to: "/app/overview", label: "Overview", icon: LayoutDashboard },
@@ -25,7 +34,12 @@ const NAV = [
 ];
 
 export default function Shell() {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsMounted, setSettingsMounted] = useState(false);
+  const shouldReduceMotion = useReducedMotion();
   const { user, logout } = useAuth();
+  const accountMenuTriggerRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
   const isFullBleed = location.pathname.startsWith("/app/messages");
@@ -72,6 +86,7 @@ export default function Shell() {
         className="fixed inset-y-3 left-3 z-30 hidden h-[calc(100dvh-1.5rem)] lg:flex"
         items={sidebarItems}
         selected={activeNav?.to}
+        onCollapsedChange={setSidebarCollapsed}
         headerContent={
           <div className="flex items-center gap-2 px-1">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary font-display text-sm font-bold text-primary-foreground">C</div>
@@ -82,7 +97,7 @@ export default function Shell() {
           <div className="w-full border-t border-border pt-3">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-secondary" data-testid="sidebar-user-menu">
+                <button ref={accountMenuTriggerRef} className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-secondary" data-testid="sidebar-user-menu">
                   <UserAvatar user={user} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold">{user?.display_name}</p>
@@ -91,7 +106,12 @@ export default function Shell() {
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-52">
-                <DropdownMenuItem onClick={() => navigate("/app/account")} data-testid="menu-account">Account settings</DropdownMenuItem>
+                <DropdownMenuItem asChild data-testid="menu-account">
+                  <AccountSettingsTrigger onClick={() => {
+                    setSettingsMounted(true);
+                    setSettingsOpen(true);
+                  }} />
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={logout} className="text-red-600 dark:text-red-400" data-testid="menu-logout">
                   <LogOut className="mr-2 h-4 w-4" /> Log out
                 </DropdownMenuItem>
@@ -133,8 +153,17 @@ export default function Shell() {
         </div>
       </header>
 
+      <motion.div
+        className="hidden shrink-0 lg:block"
+        aria-hidden="true"
+        initial={false}
+        animate={{ width: sidebarCollapsed ? 84 : 284 }}
+        transition={{ duration: shouldReduceMotion ? 0 : 0.3, ease: [0.32, 0.72, 0, 1] }}
+        data-testid="sidebar-content-spacer"
+      />
+
       <main
-        className={`min-w-0 flex-1 lg:ml-[284px] ${
+        className={`min-w-0 flex-1 ${
           isFullBleed
             ? "h-[calc(100dvh-57px)] lg:h-screen overflow-hidden p-0"
             : isProjectBoard
@@ -147,6 +176,17 @@ export default function Shell() {
           <Outlet />
         </div>
       </main>
+      {settingsMounted ? (
+        <Suspense fallback={null}>
+          <LazySettingsModal
+            isOpen={settingsOpen}
+            onClose={() => {
+              setSettingsOpen(false);
+              requestAnimationFrame(() => accountMenuTriggerRef.current?.focus());
+            }}
+          />
+        </Suspense>
+      ) : null}
     </div>
   );
 }

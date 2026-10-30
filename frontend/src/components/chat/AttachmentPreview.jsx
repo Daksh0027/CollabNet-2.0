@@ -1,4 +1,5 @@
 import { FileText, Download, File, Image as ImageIcon, X } from "lucide-react";
+import { DoubleCheck } from "@/components/chat/ReadReceipt";
 
 export function formatFileSize(bytes) {
   if (!bytes || bytes === 0) return "0 B";
@@ -8,15 +9,39 @@ export function formatFileSize(bytes) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
 }
 
-export function AttachmentPreview({ attachments, mine = false }) {
+export function isImageAttachment(att) {
+  return (
+    att.type?.startsWith("image/") ||
+    /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(att.name || "")
+  );
+}
+
+export function hasOnlyDocumentAttachments(attachments) {
+  return Boolean(attachments?.length && attachments.every((att) => !isImageAttachment(att)));
+}
+
+function getFileTypeLabel(att) {
+  const extension = att.name?.split(".").pop();
+  return extension && extension !== att.name ? extension.toUpperCase() : "FILE";
+}
+
+export function AttachmentPreview({
+  attachments,
+  mine = false,
+  messageTime,
+  read = false,
+  showMessageMeta = false,
+}) {
   if (!attachments || !attachments.length) return null;
+  const lastDocumentIndex = attachments.reduce(
+    (lastIndex, att, index) => (isImageAttachment(att) ? lastIndex : index),
+    -1
+  );
 
   return (
     <div className="space-y-2 mb-2" data-testid="attachment-list">
       {attachments.map((att, idx) => {
-        const isImage =
-          att.type?.startsWith("image/") ||
-          /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(att.name || "");
+        const isImage = isImageAttachment(att);
 
         if (isImage && att.data_url) {
           return (
@@ -45,53 +70,52 @@ export function AttachmentPreview({ attachments, mine = false }) {
           );
         }
 
-        // Document / File Card (WhatsApp style)
+        const renderMessageMeta = showMessageMeta && idx === lastDocumentIndex;
+
         return (
           <div
             key={idx}
-            className={`flex items-center gap-3 rounded-xl p-2.5 transition-colors border ${
-              mine
-                ? "bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground"
-                : "bg-secondary/60 border-border text-foreground"
-            }`}
+            className={`attachment-document-card${mine ? " is-mine" : " is-other"}`}
             data-testid={`attachment-doc-${idx}`}
           >
-            <div
-              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
-                mine
-                  ? "bg-primary-foreground/20 text-primary-foreground"
-                  : "bg-primary/10 text-primary"
-              }`}
-            >
-              <FileText className="h-5 w-5" />
+            <div className="attachment-document-details">
+              <div className="attachment-file-type" aria-hidden="true">
+                <FileText className="h-5 w-5" />
+                <span>{getFileTypeLabel(att)}</span>
+              </div>
+              <div className="attachment-document-info">
+                <p className="attachment-document-name">{att.name || "Document"}</p>
+                <p className="attachment-document-size">
+                  {getFileTypeLabel(att)} · {formatFileSize(att.size)}
+                </p>
+              </div>
+              {renderMessageMeta ? (
+                <div className="attachment-message-meta" data-testid="attachment-message-meta">
+                  <span>{messageTime}</span>
+                  {mine && (
+                    <DoubleCheck
+                      status={read ? "read" : "delivered"}
+                      className={read ? "text-primary" : ""}
+                    />
+                  )}
+                </div>
+              ) : null}
             </div>
-
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-semibold leading-tight">{att.name}</p>
-              <p
-                className={`text-[10px] mt-0.5 ${
-                  mine ? "text-primary-foreground/70" : "text-muted-foreground"
-                }`}
-              >
-                {formatFileSize(att.size)}
-              </p>
-            </div>
-
-            {att.data_url && (
-              <a
-                href={att.data_url}
-                download={att.name || "document"}
-                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors ${
-                  mine
-                    ? "bg-primary-foreground/20 hover:bg-primary-foreground/30 text-primary-foreground"
-                    : "bg-secondary hover:bg-secondary/80 text-foreground"
-                }`}
-                title="Download file"
-                data-testid="download-attachment-button"
-              >
-                <Download className="h-4 w-4" />
-              </a>
-            )}
+            {att.data_url ? (
+              <div className="attachment-document-actions">
+                <a
+                  href={att.data_url}
+                  download={att.name || "document"}
+                  className="attachment-document-action"
+                  title="Download document"
+                  aria-label={`Download ${att.name || "document"}`}
+                  data-testid="download-attachment-button"
+                >
+                  <Download className="h-4 w-4" />
+                  Download
+                </a>
+              </div>
+            ) : null}
           </div>
         );
       })}
