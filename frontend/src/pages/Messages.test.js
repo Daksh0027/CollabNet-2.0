@@ -87,3 +87,88 @@ describe("Unread Chats Badge Calculation", () => {
     expect(unreadChatsCount).toBe(0);
   });
 });
+
+describe("In-Chat Search & Highlighting", () => {
+  it("highlights search terms inside message text", () => {
+    const { highlightText } = require("../lib/chatMedia");
+    const html = ReactDOMServer.renderToStaticMarkup(
+      <div>{highlightText("Here is the contract draft agreement", "contract")}</div>
+    );
+    expect(html).toContain('data-testid="search-highlight"');
+    expect(html).toContain("contract");
+  });
+
+  it("handles case-insensitive and empty queries safely", () => {
+    const { highlightText } = require("../lib/chatMedia");
+    expect(highlightText("Hello world", "")).toBe("Hello world");
+    const html = ReactDOMServer.renderToStaticMarkup(
+      <div>{highlightText("Hello World", "hello")}</div>
+    );
+    expect(html).toContain('data-testid="search-highlight"');
+  });
+});
+
+describe("Voice Note & Media Utilities", () => {
+  it("formats audio duration into mm:ss format", () => {
+    const { formatDuration } = require("../lib/chatMedia");
+    expect(formatDuration(0)).toBe("0:00");
+    expect(formatDuration(5)).toBe("0:05");
+    expect(formatDuration(65)).toBe("1:05");
+    expect(formatDuration(120)).toBe("2:00");
+  });
+
+  it("formats file sizes cleanly", () => {
+    const { formatFileSize } = require("../components/chat/AttachmentPreview");
+    expect(formatFileSize(500)).toBe("500 B");
+    expect(formatFileSize(1024)).toBe("1 KB");
+    expect(formatFileSize(1048576)).toBe("1 MB");
+    expect(formatFileSize(2621440)).toBe("2.5 MB");
+  });
+
+  it("renders voice note player with play button and waveform", () => {
+    const { VoiceNotePlayer } = require("../components/chat/VoiceNotePlayer");
+    const html = ReactDOMServer.renderToStaticMarkup(
+      <VoiceNotePlayer src="data:audio/webm;base64,GkXf..." duration={12} mine={true} />
+    );
+    expect(html).toContain('data-testid="voice-note-player"');
+    expect(html).toContain('data-testid="voice-play-button"');
+    expect(html).toContain('data-testid="voice-seek-slider"');
+    expect(html).toContain("0:12");
+  });
+
+  it("renders document attachment cards with download link", () => {
+    const { AttachmentPreview } = require("../components/chat/AttachmentPreview");
+    const attachments = [
+      {
+        name: "Agreement_Draft.pdf",
+        size: 524288,
+        type: "application/pdf",
+        data_url: "data:application/pdf;base64,JVBE...",
+      },
+    ];
+    const html = ReactDOMServer.renderToStaticMarkup(
+      <AttachmentPreview attachments={attachments} mine={false} />
+    );
+    expect(html).toContain('data-testid="attachment-doc-0"');
+    expect(html).toContain("Agreement_Draft.pdf");
+    expect(html).toContain("512 KB");
+    expect(html).toContain('data-testid="download-attachment-button"');
+  });
+
+  it("renders image attachments cleanly", () => {
+    const { AttachmentPreview } = require("../components/chat/AttachmentPreview");
+    const attachments = [
+      {
+        name: "product_photo.png",
+        size: 204800,
+        type: "image/png",
+        data_url: "data:image/png;base64,iVBORw0KGgo...",
+      },
+    ];
+    const html = ReactDOMServer.renderToStaticMarkup(
+      <AttachmentPreview attachments={attachments} mine={true} />
+    );
+    expect(html).toContain('data-testid="attachment-image-0"');
+    expect(html).toContain("product_photo.png");
+  });
+});

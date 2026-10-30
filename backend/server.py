@@ -671,7 +671,10 @@ async def get_thread(thread_id: str, request: Request):
 
 
 class MsgIn(BaseModel):
-    text: str
+    text: str = ""
+    attachments: Optional[List[dict]] = None
+    audio_url: Optional[str] = None
+    audio_duration: Optional[float] = None
 
 
 @api_router.post("/threads/{thread_id}")
@@ -680,20 +683,45 @@ async def send_message(thread_id: str, payload: MsgIn, request: Request):
     t = await db.threads.find_one({"thread_id": thread_id}, {"_id": 0})
     if not t or user["user_id"] not in t["participants"]:
         raise HTTPException(404, "Thread not found")
-    if not payload.text.strip():
+    
+    clean_text = (payload.text or "").strip()
+    clean_attachments = payload.attachments or []
+    clean_audio = (payload.audio_url or "").strip()
+
+    if not clean_text and not clean_attachments and not clean_audio:
         raise HTTPException(400, "Empty message")
-    msg = {"msg_id": uid("msg"), "thread_id": thread_id, "sender_id": user["user_id"],
-           "text": payload.text, "created_at": now()}
+
+    if clean_text:
+        preview = clean_text
+    elif clean_audio:
+        preview = "🎤 Voice message"
+    elif clean_attachments:
+        att_name = clean_attachments[0].get("name", "Document")
+        preview = f"📎 {att_name}"
+    else:
+        preview = "Attachment"
+
+    msg = {
+        "msg_id": uid("msg"),
+        "thread_id": thread_id,
+        "sender_id": user["user_id"],
+        "text": clean_text,
+        "attachments": clean_attachments,
+        "audio_url": clean_audio,
+        "audio_duration": payload.audio_duration or 0,
+        "created_at": now()
+    }
     await db.messages.insert_one({**msg})
     await db.threads.update_one({"thread_id": thread_id},
                                 {"$set": {
-                                    "last_message": payload.text[:120],
+                                    "last_message": preview[:120],
                                     "last_at": msg["created_at"],
-                                    "last_sender_id": user["user_id"]
+                                    "last_sender_id": user["user_id"],
+                                    f"reads.{user['user_id']}": msg["created_at"]
                                 }})
     other_id = next(p for p in t["participants"] if p != user["user_id"])
     await notify(other_id, "message", f"New message from {display_name(user)}",
-                 payload.text[:80], "/app/messages")
+                 preview[:80], "/app/messages")
     return clean(msg)
 
 
