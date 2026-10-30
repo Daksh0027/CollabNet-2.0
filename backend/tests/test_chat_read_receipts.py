@@ -124,3 +124,43 @@ def test_bidirectional_read_receipt_reply(creator_session, company_session):
     co_threads_after = co_client.get(f"{BASE_URL}/api/threads", timeout=20).json()
     co_thread_after = next(t for t in co_threads_after if t["thread_id"] == tid)
     assert co_thread_after["unread"] == 0
+
+
+def test_send_attachment_and_voice_note_messages(creator_session, company_session):
+    c_client, creator = creator_session
+    co_client, company = company_session
+
+    c_id = creator["user_id"]
+    co_id = company["user_id"]
+    tid = "::".join(sorted([c_id, co_id]))
+
+    # 1. Send file attachment
+    attachment = {
+        "name": "Campaign_Brief_v2.pdf",
+        "size": 1048576,
+        "type": "application/pdf",
+        "data_url": "data:application/pdf;base64,JVBERi0xLjQK..."
+    }
+    att_res = c_client.post(f"{BASE_URL}/api/threads/{tid}", json={
+        "text": "Here is the signed brief document",
+        "attachments": [attachment]
+    }, timeout=20)
+    assert att_res.status_code == 200
+    att_msg = att_res.json()
+    assert len(att_msg["attachments"]) == 1
+    assert att_msg["attachments"][0]["name"] == "Campaign_Brief_v2.pdf"
+
+    # 2. Send voice note
+    voice_res = c_client.post(f"{BASE_URL}/api/threads/{tid}", json={
+        "audio_url": "data:audio/webm;base64,GkXfo59ChoEBQveBAULygQ8USA...",
+        "audio_duration": 4.5
+    }, timeout=20)
+    assert voice_res.status_code == 200
+    voice_msg = voice_res.json()
+    assert voice_msg["audio_url"].startswith("data:audio/webm")
+    assert voice_msg["audio_duration"] == 4.5
+
+    # 3. Check thread preview reflects the voice note as latest
+    threads_res = c_client.get(f"{BASE_URL}/api/threads", timeout=20)
+    t = next(item for item in threads_res.json() if item["thread_id"] == tid)
+    assert "Voice message" in t["last_message"]
