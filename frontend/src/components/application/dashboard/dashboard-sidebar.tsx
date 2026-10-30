@@ -222,6 +222,7 @@ export function DashboardSidebar({
   className,
   headerContent,
   footerContent,
+  onCollapsedChange,
 }: {
   /** Rendered inside the mobile drawer: always expanded, close button instead of collapse. */
   mobile?: boolean;
@@ -241,6 +242,8 @@ export function DashboardSidebar({
   className?: string;
   headerContent?: ReactNode;
   footerContent?: ReactNode;
+  /** Notifies desktop shells when the rail width changes. */
+  onCollapsedChange?: (collapsed: boolean) => void;
 } = {}) {
   const localize = useTemplateCopy();
   const [collapsedState, setCollapsed] = useState(false);
@@ -252,10 +255,15 @@ export function DashboardSidebar({
   const collapsed = mobile ? false : collapsedState;
   const normalizedQuery = query.trim().toLocaleLowerCase();
 
+  const updateCollapsed = useCallback((nextCollapsed: boolean) => {
+    setCollapsed(nextCollapsed);
+    onCollapsedChange?.(nextCollapsed);
+  }, [onCollapsedChange]);
+
   const activateSearch = useCallback(() => {
-    if (!mobile) setCollapsed(false);
+    if (!mobile) updateCollapsed(false);
     setSearchActive(true);
-  }, [mobile]);
+  }, [mobile, updateCollapsed]);
 
   const deactivateSearch = useCallback((restoreFocus: boolean) => {
     setQuery("");
@@ -418,7 +426,7 @@ export function DashboardSidebar({
               onClick={() => {
                 const isExpanding = collapsedState;
                 if (!isExpanding) deactivateSearch(false);
-                setCollapsed(!collapsedState);
+                updateCollapsed(!collapsedState);
               }}
               className={cx(
                 "cursor-pointer text-[#737373] transition-transform duration-300 ease-in-out",

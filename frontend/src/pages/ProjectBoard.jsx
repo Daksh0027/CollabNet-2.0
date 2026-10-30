@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDownWideNarrow, CalendarDays, ChevronRight, Filter,
-  LayoutGrid, MessageSquare, MoreHorizontal, Plus, Search, SlidersHorizontal,
+  MessageSquare, MoreHorizontal, Plus, Search, SlidersHorizontal,
   Tag, X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -378,18 +378,6 @@ export default function ProjectBoard() {
 
   return (
     <section className="space-y-5" data-testid="project-board-page">
-      <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500" aria-label="Board breadcrumb">
-        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">B</span>
-        <span>Board team</span>
-        <ChevronRight className="h-3.5 w-3.5" />
-        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-[9px] font-bold text-secondary-foreground">C</span>
-        <span>CollaboNet</span>
-        <ChevronRight className="h-3.5 w-3.5" />
-        <span className="inline-flex items-center gap-1.5 text-foreground">
-          <LayoutGrid className="h-3.5 w-3.5" /> Project board
-        </span>
-      </div>
-
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="eyebrow !tracking-[0.12em]">CollaboNet workspace</p>

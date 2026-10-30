@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
-import { FileSignature, Loader2, Lock, PenLine, Plus, ShieldAlert, Star } from "lucide-react";
+import { FileSignature, Loader2, Lock, PenLine, Plus, ShieldAlert, Star, Check } from "lucide-react";
 import { toast } from "sonner";
 import api, { fmtMoney, fmtDate, timeAgo } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { SignaturePad } from "@/components/contracts/SignaturePad";
 
 export default function Contracts() {
   const { data: deals, isLoading } = useQuery({
@@ -58,7 +60,7 @@ export default function Contracts() {
         </div>
       )}
 
-      {deal ? <DealRoom deal={deal} onClose={() => setOpenId(null)} /> : null}
+      {deal ? <DealRoom key={deal.deal_id} deal={deal} onClose={() => setOpenId(null)} /> : null}
       <NewDealDialog open={newOpen} onClose={() => setNewOpen(false)} />
     </div>
   );
@@ -68,6 +70,8 @@ function DealRoom({ deal, onClose }) {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [signName, setSignName] = useState(user?.display_name || "");
+  const [signatureStrokes, setSignatureStrokes] = useState([]);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [busy, setBusy] = useState(false);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
@@ -173,11 +177,59 @@ function DealRoom({ deal, onClose }) {
 
           <div className="flex flex-wrap gap-2" data-testid="deal-actions">
             {!mySig?.signed && deal.status === "in_review" ? (
-              <div className="flex w-full gap-2">
-                <Input value={signName} onChange={(e) => setSignName(e.target.value)} placeholder="Type your full legal name" data-testid="sign-name-input" />
-                <Button className="rounded-full" disabled={busy || !signName} onClick={() => run(() => api.post(`/contracts/${deal.deal_id}/sign`, { name: signName }), "Agreement e-signed")} data-testid="sign-agreement-button">
-                  <PenLine className="mr-1 h-4 w-4" /> E-sign
+              <div className="signature-consent-panel w-full" data-testid="signature-consent-panel">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Sign the agreement</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Add your signature below. Both parties must sign before the agreement is active.
+                  </p>
+                </div>
+                <Input
+                  value={signName}
+                  onChange={(e) => setSignName(e.target.value)}
+                  placeholder="Your full legal name"
+                  aria-label="Full legal name"
+                  data-testid="sign-name-input"
+                />
+                <SignaturePad
+                  strokes={signatureStrokes}
+                  onChange={setSignatureStrokes}
+                  disabled={busy}
+                />
+                <label className="signature-agreement-check">
+                  <Checkbox
+                    checked={acceptedTerms}
+                    onCheckedChange={(checked) => setAcceptedTerms(checked === true)}
+                    disabled={busy}
+                    data-testid="accept-agreement-checkbox"
+                  />
+                  <span>I have read and agree to the written agreement above.</span>
+                </label>
+                <Button
+                  className="w-full rounded-full"
+                  disabled={busy || !signName.trim() || !acceptedTerms || !signatureStrokes.some((stroke) => stroke.length > 1)}
+                  onClick={() => run(
+                    () => api.post(`/contracts/${deal.deal_id}/sign`, {
+                      name: signName.trim(),
+                      strokes: signatureStrokes,
+                    }),
+                    "Agreement signed"
+                  )}
+                  data-testid="sign-agreement-button"
+                >
+                  {busy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Check className="mr-1 h-4 w-4" />}
+                  Sign &amp; submit
                 </Button>
+              </div>
+            ) : null}
+            {mySig?.signed && mySig.strokes?.length ? (
+              <div className="signature-saved-block w-full" data-testid="saved-signature-block">
+                <p className="eyebrow mb-2">Your saved signature</p>
+                <SignaturePad strokes={mySig.strokes} readOnly />
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Signed {fmtDate(mySig.signed_at)}
+                  {mySig.verification_id ? ` · Verification ${mySig.verification_id}` : ""}
+                </p>
               </div>
             ) : null}
             {mySig?.signed && !otherSig?.signed ? <p className="w-full text-xs text-muted-foreground">Signed on your side — waiting for the {otherRole} to sign.</p> : null}

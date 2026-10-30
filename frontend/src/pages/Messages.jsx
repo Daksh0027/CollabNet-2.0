@@ -29,7 +29,11 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { DoubleCheck, isTimestampRead } from "@/components/chat/ReadReceipt";
 import { VoiceNotePlayer } from "@/components/chat/VoiceNotePlayer";
-import { AttachmentPreview, StagedAttachmentsBar } from "@/components/chat/AttachmentPreview";
+import {
+  AttachmentPreview,
+  StagedAttachmentsBar,
+  hasOnlyDocumentAttachments,
+} from "@/components/chat/AttachmentPreview";
 import { UploadDropzone } from "@/components/chat/UploadDropzone";
 import { highlightText, formatDuration, getEmojiOnlyCount } from "@/lib/chatMedia";
 
@@ -671,6 +675,8 @@ export default function Messages() {
                 const isMatch = matchedMessageIds.includes(m.msg_id);
                 const isActiveMatch = activeMatchId === m.msg_id;
                 const emojiCount = getEmojiOnlyCount(m.text);
+                const documentOnlyMessage =
+                  hasOnlyDocumentAttachments(m.attachments) && !m.text && !m.audio_url;
 
                 return (
                   <Fragment key={m.msg_id || idx}>
@@ -711,7 +717,13 @@ export default function Messages() {
                       >
                       {/* Attachments rendering */}
                       {m.attachments && m.attachments.length > 0 && (
-                        <AttachmentPreview attachments={m.attachments} mine={mine} />
+                        <AttachmentPreview
+                          attachments={m.attachments}
+                          mine={mine}
+                          messageTime={dayjs(m.created_at).format("HH:mm")}
+                          read={Boolean(isRead)}
+                          showMessageMeta={documentOnlyMessage}
+                        />
                       )}
 
                       {/* Voice Note player */}
@@ -732,17 +744,19 @@ export default function Messages() {
                         </span>
                       )}
 
-                      <div
-                        className={`messages-meta mt-1 flex items-center justify-end gap-1.5 text-[10px] ${mine ? "is-mine" : ""}`}
-                      >
-                        <span>{dayjs(m.created_at).format("HH:mm")}</span>
-                        {mine && (
-                          <DoubleCheck
-                            status={isRead ? "read" : "delivered"}
-                            className={isRead ? "text-primary" : "text-muted-foreground/70"}
-                          />
-                        )}
-                      </div>
+                      {!documentOnlyMessage ? (
+                        <div
+                          className={`messages-meta mt-1 flex items-center justify-end gap-1.5 text-[10px] ${mine ? "is-mine" : ""}`}
+                        >
+                          <span>{dayjs(m.created_at).format("HH:mm")}</span>
+                          {mine && (
+                            <DoubleCheck
+                              status={isRead ? "read" : "delivered"}
+                              className={isRead ? "text-primary" : "text-muted-foreground/70"}
+                            />
+                          )}
+                        </div>
+                      ) : null}
                     </div>
                     </div>
                   </Fragment>
