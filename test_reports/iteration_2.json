@@ -1,0 +1,60 @@
+{
+  "summary": "Escrow iteration testing completed. Core regression APIs passed and Stripe Checkout session creation works, but seeded contract records lack escrow fields, breaking the fund button and released-deal guard.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "/api/contracts",
+        "issue": "Existing seeded Launch Week Sprint and Marathon Expo Booth documents are missing funding_status (and related escrow fields), although server seed definitions now require them. Seed exits when users already exist, so no migration repairs old records.",
+        "priority": "HIGH"
+      },
+      {
+        "endpoint": "/api/payments/checkout/{deal_id}",
+        "issue": "Because the seeded released deal has no funding_status, POST checkout for Marathon Expo Booth returns 200 and creates a Stripe session instead of the required 400 released/double-fund guard.",
+        "priority": "CRITICAL"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Contracts deal room escrow panel",
+        "issue": "Launch Week Sprint is visibly unfunded but company sees only an unfunded pill; Fund escrow button is absent because funding_status is undefined in the API response.",
+        "selector": "[data-testid=\"fund-escrow-button\"]",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_collabonet_api.py",
+    "/app/backend/tests/test_escrow_payments.py",
+    "/app/test_reports/pytest/pytest_results_iteration2.xml",
+    "/app/test_reports/pytest/escrow_results.xml"
+  ],
+  "action_items": [
+    "Backfill funding_status=unfunded, funded_at, released_at, and stripe_session_id on existing contracts, or add an idempotent startup migration.",
+    "Re-run escrow tests after migration; verify released deals return 400 and unfunded company deals show Fund escrow.",
+    "Complete one real test-card payment and verify status polling, idempotent settle, release, and creator notification after the data migration."
+  ],
+  "critical_code_review_comments": [
+    "seed() returns immediately whenever users exist, so adding new required fields to seed documents does not update an already-initialized database; schema evolution needs an explicit migration/defaulting path.",
+    "payment_status suppresses all Stripe/status exceptions with a bare except, which can leave users in pending state without observable API error details."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_escrow_payments.py",
+    "/app/test_reports/pytest/pytest_results_iteration2.xml",
+    "/app/test_reports/pytest/escrow_results.xml",
+    "/app/test_reports/iteration_2.json"
+  ],
+  "success_rate": {
+    "backend": "75% targeted escrow assertions (2/4); 100% prior regression (4/4)",
+    "frontend": "83% executed payment states and contract flow (5/6)"
+  },
+  "seed_data_creation": "No persistent test data retained. Two temporary Stripe checkout transactions were created for seeded deals and deleted immediately; no card payment was completed.",
+  "retest_needed": true,
+  "should_call_test_agent_after_fix": true,
+  "context_for_next_testing_agent": "Demo company login, overview, contracts navigation, escrow panel, cancel page, and success page without session_id passed. Actual payment was not completed in this iteration. AI remains intentionally MOCKED/DISABLED. Fix/backfill existing contract escrow fields before retesting.",
+  "rca of the issue": "The database was initialized by an earlier server version. server.py seed() only seeds when users.count_documents({}) == 0; after escrow fields were added to the seed literals, startup skipped the seed path. Existing contract documents therefore omit funding_status. Contracts API passes those documents unchanged, Contracts.jsx treats undefined as non-unfunded and renders a status pill instead of the company fund button. The same missing field bypasses create_deal_checkout's funded/released guards, allowing checkout on the released Marathon deal."
+}

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="4" time="2.578" timestamp="2026-10-30T13:50:02.161782+00:00" hostname="agent-env-af06ca4d-f84b-46b5-9380-0b760e1560e5"><testcase classname="tests.test_escrow_payments" name="test_seeded_escrow_contract_states" time="0.327"><failure message="KeyError: 'funding_status'">backend/tests/test_escrow_payments.py:38: in test_seeded_escrow_contract_states
+    assert launch["funding_status"] == "unfunded"
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'funding_status'</failure></testcase><testcase classname="tests.test_escrow_payments" name="test_creator_cannot_create_checkout" time="0.523" /><testcase classname="tests.test_escrow_payments" name="test_double_fund_guard_on_released_deal" time="0.889"><failure message="assert 200 == 400&#10; +  where 200 = &lt;Response [200]&gt;.status_code">backend/tests/test_escrow_payments.py:61: in test_double_fund_guard_on_released_deal
+    assert response.status_code == 400
+E   assert 200 == 400
+E    +  where 200 = &lt;Response [200]&gt;.status_code</failure></testcase><testcase classname="tests.test_escrow_payments" name="test_payment_status_unknown_session_is_not_silent" time="0.283" /></testsuite></testsuites>
