@@ -43,9 +43,7 @@ export default function Landing() {
   }, [user, loading, navigate]);
 
   const loginWithGoogle = () => {
-    // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
-    const redirectUrl = window.location.origin + "/app";
-    window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
+    toast.info("Google login is unavailable in local mode. Use a demo account below.");
   };
 
   const demoLogin = async (role) => {

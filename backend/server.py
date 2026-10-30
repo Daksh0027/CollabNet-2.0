@@ -33,7 +33,7 @@ app = FastAPI(title="CollaboNet API")
 api_router = APIRouter(prefix="/api")
 
 SESSION_COOKIE = "session_token"
-AUTH_EXCHANGE_URL = "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data"
+AUTH_EXCHANGE_URL = os.environ.get("AUTH_EXCHANGE_URL", "").strip()
 BANNED_WORDS = {"scam", "fraud", "idiot", "stupid", "trash", "hate", "worst", "liar", "thief"}
 
 PLATFORMS = ["YouTube", "Instagram", "TikTok", "Twitch"]
@@ -194,6 +194,8 @@ async def start_session(response: Response, user: dict, token: str):
 
 @api_router.post("/auth/session")
 async def auth_session(payload: SessionIn, response: Response):
+    if not AUTH_EXCHANGE_URL:
+        raise HTTPException(503, "External authentication is not configured")
     async with httpx.AsyncClient(timeout=30) as c:
         r = await c.get(AUTH_EXCHANGE_URL, headers={"X-Session-ID": payload.session_id})
     if r.status_code != 200:

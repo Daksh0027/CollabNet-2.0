@@ -1236,18 +1236,6 @@
   resolved "https://registry.npmjs.org/@csstools/selector-specificity/-/selector-specificity-2.2.0.tgz"
   integrity sha512-+OJ9konv95ClSTOJCmMZqpd5+YGsB2S+x6w3E1oaM8UuR5j8nTNHYSz8c9BEPGDOCMQYIEEGlVPj/VY64iTbGw==
 
-"@emergentbase/overlay@https://assets.emergent.sh/npm/emergentbase-overlay-0.1.31.tgz":
-  version "0.1.31"
-  resolved "https://assets.emergent.sh/npm/emergentbase-overlay-0.1.31.tgz"
-  integrity sha512-NmgTHBiFoMyGzzEeIUi2Sg02CMooij22TMf7pV1pOpfzOkypK8kB3K1u5kgdWIJ0M7VpS79JiZX78gWROnB8JQ==
-  dependencies:
-    "@jridgewell/trace-mapping" "^0.3.25"
-
-"@emergentbase/visual-edits@https://assets.emergent.sh/npm/emergentbase-visual-edits-1.0.17.tgz":
-  version "1.0.17"
-  resolved "https://assets.emergent.sh/npm/emergentbase-visual-edits-1.0.17.tgz"
-  integrity sha512-FOql/1AMW+76YhafOCQVBQVne1KmNsVjsXRpAdSLreMNRZxtjBVXas/jT2WPKXnKQzADutSsLDo3NRyHMvZRIw==
-
 "@eslint-community/eslint-utils@^4.2.0":
   version "4.9.1"
   resolved "https://registry.npmjs.org/@eslint-community/eslint-utils/-/eslint-utils-4.9.1.tgz"
