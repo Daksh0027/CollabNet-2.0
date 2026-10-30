@@ -81,6 +81,285 @@
 
 /* The tray accepts real chat files; each visual token maps to the app theme
    locally so the upload surface does not introduce global design variables. */
+.messages-shell {
+    --chat-brand: #2273ff;
+    --chat-brand-hover: #1a5fd6;
+    --chat-brand-soft: #dce9ff;
+    --chat-brand-softer: #eef4ff;
+    --chat-on-brand: #ffffff;
+    --chat-bg: #f4f1ec;
+    --chat-bubble-in: #ffffff;
+    --chat-text: #111b21;
+    --chat-text-muted: #667781;
+    --chat-divider: #e9edef;
+    --chat-bubble-shadow: 0 1px 0.5px rgba(11, 20, 26, 0.13);
+    min-height: 0;
+    background: var(--chat-bg);
+    color: var(--chat-text);
+}
+
+.dark .messages-shell {
+    --chat-bg: #0b141a;
+    --chat-bubble-in: #202c33;
+    --chat-brand-soft: #1b4fb8;
+    --chat-brand-softer: #172d4d;
+    --chat-text: #e9edef;
+    --chat-text-muted: #aebac1;
+    --chat-divider: #26343b;
+}
+
+.messages-sidebar,
+.messages-list-header,
+.messages-chat-header {
+    background: var(--chat-bubble-in);
+}
+
+.messages-sidebar,
+.messages-list-header,
+.messages-chat-header,
+.messages-thread-item {
+    border-color: var(--chat-divider);
+}
+
+.messages-list-header {
+    padding-top: env(safe-area-inset-top, 0);
+}
+
+.messages-thread-item {
+    border: 1px solid transparent;
+}
+
+.messages-thread-item:hover {
+    background: var(--chat-brand-softer);
+}
+
+.messages-thread-item.is-active {
+    border-color: color-mix(in srgb, var(--chat-brand) 15%, transparent);
+    background: var(--chat-brand-softer);
+}
+
+.messages-thread-item > div:nth-child(2) > div:nth-child(2) {
+    color: var(--chat-text-muted);
+}
+
+.messages-thread-panel {
+    background: var(--chat-bubble-in);
+}
+
+.messages-chat-header {
+    box-shadow: 0 1px 4px rgba(11, 20, 26, 0.06);
+}
+
+.messages-feed {
+    position: relative;
+    isolation: isolate;
+    background-color: var(--chat-bg);
+    background-image:
+        radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--chat-text-muted) 9%, transparent) 1px, transparent 1.4px);
+    background-size: 24px 24px;
+}
+
+.messages-row {
+    position: relative;
+    z-index: 1;
+    margin-top: 10px;
+}
+
+.messages-row.is-grouped {
+    margin-top: 2px;
+}
+
+.messages-bubble {
+    overflow-wrap: anywhere;
+    border-radius: 8px;
+    box-shadow: var(--chat-bubble-shadow);
+    color: var(--chat-text);
+    background: var(--chat-bubble-in);
+}
+
+.messages-bubble.is-mine {
+    border-top-right-radius: 3px;
+    background: var(--chat-brand-soft);
+    color: var(--chat-text);
+}
+
+.messages-bubble.is-other {
+    border-top-left-radius: 3px;
+    border: 1px solid color-mix(in srgb, var(--chat-divider) 75%, transparent);
+}
+
+.messages-bubble.is-emoji-only {
+    overflow: visible;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.messages-bubble.is-emoji-only::before {
+    content: none !important;
+}
+
+.messages-emoji {
+    display: block;
+    overflow-wrap: normal;
+    line-height: 1.15;
+}
+
+.messages-text.messages-emoji-1 { font-size: 44px; }
+.messages-text.messages-emoji-2,
+.messages-text.messages-emoji-3 { font-size: 32px; }
+
+.messages-row:not(.is-grouped) .messages-bubble.is-mine::before,
+.messages-row:not(.is-grouped) .messages-bubble.is-other::before {
+    position: absolute;
+    top: 0;
+    width: 9px;
+    height: 10px;
+    background: inherit;
+    content: "";
+}
+
+.messages-row:not(.is-grouped) .messages-bubble.is-mine::before {
+    right: -4px;
+    clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+
+.messages-row:not(.is-grouped) .messages-bubble.is-other::before {
+    left: -4px;
+    clip-path: polygon(0 0, 100% 0, 100% 100%);
+}
+
+.messages-text {
+    display: inline;
+    color: inherit;
+    font-size: 14.5px;
+    line-height: 1.35;
+}
+
+.messages-meta {
+    display: inline-flex;
+    float: right;
+    align-items: center;
+    margin-top: 5px;
+    margin-left: 12px;
+    color: var(--chat-text-muted);
+    font-size: 10px;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.messages-bubble.is-emoji-only .messages-meta {
+    display: flex;
+    float: none;
+    width: fit-content;
+    margin-top: 2px;
+    margin-left: auto;
+    padding: 3px 6px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--chat-bubble-in) 88%, transparent);
+    box-shadow: 0 1px 2px rgba(11, 20, 26, 0.1);
+}
+
+.messages-meta.is-mine {
+    color: color-mix(in srgb, var(--chat-text-muted) 90%, var(--chat-text));
+}
+
+.messages-voice-note.is-mine [data-testid="voice-play-button"] {
+    background: var(--chat-brand);
+    color: var(--chat-on-brand);
+}
+
+.messages-voice-note.is-mine > div > div:last-child {
+    color: var(--chat-text-muted);
+}
+
+.messages-voice-note.is-mine .bg-primary-foreground {
+    background-color: var(--chat-brand);
+}
+
+.messages-voice-note.is-mine .bg-primary-foreground\/30 {
+    background-color: color-mix(in srgb, var(--chat-brand) 32%, transparent);
+}
+
+.messages-voice-note.is-mine .text-primary-foreground,
+.messages-voice-note.is-mine .text-primary-foreground\/80 {
+    color: var(--chat-text-muted);
+}
+
+.messages-date-divider {
+    position: sticky;
+    top: 8px;
+    z-index: 2;
+    display: flex;
+    justify-content: center;
+    margin: 4px 0 10px;
+    pointer-events: none;
+}
+
+.messages-date-divider > span {
+    padding: 5px 11px;
+    border: 1px solid color-mix(in srgb, var(--chat-divider) 75%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--chat-bubble-in) 90%, transparent);
+    box-shadow: 0 1px 2px rgba(11, 20, 26, 0.06);
+    color: var(--chat-text-muted);
+    font-size: 10px;
+    font-weight: 500;
+}
+
+.messages-composer-area {
+    background: var(--chat-bg);
+    padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
+}
+
+.messages-composer {
+    max-width: 100%;
+    min-height: 48px;
+    border-color: var(--chat-divider);
+    background: var(--chat-bubble-in);
+    box-shadow: 0 1px 4px rgba(11, 20, 26, 0.12);
+}
+
+.messages-composer:focus-within {
+    border-color: color-mix(in srgb, var(--chat-brand) 35%, var(--chat-divider));
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--chat-brand) 10%, transparent), 0 2px 8px rgba(11, 20, 26, 0.1);
+}
+
+.messages-composer-input {
+    max-height: 144px;
+    min-height: 36px;
+    color: var(--chat-text);
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.messages-composer-input::placeholder {
+    color: var(--chat-text-muted);
+}
+
+.messages-composer-area [data-testid="send-message-button"] {
+    background: var(--chat-brand);
+    color: var(--chat-on-brand);
+}
+
+.messages-composer-area [data-testid="send-message-button"]:hover {
+    background: var(--chat-brand-hover);
+}
+
+.chat-emoji-picker {
+    position: absolute;
+    bottom: calc(100% + 12px);
+    left: 0;
+    z-index: 50;
+    width: min(320px, calc(100vw - 24px));
+    transform-origin: bottom left;
+}
+
+.chat-emoji-picker > aside {
+    width: 100% !important;
+}
+
 .chat-upload-dropzone {
     --upl-card: oklch(var(--card));
     --upl-ink: oklch(var(--foreground));

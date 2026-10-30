@@ -8,6 +8,11 @@ export function formatTime(seconds) {
   return `${m}:${s < 10 ? "0" : ""}${s}`;
 }
 
+export function getVoiceNoteProgress(currentTime, totalDuration, isPlaying) {
+  if (!totalDuration) return 0;
+  return Math.min((currentTime / totalDuration) * 100, isPlaying ? 99 : 100);
+}
+
 export function VoiceNotePlayer({ src, duration = 0, mine = false }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -19,12 +24,16 @@ export function VoiceNotePlayer({ src, duration = 0, mine = false }) {
     if (!audio) return;
 
     const handleTimeUpdate = () => {
-      setCurrentTime(audio.currentTime);
+      const time = Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
+      setCurrentTime(time);
+      if (time > totalDuration) {
+        setTotalDuration(time);
+      }
     };
 
-    const handleLoadedMetadata = () => {
-      if (audio.duration && !isNaN(audio.duration) && audio.duration !== Infinity) {
-        setTotalDuration(audio.duration);
+    const handleDurationChange = () => {
+      if (Number.isFinite(audio.duration) && audio.duration > 0) {
+        setTotalDuration(Math.max(audio.duration, audio.currentTime || 0));
       }
     };
 
@@ -33,16 +42,26 @@ export function VoiceNotePlayer({ src, duration = 0, mine = false }) {
       setCurrentTime(0);
     };
 
+    const handlePlay = () => setIsPlaying(true);
+    const handlePause = () => setIsPlaying(false);
+
     audio.addEventListener("timeupdate", handleTimeUpdate);
-    audio.addEventListener("loadedmetadata", handleLoadedMetadata);
+    audio.addEventListener("loadedmetadata", handleDurationChange);
+    audio.addEventListener("durationchange", handleDurationChange);
     audio.addEventListener("ended", handleEnded);
+    audio.addEventListener("play", handlePlay);
+    audio.addEventListener("pause", handlePause);
+    handleDurationChange();
 
     return () => {
       audio.removeEventListener("timeupdate", handleTimeUpdate);
-      audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
+      audio.removeEventListener("loadedmetadata", handleDurationChange);
+      audio.removeEventListener("durationchange", handleDurationChange);
       audio.removeEventListener("ended", handleEnded);
+      audio.removeEventListener("play", handlePlay);
+      audio.removeEventListener("pause", handlePause);
     };
-  }, [src]);
+  }, [src, duration, totalDuration]);
 
   const togglePlay = () => {
     const audio = audioRef.current;
@@ -51,7 +70,7 @@ export function VoiceNotePlayer({ src, duration = 0, mine = false }) {
       audio.pause();
       setIsPlaying(false);
     } else {
-      audio.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+      audio.play().catch(() => setIsPlaying(false));
     }
   };
 
@@ -63,14 +82,14 @@ export function VoiceNotePlayer({ src, duration = 0, mine = false }) {
     setCurrentTime(seekTime);
   };
 
-  const progressPct = totalDuration > 0 ? (currentTime / totalDuration) * 100 : 0;
+  const progressPct = getVoiceNoteProgress(currentTime, totalDuration, isPlaying);
 
   // Waveform bars simulation
   const barHeights = [40, 65, 85, 50, 95, 70, 45, 90, 60, 80, 50, 75, 90, 60, 45, 70];
 
   return (
     <div
-      className="flex items-center gap-3 py-1 min-w-[220px] sm:min-w-[260px]"
+      className={`messages-voice-note flex items-center gap-3 py-1 min-w-[220px] sm:min-w-[260px]${mine ? " is-mine" : ""}`}
       data-testid="voice-note-player"
     >
       <audio ref={audioRef} src={src} preload="metadata" />

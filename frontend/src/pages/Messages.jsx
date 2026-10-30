@@ -1,7 +1,8 @@
-import { useEffect, useState, useRef, useMemo } from "react";
+import { Fragment, useEffect, useState, useRef, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import EmojiPicker, { Theme } from "emoji-picker-react";
+import dayjs from "dayjs";
 import {
   Loader2,
   MessagesSquare,
@@ -23,15 +24,14 @@ import { toast } from "sonner";
 import api, { timeAgo, fmtNum } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
-import { UserAvatar, EmptyState, VerifiedBadge } from "@/components/common";
+import { UserAvatar, EmptyState } from "@/components/common";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { DoubleCheck, isTimestampRead } from "@/components/chat/ReadReceipt";
 import { VoiceNotePlayer } from "@/components/chat/VoiceNotePlayer";
 import { AttachmentPreview, StagedAttachmentsBar } from "@/components/chat/AttachmentPreview";
 import { UploadDropzone } from "@/components/chat/UploadDropzone";
-import { highlightText, formatDuration } from "@/lib/chatMedia";
+import { highlightText, formatDuration, getEmojiOnlyCount } from "@/lib/chatMedia";
 
 export default function Messages() {
   const [params, setParams] = useSearchParams();
@@ -68,6 +68,7 @@ export default function Messages() {
   const audioChunksRef = useRef([]);
   const recordingTimerRef = useRef(null);
   const audioStreamRef = useRef(null);
+  const recordingStartedAtRef = useRef(null);
 
   const messagesEndRef = useRef(null);
 
@@ -192,21 +193,26 @@ export default function Messages() {
 
       mediaRecorder.onstop = () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        const duration = recordingStartedAtRef.current
+          ? (Date.now() - recordingStartedAtRef.current) / 1000
+          : 0;
+        recordingStartedAtRef.current = null;
         stream.getTracks().forEach((track) => track.stop());
         if (audioChunksRef.current.length > 0) {
           const reader = new FileReader();
           reader.onload = () => {
-            sendVoiceMessage(reader.result, recordingSeconds);
+            sendVoiceMessage(reader.result, duration);
           };
           reader.readAsDataURL(audioBlob);
         }
       };
 
       mediaRecorder.start(200);
+      recordingStartedAtRef.current = Date.now();
       setIsRecording(true);
       setRecordingSeconds(0);
       recordingTimerRef.current = setInterval(() => {
-        setRecordingSeconds((s) => s + 1);
+        setRecordingSeconds(Math.floor((Date.now() - recordingStartedAtRef.current) / 1000));
       }, 1000);
     } catch (err) {
       toast.error("Microphone access was denied or not available.");
@@ -219,6 +225,7 @@ export default function Messages() {
       audioStreamRef.current.getTracks().forEach((t) => t.stop());
     }
     audioChunksRef.current = [];
+    recordingStartedAtRef.current = null;
     setIsRecording(false);
     setRecordingSeconds(0);
   };
@@ -253,6 +260,7 @@ export default function Messages() {
     const msgText = text.trim();
     const filesToSend = [...stagedFiles];
     setText("");
+    if (inputRef.current) inputRef.current.style.height = "36px";
     setStagedFiles([]);
     setShowEmojiPicker(false);
 
@@ -347,24 +355,24 @@ export default function Messages() {
 
   return (
     <div
-      className="flex h-full w-full overflow-hidden bg-background"
+      className="messages-shell flex h-full w-full overflow-hidden"
       data-testid="messages-page"
     >
       {/* 1. Left Sidebar: Conversations list */}
       <div
-        className={`flex w-full flex-col border-r border-border bg-card/40 backdrop-blur-sm sm:w-80 md:w-84 lg:w-88 shrink-0 transition-all ${
+        className={`messages-sidebar flex w-full flex-col border-r border-border sm:w-[340px] lg:w-[360px] shrink-0 transition-all ${
           mobileThreadOpen ? "hidden sm:flex" : "flex"
         }`}
       >
         {/* Search Header without conversations box */}
-        <div className="flex h-16 shrink-0 items-center border-b border-border/80 px-3">
+        <div className="messages-list-header flex h-16 shrink-0 items-center border-b border-border/80 px-4">
           <div className="relative w-full">
             <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search conversations…"
-              className="h-9 pl-9 text-xs bg-background/60 rounded-xl border-border/80 focus-visible:ring-primary/30"
+              className="h-10 pl-10 text-sm bg-secondary/60 rounded-xl border-transparent focus-visible:ring-primary/30"
             />
             {searchQuery && (
               <button
@@ -379,7 +387,7 @@ export default function Messages() {
 
         {/* Thread List */}
         <div
-          className="flex-1 overflow-y-auto p-2 space-y-1"
+          className="messages-thread-list flex-1 overflow-y-auto p-2.5 space-y-1"
           data-testid="thread-list"
         >
           {!filteredThreads?.length ? (
@@ -412,20 +420,15 @@ export default function Messages() {
                     setMobileThreadOpen(true);
                     qc.invalidateQueries({ queryKey: ["threads"] });
                   }}
-                  className={`group relative flex w-full items-center gap-3 rounded-xl p-3 text-left transition-all duration-150 border-l-2 ${
+                  className={`messages-thread-item group relative flex w-full items-center gap-3 rounded-xl p-3 text-left transition-all duration-150 ${
                     isActive
-                      ? "bg-primary/10 text-foreground ring-1 ring-primary/25 shadow-xs border-l-primary"
-                      : "hover:bg-secondary/60 text-muted-foreground hover:text-foreground border-l-transparent"
+                      ? "is-active text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
                   }`}
                   data-testid={`thread-item-${t.other?.user_id}`}
                 >
                   <div className="relative shrink-0">
                     <UserAvatar user={t.other} className="h-11 w-11 ring-1 ring-border" />
-                    {t.other?.verified && (
-                      <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-500 text-[9px] text-white ring-2 ring-card">
-                        ✓
-                      </span>
-                    )}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-1">
@@ -494,7 +497,7 @@ export default function Messages() {
 
       {/* 2. Center Panel: Active Chat Thread */}
       <div
-        className={`flex min-w-0 flex-1 flex-col h-full bg-background/50 ${
+        className={`messages-thread-panel flex min-w-0 flex-1 flex-col h-full ${
           !mobileThreadOpen ? "hidden sm:flex" : "flex"
         }`}
         data-testid="thread-panel"
@@ -512,7 +515,7 @@ export default function Messages() {
         ) : (
           <>
             {/* Thread Header: clickable profile to open details panel */}
-            <div className="z-10 flex h-16 shrink-0 items-center justify-between border-b border-border/80 px-4 sm:px-6 bg-card/80 backdrop-blur-md">
+            <div className="messages-chat-header z-10 flex h-16 shrink-0 items-center justify-between border-b border-border/80 px-4 sm:px-6">
               <div className="flex items-center gap-2 min-w-0">
                 <Button
                   variant="ghost"
@@ -533,20 +536,12 @@ export default function Messages() {
                       user={activeOther}
                       className="h-9 w-9 ring-1 ring-border group-hover:ring-primary/50 transition-all"
                     />
-                    {activeOther?.verified && (
-                      <span className="absolute -bottom-0.5 -right-0.5 flex h-3 w-3 items-center justify-center rounded-full bg-emerald-500 text-[8px] text-white ring-2 ring-card">
-                        ✓
-                      </span>
-                    )}
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="truncate text-sm font-bold text-foreground group-hover:text-primary transition-colors">
                         {activeOther?.display_name}
                       </p>
-                      {activeOther?.verified && (
-                        <VerifiedBadge show={true} />
-                      )}
                     </div>
                     <p className="truncate text-xs capitalize text-muted-foreground">
                       {activeOther?.role === "company"
@@ -646,51 +641,74 @@ export default function Messages() {
 
             {/* Messages Feed */}
             <div
-              className="flex-1 space-y-3.5 overflow-y-auto p-4 sm:p-6"
+              className="messages-feed flex-1 overflow-y-auto px-4 py-5 sm:px-[6%] sm:py-6"
               data-testid="message-list"
+              role="log"
+              aria-live="polite"
+              aria-relevant="additions text"
             >
               {detail.messages.map((m, idx) => {
                 const mine = m.sender_id === user?.user_id;
+                const previousMessage = detail.messages[idx - 1];
+                const isGrouped = Boolean(
+                  previousMessage
+                    && previousMessage.sender_id === m.sender_id
+                    && dayjs(m.created_at).diff(dayjs(previousMessage.created_at)) <= 120000
+                    && dayjs(m.created_at).diff(dayjs(previousMessage.created_at)) >= 0
+                    && dayjs(m.created_at).isSame(dayjs(previousMessage.created_at), "day")
+                );
+                const dateLabel = dayjs(m.created_at).isSame(dayjs(), "day")
+                  ? "Today"
+                  : dayjs(m.created_at).isSame(dayjs().subtract(1, "day"), "day")
+                    ? "Yesterday"
+                    : dayjs(m.created_at).format("ddd, D MMM");
+                const previousDateLabel = previousMessage
+                  ? dayjs(previousMessage.created_at).format("YYYY-MM-DD")
+                  : null;
+                const currentDateLabel = dayjs(m.created_at).format("YYYY-MM-DD");
                 const otherReadAt = detail?.thread?.reads?.[detail?.other?.user_id] || "";
                 const isRead = otherReadAt && m.created_at && isTimestampRead(otherReadAt, m.created_at);
                 const isMatch = matchedMessageIds.includes(m.msg_id);
                 const isActiveMatch = activeMatchId === m.msg_id;
+                const emojiCount = getEmojiOnlyCount(m.text);
 
                 return (
-                  <div
-                    key={m.msg_id || idx}
-                    id={`msg-${m.msg_id}`}
-                    className={`flex items-end gap-2 transition-all ${
-                      mine ? "justify-end" : "justify-start"
-                    }`}
-                    data-testid={`message-${m.msg_id}`}
-                  >
-                    {!mine && (
-                      <button
-                        type="button"
-                        onClick={() => setShowProfile(true)}
-                        className="cursor-pointer"
-                        title="View profile"
-                      >
-                        <UserAvatar
-                          user={activeOther}
-                          className="h-6 w-6 ring-1 ring-border mb-1 hidden sm:block hover:ring-primary/60 transition-all"
-                        />
-                      </button>
+                  <Fragment key={m.msg_id || idx}>
+                    {previousDateLabel !== currentDateLabel && (
+                      <div className="messages-date-divider" aria-label={dateLabel}>
+                        <span>{dateLabel}</span>
+                      </div>
                     )}
                     <div
-                      className={`group relative max-w-[85%] sm:max-w-[70%] rounded-2xl px-4 py-2.5 text-sm shadow-xs transition-all ${
-                        isActiveMatch
-                        ? "ring-2 ring-primary shadow-md"
-                          : isMatch
-                        ? "ring-1 ring-primary/50"
-                          : ""
-                      } ${
-                        mine
-                          ? "rounded-br-xs bg-primary text-primary-foreground"
-                          : "rounded-bl-xs bg-card border border-border/70 text-foreground"
-                      }`}
+                      id={`msg-${m.msg_id}`}
+                      className={`messages-row flex items-end gap-2 transition-all ${
+                        mine ? "is-mine justify-end" : "is-other justify-start"
+                      }${isGrouped ? " is-grouped" : ""}`}
+                      data-testid={`message-${m.msg_id}`}
                     >
+                      {!mine && !isGrouped && (
+                        <button
+                          type="button"
+                          onClick={() => setShowProfile(true)}
+                          className="messages-avatar-button cursor-pointer"
+                          title="View profile"
+                          aria-label={`View ${activeOther?.display_name}'s profile`}
+                        >
+                          <UserAvatar
+                            user={activeOther}
+                            className="h-7 w-7 ring-1 ring-border hidden sm:block hover:ring-primary/60 transition-all"
+                          />
+                        </button>
+                      )}
+                      <div
+                        className={`messages-bubble group relative max-w-[85%] sm:max-w-[65%] px-3.5 py-2.5 text-sm transition-all ${
+                          isActiveMatch
+                            ? "ring-2 ring-primary shadow-md"
+                            : isMatch
+                              ? "ring-1 ring-primary/50"
+                              : ""
+                        } ${mine ? "is-mine" : "is-other"}${isGrouped ? " is-grouped" : ""}${emojiCount ? " is-emoji-only" : ""}`}
+                      >
                       {/* Attachments rendering */}
                       {m.attachments && m.attachments.length > 0 && (
                         <AttachmentPreview attachments={m.attachments} mine={mine} />
@@ -707,26 +725,27 @@ export default function Messages() {
 
                       {/* Text content with search highlighting */}
                       {m.text && (
-                        <p className="whitespace-pre-wrap leading-relaxed selection:bg-background/20">
+                        <span
+                          className={`messages-text whitespace-pre-wrap leading-relaxed selection:bg-background/20${emojiCount ? ` messages-emoji messages-emoji-${emojiCount}` : ""}`}
+                        >
                           {highlightText(m.text, chatSearchQuery)}
-                        </p>
+                        </span>
                       )}
 
                       <div
-                        className={`mt-1 flex items-center justify-end gap-1.5 text-[10px] ${
-                          mine ? "text-primary-foreground/75" : "text-muted-foreground"
-                        }`}
+                        className={`messages-meta mt-1 flex items-center justify-end gap-1.5 text-[10px] ${mine ? "is-mine" : ""}`}
                       >
-                        <span>{timeAgo(m.created_at)}</span>
+                        <span>{dayjs(m.created_at).format("HH:mm")}</span>
                         {mine && (
                           <DoubleCheck
                             status={isRead ? "read" : "delivered"}
-                            className={isRead ? "text-primary-foreground" : "text-primary-foreground/50"}
+                            className={isRead ? "text-primary" : "text-muted-foreground/70"}
                           />
                         )}
                       </div>
                     </div>
-                  </div>
+                    </div>
+                  </Fragment>
                 );
               })}
 
@@ -745,27 +764,7 @@ export default function Messages() {
             </div>
 
             {/* Composer Section */}
-            <div className="relative z-10 border-t border-border/80 bg-card/80 p-3 sm:p-4 backdrop-blur-md">
-              {/* Emoji Picker Popover */}
-              {showEmojiPicker && (
-                <div
-                  ref={emojiPickerRef}
-                  className="absolute bottom-18 left-3 sm:left-6 z-50 shadow-2xl rounded-2xl overflow-hidden border border-border animate-in zoom-in-95 duration-150"
-                  data-testid="emoji-picker-popover"
-                >
-                  <EmojiPicker
-                    theme={theme === "dark" ? Theme.DARK : Theme.LIGHT}
-                    onEmojiClick={(emojiData) => {
-                      setText((prev) => prev + emojiData.emoji);
-                      inputRef.current?.focus();
-                    }}
-                    lazyLoadEmojis={true}
-                    width={320}
-                    height={380}
-                  />
-                </div>
-              )}
-
+            <div className="messages-composer-area relative z-10 px-3 pb-3 pt-2 sm:px-5 sm:pb-5">
               {showUploadDropzone ? (
                 <UploadDropzone
                   onFiles={handleFiles}
@@ -853,7 +852,7 @@ export default function Messages() {
                 </div>
               ) : (
                 /* Normal Composer Bar (WhatsApp style) */
-                <div className="flex items-center gap-1.5 rounded-2xl border border-border bg-background/90 px-2 py-1.5 focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/20 transition-all shadow-xs">
+                <div className="messages-composer flex items-end gap-1.5 rounded-[24px] border px-2 py-1.5 transition-all">
                   {/* Attachment button */}
                   <Button
                     type="button"
@@ -869,31 +868,57 @@ export default function Messages() {
                     <Paperclip className="h-4 w-4 rotate-45" />
                   </Button>
 
-                  {/* Emoji button */}
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    className={`h-8 w-8 rounded-full transition-colors shrink-0 ${
-                      showEmojiPicker
-                        ? "text-primary bg-primary/10"
-                        : "text-muted-foreground hover:text-foreground hover:bg-secondary/70"
-                    }`}
-                    title="Choose emoji"
-                    onClick={() => setShowEmojiPicker((prev) => !prev)}
-                    data-testid="emoji-picker-button"
-                  >
-                    <Smile className="h-4 w-4" />
-                  </Button>
+                  {/* Emoji button and picker share an anchor so the picker stays above the composer. */}
+                  <div className="relative shrink-0">
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className={`h-8 w-8 rounded-full transition-colors shrink-0 ${
+                        showEmojiPicker
+                          ? "text-primary bg-primary/10"
+                          : "text-muted-foreground hover:text-foreground hover:bg-secondary/70"
+                      }`}
+                      title="Choose emoji"
+                      aria-expanded={showEmojiPicker}
+                      onClick={() => setShowEmojiPicker((prev) => !prev)}
+                      data-testid="emoji-picker-button"
+                    >
+                      <Smile className="h-4 w-4" />
+                    </Button>
+                    {showEmojiPicker && (
+                      <div
+                        ref={emojiPickerRef}
+                        className="chat-emoji-picker shadow-2xl rounded-2xl overflow-hidden border border-border animate-in zoom-in-95 duration-150"
+                        data-testid="emoji-picker-popover"
+                      >
+                        <EmojiPicker
+                          theme={theme === "dark" ? Theme.DARK : Theme.LIGHT}
+                          onEmojiClick={(emojiData) => {
+                            setText((prev) => prev + emojiData.emoji);
+                            inputRef.current?.focus();
+                          }}
+                          lazyLoadEmojis={true}
+                          width="100%"
+                          height={380}
+                        />
+                      </div>
+                    )}
+                  </div>
 
                   {/* Input field */}
-                  <Input
+                  <textarea
                     ref={inputRef}
                     placeholder="Type a message"
                     value={text}
-                    onChange={(e) => setText(e.target.value)}
+                    onChange={(e) => {
+                      setText(e.target.value);
+                      e.target.style.height = "auto";
+                      e.target.style.height = `${Math.min(e.target.scrollHeight, 144)}px`;
+                    }}
                     onKeyDown={handleKeyDown}
-                    className="border-0 bg-transparent px-2 py-2 text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/60 flex-1"
+                    rows={1}
+                    className="messages-composer-input flex-1 resize-none border-0 bg-transparent px-2 py-2 text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/60"
                     data-testid="message-input"
                   />
 
@@ -989,22 +1014,12 @@ function CounterpartyCard({ user, summarySlot }) {
       <div className="flex flex-col items-center rounded-2xl border border-border/80 bg-card/60 p-5 text-center shadow-xs">
         <div className="relative">
           <UserAvatar user={user} className="h-16 w-16 ring-2 ring-primary/20" />
-          {user?.verified && (
-            <span className="absolute bottom-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground ring-2 ring-card">
-              ✓
-            </span>
-          )}
         </div>
         <p className="mt-3 text-sm font-bold text-foreground">{user?.display_name}</p>
         <div className="mt-1 flex items-center gap-1.5">
           <span className="text-xs capitalize text-muted-foreground">
             {user?.role === "company" ? co.industry || "Company" : c.niche || "Creator"}
           </span>
-          {user?.verified && (
-            <Badge className="h-4 border-primary/25 bg-primary/10 px-1.5 text-[9px] text-primary">
-              Verified
-            </Badge>
-          )}
         </div>
 
         {user?.rating_avg && (
