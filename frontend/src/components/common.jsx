@@ -12,7 +12,7 @@ export function UserAvatar({ user, className = "h-9 w-9" }) {
   return (
     <Avatar className={className}>
       {user?.picture ? <AvatarImage src={user.picture} alt={initials} /> : null}
-      <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-green-900 text-primary-foreground font-semibold text-xs">
+      <AvatarFallback className="bg-primary text-primary-foreground font-semibold text-xs">
         {initials}
       </AvatarFallback>
     </Avatar>
@@ -30,7 +30,7 @@ export function StatusPill({ status }) {
 
 export function StatTile({ label, value, sub, icon: Icon, testId }) {
   return (
-    <div className="rounded-2xl border border-border bg-card p-5" data-testid={testId}>
+    <div className="rounded-3xl border border-border bg-card p-6" data-testid={testId}>
       <div className="flex items-center justify-between">
         <span className="eyebrow">{label}</span>
         {Icon ? <Icon className="h-4 w-4 text-primary" /> : null}
@@ -56,7 +56,7 @@ export function EmptyState({ icon: Icon, title, body, testId }) {
   return (
     <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-card/40 px-6 py-14 text-center" data-testid={testId}>
       {Icon ? <Icon className="mb-3 h-8 w-8 text-muted-foreground" /> : null}
-      <p className="font-display text-sm text-foreground">{title}</p>
+      <p className="text-base font-semibold text-foreground">{title}</p>
       {body ? <p className="mt-1 max-w-sm text-xs text-muted-foreground">{body}</p> : null}
     </div>
   );
@@ -65,7 +65,7 @@ export function EmptyState({ icon: Icon, title, body, testId }) {
 export function SectionTitle({ children, action }) {
   return (
     <div className="mb-4 flex items-center justify-between">
-      <h2 className="font-display text-sm uppercase tracking-[0.14em] text-foreground/90">{children}</h2>
+      <h2 className="text-lg font-semibold tracking-tight text-foreground">{children}</h2>
       {action}
     </div>
   );
@@ -75,8 +75,8 @@ export function PageHead({ title, sub, action }) {
   return (
     <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl" data-testid="page-title">{title}</h1>
-        {sub ? <p className="mt-1 text-sm text-muted-foreground">{sub}</p> : null}
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl" data-testid="page-title">{title}</h1>
+        {sub ? <p className="mt-2 text-sm leading-6 text-muted-foreground">{sub}</p> : null}
       </div>
       {action}
     </div>

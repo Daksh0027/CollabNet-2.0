@@ -18,6 +18,7 @@ import Contracts from "@/pages/Contracts";
 import CalendarPage from "@/pages/CalendarPage";
 import Account from "@/pages/Account";
 import Notifications from "@/pages/Notifications";
+import ProjectBoard from "@/pages/ProjectBoard";
 
 export const FullLoader = () => (
   <div className="flex min-h-screen items-center justify-center" data-testid="full-loader">
@@ -68,6 +69,7 @@ function AppRouter() {
         <Route path="messages" element={<Messages />} />
         <Route path="contracts" element={<Contracts />} />
         <Route path="calendar" element={<CalendarPage />} />
+        <Route path="project-board" element={<ProjectBoard />} />
         <Route path="account" element={<Account />} />
         <Route path="notifications" element={<Notifications />} />
       </Route>

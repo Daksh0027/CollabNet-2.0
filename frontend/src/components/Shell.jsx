@@ -1,7 +1,7 @@
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
-  LayoutDashboard, Compass, Bell, MessagesSquare, Megaphone,
+  LayoutDashboard, Compass, Bell, MessagesSquare, Megaphone, Columns3,
   FileSignature, CalendarDays, CircleUserRound, LogOut, Menu,
 } from "lucide-react";
 import api from "@/lib/api";
@@ -20,6 +20,7 @@ const NAV = [
   { to: "/app/campaigns", label: "Campaigns & Events", icon: Megaphone },
   { to: "/app/contracts", label: "Contracts", icon: FileSignature },
   { to: "/app/calendar", label: "Calendar", icon: CalendarDays },
+  { to: "/app/project-board", label: "Project Board", icon: Columns3 },
   { to: "/app/account", label: "Account", icon: CircleUserRound },
 ];
 
@@ -28,6 +29,7 @@ export default function Shell() {
   const navigate = useNavigate();
   const location = useLocation();
   const isFullBleed = location.pathname.startsWith("/app/messages");
+  const isProjectBoard = location.pathname === "/app/project-board";
   const { data: notif } = useQuery({
     queryKey: ["notifications"],
     queryFn: async () => (await api.get("/notifications")).data,
@@ -66,7 +68,7 @@ export default function Shell() {
   };
 
   const navItems = (
-    <div className="flex-1 space-y-1 px-3" data-testid="sidebar-nav">
+    <div className="flex-1 space-y-1 overflow-y-auto px-3 py-1" data-testid="sidebar-nav">
       {NAV.map(({ to, label, icon: Icon, badgeType }) => (
         <NavLink
           key={to}
@@ -95,7 +97,7 @@ export default function Shell() {
 
   return (
     <div className="min-h-screen lg:flex">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border bg-card/60 backdrop-blur-sm lg:flex" data-testid="sidebar">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border bg-card lg:flex" data-testid="sidebar">
         <div className="flex items-center gap-2 px-5 py-6">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary font-display text-sm font-bold text-primary-foreground">C</div>
           <span className="font-display text-sm font-semibold tracking-wide">CollaboNet</span>
@@ -163,11 +165,13 @@ export default function Shell() {
         className={`min-w-0 flex-1 lg:ml-60 ${
           isFullBleed
             ? "h-[calc(100dvh-57px)] lg:h-screen overflow-hidden p-0"
-            : "px-5 py-6 lg:px-10 lg:py-8"
+            : isProjectBoard
+              ? "px-4 py-5 sm:px-6 lg:px-6 lg:py-6"
+              : "px-4 py-6 sm:px-6 lg:px-8 lg:py-8"
         }`}
         data-testid="app-main"
       >
-        <div className={isFullBleed ? "h-full w-full" : "mx-auto max-w-6xl rise"}>
+        <div className={isFullBleed ? "h-full w-full" : isProjectBoard ? "w-full max-w-none rise" : "mx-auto max-w-6xl rise"}>
           <Outlet />
         </div>
       </main>
