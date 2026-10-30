@@ -1,6 +1,45 @@
 import React from "react";
 import ReactDOMServer from "react-dom/server";
+import { act } from "react";
+import { createRoot } from "react-dom/client";
 import { isTimestampRead, DoubleCheck } from "../components/chat/ReadReceipt";
+import { UploadDropzone } from "../components/chat/UploadDropzone";
+
+describe("Chat Upload Dropzone", () => {
+  const previousActEnvironment = globalThis.IS_REACT_ACT_ENVIRONMENT;
+
+  beforeAll(() => {
+    globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+  });
+
+  afterAll(() => {
+    globalThis.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
+  });
+
+  it("passes dropped real files to the chat attachment handler", () => {
+    const onFiles = jest.fn();
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    const file = new File(["attachment"], "notes.txt", { type: "text/plain" });
+
+    act(() => {
+      root.render(
+        <UploadDropzone onFiles={onFiles} onBrowse={jest.fn()} onClose={jest.fn()} />
+      );
+    });
+
+    const dropzone = container.querySelector('[data-testid="chat-upload-dropzone"]');
+    const dropEvent = new Event("drop", { bubbles: true, cancelable: true });
+    Object.defineProperty(dropEvent, "dataTransfer", { value: { files: [file] } });
+
+    act(() => {
+      dropzone.dispatchEvent(dropEvent);
+    });
+
+    expect(onFiles).toHaveBeenCalledWith([file]);
+    act(() => root.unmount());
+  });
+});
 
 describe("Chat Read Receipts Logic", () => {
   it("correctly identifies read when read timestamp is equal or after message timestamp", () => {
@@ -109,6 +148,17 @@ describe("In-Chat Search & Highlighting", () => {
 });
 
 describe("Voice Note & Media Utilities", () => {
+  it("recognizes up to three emoji-only messages for transparent large rendering", () => {
+    const { getEmojiOnlyCount } = require("../lib/chatMedia");
+
+    expect(getEmojiOnlyCount("😀")).toBe(1);
+    expect(getEmojiOnlyCount("😀🎉")).toBe(2);
+    expect(getEmojiOnlyCount("👨‍👩‍👧‍👦")).toBe(1);
+    expect(getEmojiOnlyCount("😀🎉✨")).toBe(3);
+    expect(getEmojiOnlyCount("😀🎉✨🔥")).toBe(0);
+    expect(getEmojiOnlyCount("Hello 😀")).toBe(0);
+  });
+
   it("formats audio duration into mm:ss format", () => {
     const { formatDuration } = require("../lib/chatMedia");
     expect(formatDuration(0)).toBe("0:00");
@@ -134,6 +184,14 @@ describe("Voice Note & Media Utilities", () => {
     expect(html).toContain('data-testid="voice-play-button"');
     expect(html).toContain('data-testid="voice-seek-slider"');
     expect(html).toContain("0:12");
+  });
+
+  it("does not mark playback complete while the audio is still playing", () => {
+    const { getVoiceNoteProgress } = require("../components/chat/VoiceNotePlayer");
+
+    expect(getVoiceNoteProgress(12, 12, true)).toBe(99);
+    expect(getVoiceNoteProgress(12, 12, false)).toBe(100);
+    expect(getVoiceNoteProgress(6, 12, true)).toBe(50);
   });
 
   it("renders document attachment cards with download link", () => {

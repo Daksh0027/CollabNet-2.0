@@ -79,6 +79,642 @@
     }
 }
 
+/* The tray accepts real chat files; each visual token maps to the app theme
+   locally so the upload surface does not introduce global design variables. */
+.messages-shell {
+    --chat-brand: #2273ff;
+    --chat-brand-hover: #1a5fd6;
+    --chat-brand-soft: #dce9ff;
+    --chat-brand-softer: #eef4ff;
+    --chat-on-brand: #ffffff;
+    --chat-bg: #f4f1ec;
+    --chat-bubble-in: #ffffff;
+    --chat-text: #111b21;
+    --chat-text-muted: #667781;
+    --chat-divider: #e9edef;
+    --chat-bubble-shadow: 0 1px 0.5px rgba(11, 20, 26, 0.13);
+    min-height: 0;
+    background: var(--chat-bg);
+    color: var(--chat-text);
+}
+
+.dark .messages-shell {
+    --chat-bg: #0b141a;
+    --chat-bubble-in: #202c33;
+    --chat-brand-soft: #1b4fb8;
+    --chat-brand-softer: #172d4d;
+    --chat-text: #e9edef;
+    --chat-text-muted: #aebac1;
+    --chat-divider: #26343b;
+}
+
+.messages-sidebar,
+.messages-list-header,
+.messages-chat-header {
+    background: var(--chat-bubble-in);
+}
+
+.messages-sidebar,
+.messages-list-header,
+.messages-chat-header,
+.messages-thread-item {
+    border-color: var(--chat-divider);
+}
+
+.messages-list-header {
+    padding-top: env(safe-area-inset-top, 0);
+}
+
+.messages-thread-item {
+    border: 1px solid transparent;
+}
+
+.messages-thread-item:hover {
+    background: var(--chat-brand-softer);
+}
+
+.messages-thread-item.is-active {
+    border-color: color-mix(in srgb, var(--chat-brand) 15%, transparent);
+    background: var(--chat-brand-softer);
+}
+
+.messages-thread-item > div:nth-child(2) > div:nth-child(2) {
+    color: var(--chat-text-muted);
+}
+
+.messages-thread-panel {
+    background: var(--chat-bubble-in);
+}
+
+.messages-chat-header {
+    box-shadow: 0 1px 4px rgba(11, 20, 26, 0.06);
+}
+
+.messages-feed {
+    position: relative;
+    isolation: isolate;
+    background-color: var(--chat-bg);
+    background-image:
+        radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--chat-text-muted) 9%, transparent) 1px, transparent 1.4px);
+    background-size: 24px 24px;
+}
+
+.messages-row {
+    position: relative;
+    z-index: 1;
+    margin-top: 10px;
+}
+
+.messages-row.is-grouped {
+    margin-top: 2px;
+}
+
+.messages-bubble {
+    overflow-wrap: anywhere;
+    border-radius: 8px;
+    box-shadow: var(--chat-bubble-shadow);
+    color: var(--chat-text);
+    background: var(--chat-bubble-in);
+}
+
+.messages-bubble.is-mine {
+    border-top-right-radius: 3px;
+    background: var(--chat-brand-soft);
+    color: var(--chat-text);
+}
+
+.messages-bubble.is-other {
+    border-top-left-radius: 3px;
+    border: 1px solid color-mix(in srgb, var(--chat-divider) 75%, transparent);
+}
+
+.messages-bubble.is-emoji-only {
+    overflow: visible;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.messages-bubble.is-emoji-only::before {
+    content: none !important;
+}
+
+.messages-emoji {
+    display: block;
+    overflow-wrap: normal;
+    line-height: 1.15;
+}
+
+.messages-text.messages-emoji-1 { font-size: 44px; }
+.messages-text.messages-emoji-2,
+.messages-text.messages-emoji-3 { font-size: 32px; }
+
+.messages-row:not(.is-grouped) .messages-bubble.is-mine::before,
+.messages-row:not(.is-grouped) .messages-bubble.is-other::before {
+    position: absolute;
+    top: 0;
+    width: 9px;
+    height: 10px;
+    background: inherit;
+    content: "";
+}
+
+.messages-row:not(.is-grouped) .messages-bubble.is-mine::before {
+    right: -4px;
+    clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+
+.messages-row:not(.is-grouped) .messages-bubble.is-other::before {
+    left: -4px;
+    clip-path: polygon(0 0, 100% 0, 100% 100%);
+}
+
+.messages-text {
+    display: inline;
+    color: inherit;
+    font-size: 14.5px;
+    line-height: 1.35;
+}
+
+.messages-meta {
+    display: inline-flex;
+    float: right;
+    align-items: center;
+    margin-top: 5px;
+    margin-left: 12px;
+    color: var(--chat-text-muted);
+    font-size: 10px;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.messages-bubble.is-emoji-only .messages-meta {
+    display: flex;
+    float: none;
+    width: fit-content;
+    margin-top: 2px;
+    margin-left: auto;
+    padding: 3px 6px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--chat-bubble-in) 88%, transparent);
+    box-shadow: 0 1px 2px rgba(11, 20, 26, 0.1);
+}
+
+.messages-meta.is-mine {
+    color: color-mix(in srgb, var(--chat-text-muted) 90%, var(--chat-text));
+}
+
+.messages-voice-note.is-mine [data-testid="voice-play-button"] {
+    background: var(--chat-brand);
+    color: var(--chat-on-brand);
+}
+
+.messages-voice-note.is-mine > div > div:last-child {
+    color: var(--chat-text-muted);
+}
+
+.messages-voice-note.is-mine .bg-primary-foreground {
+    background-color: var(--chat-brand);
+}
+
+.messages-voice-note.is-mine .bg-primary-foreground\/30 {
+    background-color: color-mix(in srgb, var(--chat-brand) 32%, transparent);
+}
+
+.messages-voice-note.is-mine .text-primary-foreground,
+.messages-voice-note.is-mine .text-primary-foreground\/80 {
+    color: var(--chat-text-muted);
+}
+
+.messages-date-divider {
+    position: sticky;
+    top: 8px;
+    z-index: 2;
+    display: flex;
+    justify-content: center;
+    margin: 4px 0 10px;
+    pointer-events: none;
+}
+
+.messages-date-divider > span {
+    padding: 5px 11px;
+    border: 1px solid color-mix(in srgb, var(--chat-divider) 75%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--chat-bubble-in) 90%, transparent);
+    box-shadow: 0 1px 2px rgba(11, 20, 26, 0.06);
+    color: var(--chat-text-muted);
+    font-size: 10px;
+    font-weight: 500;
+}
+
+.messages-composer-area {
+    background: var(--chat-bg);
+    padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
+}
+
+.messages-composer {
+    max-width: 100%;
+    min-height: 48px;
+    border-color: var(--chat-divider);
+    background: var(--chat-bubble-in);
+    box-shadow: 0 1px 4px rgba(11, 20, 26, 0.12);
+}
+
+.messages-composer:focus-within {
+    border-color: color-mix(in srgb, var(--chat-brand) 35%, var(--chat-divider));
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--chat-brand) 10%, transparent), 0 2px 8px rgba(11, 20, 26, 0.1);
+}
+
+.messages-composer-input {
+    max-height: 144px;
+    min-height: 36px;
+    color: var(--chat-text);
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.messages-composer-input::placeholder {
+    color: var(--chat-text-muted);
+}
+
+.messages-composer-area [data-testid="send-message-button"] {
+    background: var(--chat-brand);
+    color: var(--chat-on-brand);
+}
+
+.messages-composer-area [data-testid="send-message-button"]:hover {
+    background: var(--chat-brand-hover);
+}
+
+.chat-emoji-picker {
+    position: absolute;
+    bottom: calc(100% + 12px);
+    left: 0;
+    z-index: 50;
+    width: min(320px, calc(100vw - 24px));
+    transform-origin: bottom left;
+}
+
+.chat-emoji-picker > aside {
+    width: 100% !important;
+}
+
+.chat-upload-dropzone {
+    --upl-card: oklch(var(--card));
+    --upl-ink: oklch(var(--foreground));
+    --upl-fill-on: var(--upl-ink);
+    --upl-fill-slab: color-mix(in srgb, oklch(var(--secondary)) 72%, var(--upl-card));
+    --upl-font-ui: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    --upl-pane-edge: oklch(var(--border));
+    --upl-signal: oklch(var(--primary));
+    position: relative;
+    display: flex;
+    min-height: 112px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    margin-bottom: 10px;
+    overflow: hidden;
+    border-radius: 16px;
+    background: var(--upl-fill-slab);
+    color: var(--upl-fill-on);
+    font-family: var(--upl-font-ui);
+    transition: transform 220ms cubic-bezier(0.24, 1.2, 0.38, 1), background-color 180ms ease;
+}
+
+.chat-upload-dropzone[data-dragging] {
+    transform: scale(1.01);
+    background: color-mix(in srgb, var(--upl-signal) 9%, var(--upl-fill-slab));
+    box-shadow: inset 0 0 0 1px var(--upl-pane-edge);
+}
+
+.chat-upload-icon {
+    display: grid;
+    width: 34px;
+    height: 34px;
+    place-items: center;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--upl-fill-on) 6%, var(--upl-fill-slab));
+    color: color-mix(in srgb, var(--upl-fill-on) 72%, var(--upl-fill-slab));
+    transition: transform 220ms cubic-bezier(0.24, 1.2, 0.38, 1), color 180ms ease;
+}
+
+.chat-upload-dropzone[data-dragging] .chat-upload-icon {
+    transform: translateY(-3px);
+    color: var(--upl-signal);
+}
+
+.chat-upload-copy {
+    text-align: center;
+}
+
+.chat-upload-copy p {
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.35;
+}
+
+.chat-upload-copy span {
+    color: oklch(var(--muted-foreground));
+    font-size: 11px;
+}
+
+.chat-upload-browse {
+    border: 0;
+    background: transparent;
+    color: var(--upl-signal);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.chat-upload-browse:hover {
+    text-decoration: underline;
+}
+
+.chat-upload-close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: grid;
+    width: 28px;
+    height: 28px;
+    place-items: center;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: oklch(var(--muted-foreground));
+    cursor: pointer;
+}
+
+.chat-upload-close:hover {
+    background: color-mix(in srgb, var(--upl-fill-on) 7%, transparent);
+    color: var(--upl-fill-on);
+}
+
+.calendar-surface {
+    padding: 8px;
+    border: 1px solid oklch(var(--border));
+    border-radius: 18px;
+    background: color-mix(in srgb, oklch(var(--secondary)) 70%, white);
+}
+
+.calendar-toolbar {
+    display: flex;
+    min-height: 40px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 0 4px 10px;
+}
+
+.calendar-toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.calendar-month-nav {
+    display: flex;
+    min-height: 34px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 2px 4px;
+    border: 1px solid oklch(var(--border));
+    border-radius: 999px;
+    background: oklch(var(--card));
+    color: oklch(var(--foreground));
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.calendar-month-nav > span {
+    min-width: 88px;
+    text-align: center;
+}
+
+.calendar-weekdays,
+.calendar-days {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 5px;
+}
+
+.calendar-weekdays {
+    margin-bottom: 5px;
+    padding: 0 2px;
+}
+
+.calendar-weekdays > span {
+    padding: 4px 0;
+    color: oklch(var(--muted-foreground));
+    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-size: 10px;
+    font-weight: 500;
+    text-align: center;
+}
+
+.calendar-day-cell,
+.calendar-day-skeleton {
+    min-width: 0;
+    min-height: 104px;
+    border: 1px solid transparent;
+    border-radius: 11px;
+    background: oklch(var(--card));
+}
+
+.calendar-day-cell {
+    position: relative;
+    padding: 6px;
+    cursor: pointer;
+    outline: none;
+    transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+
+.calendar-day-cell:hover,
+.calendar-day-cell:focus-visible {
+    z-index: 1;
+    transform: translateY(-1px);
+    border-color: oklch(var(--border));
+    box-shadow: 0 3px 10px rgb(0 0 0 / 0.06);
+}
+
+.calendar-day-cell:focus-visible {
+    outline: 2px solid oklch(var(--ring));
+    outline-offset: 1px;
+}
+
+.calendar-day-cell.is-outside {
+    background: #ebebeb;
+}
+
+.calendar-day-cell.is-outside .calendar-day-number {
+    color: oklch(var(--muted-foreground) / 0.76);
+}
+
+.calendar-day-cell.is-today {
+    border-color: oklch(var(--primary) / 0.28);
+    box-shadow: inset 0 0 0 1px oklch(var(--primary) / 0.08);
+}
+
+.calendar-day-header {
+    display: flex;
+    min-height: 19px;
+    align-items: flex-start;
+    justify-content: space-between;
+}
+
+.calendar-day-number {
+    display: inline-flex;
+    width: 20px;
+    height: 20px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    color: oklch(var(--foreground) / 0.82);
+    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-size: 10px;
+    font-weight: 500;
+}
+
+.calendar-day-number.is-today {
+    background: oklch(var(--primary));
+    color: oklch(var(--primary-foreground));
+    font-weight: 600;
+}
+
+.calendar-day-add {
+    display: grid;
+    width: 20px;
+    height: 20px;
+    place-items: center;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: oklch(var(--muted-foreground));
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 140ms ease, background 140ms ease, color 140ms ease;
+}
+
+.calendar-day-cell:hover .calendar-day-add,
+.calendar-day-cell:focus-within .calendar-day-add {
+    opacity: 1;
+}
+
+.calendar-day-add:hover {
+    background: oklch(var(--primary) / 0.1);
+    color: oklch(var(--primary));
+}
+
+.calendar-day-events {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-top: 3px;
+}
+
+.calendar-event-chip {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    min-height: 17px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    overflow: hidden;
+    padding: 1px 5px;
+    border: 0;
+    border-radius: 5px;
+    cursor: pointer;
+    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-size: 9px;
+    font-weight: 500;
+    line-height: 1.35;
+    text-align: left;
+}
+
+.calendar-event-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.calendar-event-time {
+    flex: none;
+    opacity: 0.72;
+    font-size: 8px;
+}
+
+.calendar-event-blue { background: #dceaff; color: #2f6bff; }
+.calendar-event-lime { background: #eaf8c8; color: #5c7a12; }
+.calendar-event-pink { background: #ffe1ec; color: #d6246e; }
+.calendar-event-purple { background: #f0e4ff; color: #7b2ac7; }
+.calendar-event-mint { background: #d8f5e6; color: #1c7952; }
+
+.calendar-more-events {
+    width: fit-content;
+    padding: 0 2px;
+    border: 0;
+    background: transparent;
+    color: oklch(var(--muted-foreground));
+    cursor: pointer;
+    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-size: 9px;
+    line-height: 1.5;
+}
+
+.calendar-more-events:hover {
+    color: oklch(var(--primary));
+}
+
+.calendar-error {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px;
+    border: 1px solid oklch(var(--border));
+    border-radius: 14px;
+    background: oklch(var(--card));
+}
+
+@media (max-width: 640px) {
+    .calendar-surface { padding: 5px; }
+
+    .calendar-toolbar {
+        align-items: flex-start;
+        flex-direction: column;
+        padding: 2px 4px 8px;
+    }
+
+    .calendar-toolbar-actions {
+        width: 100%;
+        justify-content: space-between;
+        gap: 4px;
+    }
+
+    .calendar-month-nav { gap: 2px; }
+    .calendar-month-nav > span { min-width: 76px; font-size: 10px; }
+    .calendar-weekdays, .calendar-days { gap: 3px; }
+    .calendar-day-cell, .calendar-day-skeleton { min-height: 68px; border-radius: 8px; }
+    .calendar-day-cell { padding: 3px; }
+    .calendar-day-events { gap: 2px; margin-top: 2px; }
+    .calendar-event-chip { min-height: 8px; justify-content: center; padding: 2px; font-size: 0; }
+    .calendar-event-title, .calendar-event-time, .calendar-day-add { display: none; }
+
+    .calendar-event-chip::before {
+        width: 4px;
+        height: 4px;
+        border-radius: 999px;
+        background: currentColor;
+        content: "";
+    }
+}
+
 @layer base {
     * {
         @apply border-border;

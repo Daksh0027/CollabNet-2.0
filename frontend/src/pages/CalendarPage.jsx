@@ -1,25 +1,34 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, ChevronLeft, ChevronRight, Loader2, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Plus } from "lucide-react";
 import dayjs from "dayjs";
 import { toast } from "sonner";
-import api, { fmtDate } from "@/lib/api";
-import { PageHead, EmptyState } from "@/components/common";
+import api from "@/lib/api";
+import { PageHead } from "@/components/common";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { getCalendarDays } from "@/lib/calendar";
+
+const EVENT_PALETTE = {
+  campaign: "blue",
+  meeting: "lime",
+  shoot: "pink",
+  milestone: "purple",
+};
 
 export default function CalendarPage() {
   const qc = useQueryClient();
   const [month, setMonth] = useState(dayjs().format("YYYY-MM"));
-  const { data: events, isLoading } = useQuery({
+  const { data: events, isLoading, isError, refetch } = useQuery({
     queryKey: ["events"],
     queryFn: async () => (await api.get("/events")).data,
   });
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ title: "", date: dayjs().format("YYYY-MM-DD"), type: "milestone" });
   const [busy, setBusy] = useState(false);
+  const [expandedDays, setExpandedDays] = useState({});
 
   const create = async () => {
     if (!form.title || !form.date) { toast.error("Title and date required"); return; }
@@ -34,54 +43,192 @@ export default function CalendarPage() {
     finally { setBusy(false); }
   };
 
-  const monthEvents = (events || []).filter((e) => e.date?.startsWith(month));
   const first = dayjs(`${month}-01`);
-  const startIdx = (first.day() + 6) % 7;
-  const daysInMonth = first.daysInMonth();
-  const cells = [...Array(startIdx).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => first.add(i, "day"))];
+  const today = dayjs();
+  const cells = getCalendarDays(month);
+  const openNewEvent = (date = today.format("YYYY-MM-DD")) => {
+    setForm({ title: "", date, type: "milestone" });
+    setOpen(true);
+  };
 
   return (
     <div data-testid="calendar-page">
       <PageHead
         title="Calendar"
         sub="Scheduled campaigns, meetings and milestones."
-        action={<Button size="sm" className="rounded-full" onClick={() => setOpen(true)} data-testid="new-event-button"><Plus className="mr-1 h-4 w-4" /> New event</Button>}
       />
       {isLoading ? (
-        <div className="py-24 text-center text-sm text-muted-foreground">Loading…</div>
-      ) : (
-        <div className="rounded-2xl border border-border bg-card p-5" data-testid="month-grid">
-          <div className="mb-4 flex items-center justify-between">
-            <Button size="sm" variant="secondary" className="rounded-full" onClick={() => setMonth(first.subtract(1, "month").format("YYYY-MM"))} data-testid="prev-month-button"><ChevronLeft className="h-4 w-4" /></Button>
-            <p className="font-display text-sm font-semibold" data-testid="month-label">{first.format("MMMM YYYY")}</p>
-            <Button size="sm" variant="secondary" className="rounded-full" onClick={() => setMonth(first.add(1, "month").format("YYYY-MM"))} data-testid="next-month-button"><ChevronRight className="h-4 w-4" /></Button>
+        <div className="calendar-surface" aria-label="Loading calendar" data-testid="calendar-loading">
+          <div className="calendar-toolbar">
+            <div className="h-6 w-36 animate-pulse rounded bg-secondary" />
+            <div className="h-8 w-64 animate-pulse rounded-full bg-secondary" />
           </div>
-          <div className="grid grid-cols-7 gap-1.5 text-center">
-            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => <p key={d} className="eyebrow">{d}</p>)}
-            {cells.map((d, i) => (
-              <div key={i} className={`min-h-20 rounded-lg border p-1.5 text-left ${d ? "border-border" : "border-transparent"}`}>
-                {d ? (
-                  <>
-                    <p className="font-num text-[10px] text-muted-foreground">{d.date()}</p>
-                    {monthEvents.filter((e) => e.date === d.format("YYYY-MM-DD")).map((e) => (
-                      <button key={e.event_id} onClick={() => setForm({ title: e.title, date: e.date, type: e.type }) || setOpen(true)}
-                        className="mt-1 block w-full truncate rounded px-1 py-0.5 text-left text-[10px] font-semibold"
-                        style={{ background: `${e.color}22`, color: e.color }}
-                        data-testid={`calendar-event-${e.event_id}`}>
-                        {e.title}
-                      </button>
-                    ))}
-                  </>
-                ) : null}
-              </div>
+          <div className="calendar-weekdays" aria-hidden="true">
+            {Array.from({ length: 7 }, (_, index) => <span key={index} />)}
+          </div>
+          <div className="calendar-days">
+            {Array.from({ length: 42 }, (_, index) => (
+              <div key={index} className="calendar-day-skeleton animate-pulse" />
             ))}
           </div>
         </div>
+      ) : isError ? (
+        <div className="calendar-error" role="alert">
+          <div>
+            <p className="text-sm font-semibold text-foreground">Calendar events couldn’t load</p>
+            <p className="mt-1 text-xs text-muted-foreground">Check your connection and try again.</p>
+          </div>
+          <Button size="sm" variant="outline" onClick={() => refetch()}>Retry</Button>
+        </div>
+      ) : (
+        <section className="calendar-surface" data-testid="month-grid" aria-label="Calendar month view">
+          <div className="calendar-toolbar">
+            <h2 className="font-display text-base font-semibold tracking-tight text-foreground sm:text-lg" data-testid="month-label">
+              {first.format("MMMM YYYY")}
+            </h2>
+            <div className="calendar-toolbar-actions">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 rounded-full px-3 text-xs"
+                onClick={() => setMonth(today.format("YYYY-MM"))}
+                data-testid="today-button"
+              >
+                Today
+              </Button>
+              <div className="calendar-month-nav" aria-label="Choose month">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7 rounded-full"
+                  onClick={() => setMonth(first.subtract(1, "month").format("YYYY-MM"))}
+                  data-testid="prev-month-button"
+                  aria-label="Previous month"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span aria-hidden="true">{first.format("MMMM YYYY")}</span>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7 rounded-full"
+                  onClick={() => setMonth(first.add(1, "month").format("YYYY-MM"))}
+                  data-testid="next-month-button"
+                  aria-label="Next month"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+              <Button
+                size="sm"
+                className="h-8 rounded-full px-3 text-xs"
+                onClick={() => openNewEvent()}
+                data-testid="new-event-button"
+              >
+                <Plus className="mr-1 h-4 w-4" /> New event
+              </Button>
+            </div>
+          </div>
+          <div className="calendar-weekdays" role="row">
+            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+              <span key={day} role="columnheader">{day}</span>
+            ))}
+          </div>
+          <div className="calendar-days" role="grid" aria-label={first.format("MMMM YYYY")}>
+            {cells.map((day) => {
+              const date = day.format("YYYY-MM-DD");
+              const dayEvents = (events || [])
+                .filter((event) => event.date === date)
+                .sort((left, right) => (
+                  Number(Boolean(right.all_day)) - Number(Boolean(left.all_day))
+                  || (left.start_time || "").localeCompare(right.start_time || "")
+                  || left.title.localeCompare(right.title)
+                ));
+              const isCurrentMonth = day.isSame(first, "month");
+              const isToday = day.isSame(today, "day");
+              const expanded = Boolean(expandedDays[date]);
+              const visibleEvents = expanded ? dayEvents : dayEvents.slice(0, 3);
+
+              return (
+                <div
+                  key={date}
+                  className={`calendar-day-cell${isCurrentMonth ? "" : " is-outside"}${isToday ? " is-today" : ""}`}
+                  role="gridcell"
+                  tabIndex={0}
+                  aria-label={`${day.format("dddd, MMMM D")}, ${dayEvents.length} ${dayEvents.length === 1 ? "event" : "events"}`}
+                  onClick={() => openNewEvent(date)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      openNewEvent(date);
+                    }
+                  }}
+                  data-testid={`calendar-day-${date}`}
+                >
+                  <div className="calendar-day-header">
+                    <span className={`calendar-day-number${isToday ? " is-today" : ""}`}>{day.date()}</span>
+                    <button
+                      type="button"
+                      className="calendar-day-add"
+                      aria-label={`Add event on ${day.format("MMMM D")}`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openNewEvent(date);
+                      }}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <div className="calendar-day-events">
+                    {visibleEvents.map((event) => {
+                      const palette = EVENT_PALETTE[event.type] || "mint";
+                      const time = event.start_time || event.time;
+                      return (
+                        <button
+                          key={event.event_id}
+                          type="button"
+                          title={`${event.title}${time ? ` · ${time}` : ""}`}
+                          aria-label={`${event.title}${time ? `, ${time}` : ""}`}
+                          onClick={(clickEvent) => {
+                            clickEvent.stopPropagation();
+                            setForm({ title: event.title, date: event.date, type: event.type });
+                            setOpen(true);
+                          }}
+                          className={`calendar-event-chip calendar-event-${palette}`}
+                          data-testid={`calendar-event-${event.event_id}`}
+                        >
+                          <span className="calendar-event-title">{event.title}</span>
+                          {time ? <span className="calendar-event-time">{time}</span> : null}
+                        </button>
+                      );
+                    })}
+                    {dayEvents.length > 3 ? (
+                      <button
+                        type="button"
+                        className="calendar-more-events"
+                        aria-expanded={expanded}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setExpandedDays((current) => ({ ...current, [date]: !current[date] }));
+                        }}
+                      >
+                        {expanded ? "Show fewer" : `+${dayEvents.length - 3} more`}
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent data-testid="new-event-dialog">
-          <DialogHeader><DialogTitle>New calendar event</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>New calendar event</DialogTitle>
+            <DialogDescription>Add a campaign, meeting, shoot, or milestone to your calendar.</DialogDescription>
+          </DialogHeader>
           <div className="grid gap-3">
             <Input placeholder="Event title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} data-testid="event-title-input" />
             <div className="grid grid-cols-2 gap-3">
