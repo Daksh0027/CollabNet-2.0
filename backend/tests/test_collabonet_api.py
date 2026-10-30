@@ -65,3 +65,20 @@ def test_ai_endpoints_return_expected_disabled_response(client):
     response = client.post(f"{BASE_URL}/api/ai/draft", json={"kind": "outreach"}, timeout=20)
     assert response.status_code == 503
     assert "AI not configured" in response.json()["detail"]
+
+
+def test_notifications_category_filtering(client):
+    login(client, "company")
+    all_notifs = client.get(f"{BASE_URL}/api/notifications", timeout=20)
+    assert all_notifs.status_code == 200
+    data = all_notifs.json()
+    assert "counts" in data
+    assert data["counts"]["all"] >= data["counts"]["creators"] + data["counts"]["companies"]
+    assert data["counts"]["creators"] > 0
+    assert data["counts"]["companies"] > 0
+
+    creator_notifs = client.get(f"{BASE_URL}/api/notifications?origin=creators", timeout=20).json()
+    assert all(n["origin"] == "creator" for n in creator_notifs["notifications"])
+
+    company_notifs = client.get(f"{BASE_URL}/api/notifications?origin=companies", timeout=20).json()
+    assert all(n["origin"] == "company" for n in company_notifs["notifications"])

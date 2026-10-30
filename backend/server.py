@@ -119,11 +119,33 @@ async def require_role(user: dict, role: str):
         raise HTTPException(403, f"This action requires a {role} account")
 
 
-async def notify(user_id: str, type_: str, title: str, body: str = "", link: str = ""):
-    await db.notifications.insert_one({
+async def notify(user_id: str, type_: str, title: str, body: str = "", link: str = "",
+                 origin: str = "", actor_id: str = ""):
+    resolved_origin = origin
+    if not resolved_origin and actor_id:
+        actor = await db.users.find_one({"user_id": actor_id}, {"_id": 0, "role": 1})
+        if actor and actor.get("role"):
+            resolved_origin = actor["role"]
+    if not resolved_origin:
+        lower = (title + " " + body).lower()
+        if any(w in lower for w in ("nova athletics", "brewhaus", "lumen", "athletics", "brand", "company", "sponsor")):
+            resolved_origin = "company"
+        elif any(w in lower for w in ("maya chen", "dario", "priya", "jonas", "sofia", "leo", "creator")):
+            resolved_origin = "creator"
+        elif type_ in ("campaign", "invitation", "payment"):
+            resolved_origin = "company"
+        elif type_ in ("application",):
+            resolved_origin = "creator"
+        else:
+            resolved_origin = "system"
+
+    doc = {
         "notif_id": uid("ntf"), "user_id": user_id, "type": type_,
-        "title": title, "body": body, "link": link, "read": False, "created_at": now(),
-    })
+        "title": title, "body": body, "link": link, "read": False,
+        "origin": resolved_origin, "actor_id": actor_id, "created_at": now(),
+    }
+    await db.notifications.insert_one(doc)
+    return doc
 
 
 async def log_activity(user_id: str, text: str):
@@ -212,7 +234,7 @@ async def auth_session(payload: SessionIn, response: Response):
         user = build_new_user(email, data.get("name", ""), data.get("picture", ""))
         await db.users.insert_one(user)
         await notify(user["user_id"], "system", "Welcome to CollaboNet",
-                     "Pick your account type to get started.", "/onboarding")
+                     "Pick your account type to get started.", "/onboarding", origin="system")
     else:
         upd = {}
         if data.get("picture") and data["picture"] != user.get("picture"):
@@ -297,7 +319,7 @@ async def verify_social(payload: SocialVerifyIn, request: Request):
         {"user_id": user["user_id"]},
         {"$set": {"verified": True, "creator.platforms": platforms,
                   "creator.verification_mock": "simulated-oauth", "verified_at": now()}})
-    await notify(user["user_id"], "verification", "Accounts connected", "Your social accounts were verified (simulated).", "/app/account")
+    await notify(user["user_id"], "verification", "Accounts connected", "Your social accounts were verified (simulated).", "/app/account", origin="system")
     await log_activity(user["user_id"], f"Connected {len(platforms)} social account(s) — profile verified.")
     return {"ok": True, "verified": True}
 
@@ -316,7 +338,7 @@ async def verify_company(payload: CompanyVerifyIn, request: Request):
                       "verification_mock": "email + onboarding call (simulated)",
                   }, "verified_at": now()}})
     await notify(user["user_id"], "verification", "Company verified",
-                 "Company details confirmed. Your onboarding call slot is booked (simulated).", "/app/account")
+                 "Company details confirmed. Your onboarding call slot is booked (simulated).", "/app/account", origin="system")
     await log_activity(user["user_id"], "Completed company verification and booked the onboarding call.")
     return {"ok": True, "verified": True}
 
@@ -435,7 +457,8 @@ async def create_connection(payload: ConnectIn, request: Request):
     }
     await db.connections.insert_one({**doc})
     await notify(payload.to_id, "connection", f"{display_name(user)} wants to connect",
-                 payload.message or "Open CollaboNet to accept or decline.", "/app/overview")
+                 payload.message or "Open CollaboNet to accept or decline.", "/app/overview",
+                 origin=user.get("role", "creator"), actor_id=user["user_id"])
     await log_activity(user["user_id"], f"Sent a connection request to {display_name(other)}.")
     return {**doc, "other": pub_user(other)}
 
@@ -459,7 +482,8 @@ async def accept_connection(conn_id: str, request: Request):
     await upgrade_connection(conn_id)
     other = await enrich_user(conn["from_id"])
     await notify(conn["from_id"], "connection", f"{display_name(user)} accepted your request",
-                 "You can now chat and open a deal room.", "/app/messages")
+                 "You can now chat and open a deal room.", "/app/messages",
+                 origin=user.get("role", "creator"), actor_id=user["user_id"])
     await log_activity(user["user_id"], f"Accepted the connection request from {other['display_name'] if other else 'a user'}.")
     return {"ok": True}
 
@@ -515,7 +539,8 @@ async def create_campaign(payload: CampaignIn, request: Request):
     for cr in creators:
         if payload.niches and cr.get("creator", {}).get("niche") in payload.niches:
             await notify(cr["user_id"], "campaign", f"New brief matches your niche: {payload.title}",
-                         f"{display_name(user)} is hiring.", "/app/explore")
+                         f"{display_name(user)} is hiring.", "/app/explore",
+                         origin="company", actor_id=user["user_id"])
     return {**doc, "company": pub_user(user)}
 
 
@@ -552,7 +577,8 @@ async def apply_campaign(camp_id: str, payload: ApplyIn, request: Request):
     }
     await db.applications.insert_one({**doc})
     await notify(camp["company_id"], "application", f"{display_name(user)} applied to {camp['title']}",
-                 payload.message or "Review the application in Campaigns.", "/app/campaigns")
+                 payload.message or "Review the application in Campaigns.", "/app/campaigns",
+                 origin="creator", actor_id=user["user_id"])
     await log_activity(user["user_id"], f"Applied to campaign: {camp['title']}.")
     return doc
 
@@ -577,7 +603,8 @@ async def invite_creator(camp_id: str, payload: InviteIn, request: Request):
     }
     await db.applications.insert_one({**doc})
     await notify(payload.creator_id, "invitation", f"{display_name(user)} invited you to {camp['title']}",
-                 payload.message or "Respond from your dashboard.", "/app/overview")
+                 payload.message or "Respond from your dashboard.", "/app/overview",
+                 origin="company", actor_id=user["user_id"])
     await log_activity(user["user_id"], f"Invited a creator to campaign: {camp['title']}.")
     return doc
 
@@ -616,7 +643,8 @@ async def accept_application(app_id: str, request: Request):
         await ensure_thread(app_["creator_id"], app_["company_id"])
     counterpart = app_["creator_id"] if user["user_id"] == app_["company_id"] else app_["company_id"]
     await notify(counterpart, "application", f"Application accepted — {app_['campaign_title']}",
-                 "A chat thread is now open between you.", "/app/messages")
+                 "A chat thread is now open between you.", "/app/messages",
+                 origin=user.get("role", "company"), actor_id=user["user_id"])
     await log_activity(user["user_id"], f"Accepted the {app_['type']} for {app_['campaign_title']}.")
     return {"ok": True}
 
@@ -721,7 +749,8 @@ async def send_message(thread_id: str, payload: MsgIn, request: Request):
                                 }})
     other_id = next(p for p in t["participants"] if p != user["user_id"])
     await notify(other_id, "message", f"New message from {display_name(user)}",
-                 preview[:80], "/app/messages")
+                 preview[:80], "/app/messages",
+                 origin=user.get("role", "creator"), actor_id=user["user_id"])
     return clean(msg)
 
 
@@ -806,7 +835,8 @@ async def create_contract(payload: ContractIn, request: Request):
     }
     await db.contracts.insert_one({**doc})
     await notify(payload.counterpart_id, "contract", f"Deal room opened: {payload.title}",
-                 f"{display_name(user)} drafted an agreement for review.", "/app/contracts")
+                 f"{display_name(user)} drafted an agreement for review.", "/app/contracts",
+                 origin=user.get("role", "company"), actor_id=user["user_id"])
     await log_activity(user["user_id"], f"Opened deal room: {payload.title}.")
     return clean(doc)
 
@@ -841,7 +871,8 @@ async def sign_contract(deal_id: str, payload: SignIn, request: Request):
         })
         for pid in (c["company_id"], c["creator_id"]):
             await notify(pid, "contract", f"Agreement signed: {c['title']}",
-                         "The campaign was added to both calendars.", "/app/calendar")
+                         "The campaign was added to both calendars.", "/app/calendar",
+                         origin=user.get("role", "creator"), actor_id=user["user_id"])
             await log_activity(pid, f"E-signed the agreement for {c['title']}.")
     return {"ok": True, "status": "upcoming" if both else "in_review"}
 
@@ -865,7 +896,8 @@ async def complete_contract(deal_id: str, request: Request):
     for pid in (c["company_id"], c["creator_id"]):
         await notify(pid, "contract", f"Campaign delivered: {c['title']}",
                      "Funds released from escrow — payout queued." if released
-                     else "Leave a moderated rating for your partner.", "/app/contracts")
+                     else "Leave a moderated rating for your partner.", "/app/contracts",
+                     origin="creator", actor_id=user["user_id"])
         await log_activity(pid, f"Marked {c['title']} as delivered." +
                            (" Funds released from escrow." if released else ""))
     return {"ok": True}
@@ -884,7 +916,8 @@ async def dispute_contract(deal_id: str, payload: DisputeIn, request: Request):
     await db.contracts.update_one({"deal_id": deal_id}, {"$set": {"status": "disputed", "updated_at": now()}})
     other_id = c["creator_id"] if user["user_id"] == c["company_id"] else c["company_id"]
     await notify(other_id, "dispute", f"Dispute raised on {c['title']}",
-                 "CollaboNet review will mediate — no public accusations.", "/app/contracts")
+                 "CollaboNet review will mediate — no public accusations.", "/app/contracts",
+                 origin=user.get("role", "creator"), actor_id=user["user_id"])
     await log_activity(user["user_id"], f"Raised a dispute on {c['title']} — routed to platform review.")
     return {"ok": True}
 
@@ -917,7 +950,8 @@ async def review_contract(deal_id: str, payload: ReviewIn, request: Request):
     }
     await db.reviews.insert_one({**doc})
     await notify(reviewee_id, "review", f"New rating on {c['title']}",
-                 "Received a moderated rating.", "/app/contracts")
+                 "Received a moderated rating.", "/app/contracts",
+                 origin=user.get("role", "creator"), actor_id=user["user_id"])
     return doc
 
 
@@ -967,16 +1001,52 @@ async def move_event(event_id: str, request: Request):
 
 # ---------------------------------------------------------------- notifications
 @api_router.get("/notifications")
-async def list_notifications(request: Request):
+async def list_notifications(request: Request, origin: Optional[str] = None):
     user = await get_user(request)
-    docs = await db.notifications.find({"user_id": user["user_id"]}, {"_id": 0}).sort("created_at", -1).to_list(50)
-    return {"notifications": docs, "unread": sum(1 for n in docs if not n.get("read"))}
+    user_id = user["user_id"]
+
+    all_docs = await db.notifications.find({"user_id": user_id}, {"_id": 0}).sort("created_at", -1).to_list(200)
+
+    count_all = len(all_docs)
+    count_creators = sum(1 for n in all_docs if n.get("origin") == "creator")
+    count_companies = sum(1 for n in all_docs if n.get("origin") == "company")
+
+    unread_all = sum(1 for n in all_docs if not n.get("read"))
+    unread_creators = sum(1 for n in all_docs if not n.get("read") and n.get("origin") == "creator")
+    unread_companies = sum(1 for n in all_docs if not n.get("read") and n.get("origin") == "company")
+
+    if origin and origin.lower() in ("creator", "creators"):
+        filtered = [n for n in all_docs if n.get("origin") == "creator"]
+    elif origin and origin.lower() in ("company", "companies"):
+        filtered = [n for n in all_docs if n.get("origin") == "company"]
+    else:
+        filtered = all_docs
+
+    return {
+        "notifications": filtered[:50],
+        "unread": unread_all,
+        "counts": {
+            "all": count_all,
+            "creators": count_creators,
+            "companies": count_companies,
+        },
+        "unread_counts": {
+            "all": unread_all,
+            "creators": unread_creators,
+            "companies": unread_companies,
+        },
+    }
 
 
 @api_router.post("/notifications/read")
-async def read_notifications(request: Request):
+async def read_notifications(request: Request, origin: Optional[str] = None):
     user = await get_user(request)
-    await db.notifications.update_many({"user_id": user["user_id"]}, {"$set": {"read": True}})
+    q = {"user_id": user["user_id"]}
+    if origin and origin.lower() in ("creator", "creators"):
+        q["origin"] = "creator"
+    elif origin and origin.lower() in ("company", "companies"):
+        q["origin"] = "company"
+    await db.notifications.update_many(q, {"$set": {"read": True}})
     return {"ok": True}
 
 
@@ -1094,7 +1164,8 @@ async def settle_escrow(session_id: str):
         c = await db.contracts.find_one({"deal_id": tx["deal_id"]}, {"_id": 0})
         for pid in (c["company_id"], c["creator_id"]):
             await notify(pid, "payment", f"Escrow funded: {c['title']}",
-                         "The campaign fee is secured. Released on delivery.", "/app/contracts")
+                         "The campaign fee is secured. Released on delivery.", "/app/contracts",
+                         origin="company", actor_id=c.get("company_id", ""))
             await log_activity(pid, f"Escrow funded for {c['title']}.")
         # Payout to the creator's bank requires Stripe Connect onboarding — out of MVP scope.
 
@@ -1548,6 +1619,65 @@ async def seed():
     for uid_, text, off in activities:
         await db.activities.insert_one({"act_id": uid("act"), "user_id": uid_, "text": text, "created_at": iso_offset(off)})
 
+    # Seed notifications for demo users
+    seed_notifs = [
+        # Company demo user (Elena) notifications
+        {"notif_id": uid("ntf"), "user_id": elena["user_id"], "type": "connection",
+         "title": "Marcus Feld (Brewhaus Coffee) wants to connect",
+         "body": "Interested in co-sponsoring a recovery booth with Nova Athletics at the upcoming marathon.",
+         "link": "/app/explore", "read": False, "origin": "company", "actor_id": marcus["user_id"],
+         "created_at": iso_offset(-0.08)},
+        {"notif_id": uid("ntf"), "user_id": elena["user_id"], "type": "connection",
+         "title": "Ava Sato (Lumen Skincare) accepted your request",
+         "body": "Let us explore joint packaging for the marathon runner kit.",
+         "link": "/app/messages", "read": True, "origin": "company", "actor_id": ava["user_id"],
+         "created_at": iso_offset(-0.2)},
+        {"notif_id": uid("ntf"), "user_id": elena["user_id"], "type": "payment",
+         "title": "Escrow funded: Marathon Expo Booth",
+         "body": "Funds are secured in escrow. Work can begin safely.",
+         "link": "/app/contracts", "read": True, "origin": "company", "actor_id": elena["user_id"],
+         "created_at": iso_offset(-1)},
+        {"notif_id": uid("ntf"), "user_id": elena["user_id"], "type": "application",
+         "title": "Sofia Ramos applied to Zero-Drop Runner Launch",
+         "body": "I'd love to review the footwear line in my cooking and morning routine videos.",
+         "link": "/app/campaigns", "read": False, "origin": "creator", "actor_id": sofia["user_id"],
+         "created_at": iso_offset(-0.1)},
+        {"notif_id": uid("ntf"), "user_id": elena["user_id"], "type": "message",
+         "title": "New message from Maya Chen",
+         "body": "I'll review the draft agreement and send it over shortly!",
+         "link": "/app/messages", "read": True, "origin": "creator", "actor_id": maya["user_id"],
+         "created_at": iso_offset(-0.02)},
+
+        # Creator demo user (Maya) notifications
+        {"notif_id": uid("ntf"), "user_id": maya["user_id"], "type": "invitation",
+         "title": "Nova Athletics invited you to Zero-Drop Runner Launch",
+         "body": "We'd love to have you test our new zero-drop shoe.",
+         "link": "/app/campaigns", "read": False, "origin": "company", "actor_id": elena["user_id"],
+         "created_at": iso_offset(-0.05)},
+        {"notif_id": uid("ntf"), "user_id": maya["user_id"], "type": "message",
+         "title": "New message from Nova Athletics",
+         "body": "One dedicated YouTube review, three reels, and stories with a link sticker.",
+         "link": "/app/messages", "read": True, "origin": "company", "actor_id": elena["user_id"],
+         "created_at": iso_offset(-0.03)},
+        {"notif_id": uid("ntf"), "user_id": maya["user_id"], "type": "message",
+         "title": "New message from Dario Velez",
+         "body": "What portable power bank do you recommend for heavy camera gear on flights?",
+         "link": "/app/messages", "read": False, "origin": "creator", "actor_id": dario["user_id"],
+         "created_at": iso_offset(-0.12)},
+        {"notif_id": uid("ntf"), "user_id": maya["user_id"], "type": "connection",
+         "title": "Leo Tanaka accepted your connection request",
+         "body": "Let us test co-op on the new handheld OLED console.",
+         "link": "/app/messages", "read": True, "origin": "creator", "actor_id": leo["user_id"],
+         "created_at": iso_offset(-0.25)},
+        {"notif_id": uid("ntf"), "user_id": maya["user_id"], "type": "connection",
+         "title": "Sofia Ramos wants to connect",
+         "body": "Loved your smart kitchen gadgets review! Would love to collaborate on a foodie tech series.",
+         "link": "/app/explore", "read": True, "origin": "creator", "actor_id": sofia["user_id"],
+         "created_at": iso_offset(-1.1)},
+    ]
+    for n in seed_notifs:
+        await db.notifications.insert_one(n)
+
     logger.info("Seed data created")
 
 
@@ -1555,6 +1685,32 @@ async def seed():
 async def startup():
     try:
         await seed()
+
+        # Backfill origin for notifications if missing
+        all_users = await db.users.find({}, {"_id": 0, "user_id": 1, "name": 1, "role": 1, "company.name": 1}).to_list(100)
+        user_role_map = {u["user_id"]: u["role"] for u in all_users}
+        creator_names = {u["name"].lower() for u in all_users if u.get("role") == "creator"}
+        company_names = {u["name"].lower() for u in all_users if u.get("role") == "company"}
+        for u in all_users:
+            if u.get("company", {}).get("name"):
+                company_names.add(u["company"]["name"].lower())
+
+        async for doc in db.notifications.find({"origin": {"$exists": False}}):
+            title_lower = (doc.get("title") or "").lower()
+            actor_id = doc.get("actor_id")
+            origin = "system"
+            if actor_id and actor_id in user_role_map:
+                origin = user_role_map[actor_id]
+            elif any(name in title_lower for name in creator_names):
+                origin = "creator"
+            elif any(name in title_lower for name in company_names):
+                origin = "company"
+            elif doc.get("type") in ("campaign", "invitation", "payment"):
+                origin = "company"
+            elif doc.get("type") in ("application",):
+                origin = "creator"
+            await db.notifications.update_one({"_id": doc["_id"]}, {"$set": {"origin": origin}})
+
         # Idempotent escrow-field backfill for contracts created before payments existed.
         await db.contracts.update_many(
             {"funding_status": {"$exists": False}, "status": "completed"},
