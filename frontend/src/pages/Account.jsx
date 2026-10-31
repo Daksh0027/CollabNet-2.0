@@ -2,12 +2,12 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  BadgeCheck, FileText, Loader2, LogOut, Plus, ShieldCheck, Trash2,
-  ExternalLink, Video, Image as ImageIcon, Briefcase, Globe,
-  Check, X, Sparkles, Building2, User, Pin, FolderGit2, Hash, BookOpen
+  BadgeCheck, Building2, Check, ExternalLink, FileText, FolderGit2, Globe,
+  Hash, Layers, Loader2, LogOut, Pin, Plus, ShieldCheck, Sparkles, Target,
+  Trash2, User, Video, X,
 } from "lucide-react";
 import { toast } from "sonner";
-import api, { fmtMoney, fmtNum, fmtDate } from "@/lib/api";
+import api, { fmtNum, fmtDate } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { PageHead, UserAvatar } from "@/components/common";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 const NICHES = [
   "Tech & Gadgets",
@@ -51,15 +51,6 @@ const CONTENT_TYPES = [
   "UGC Ad Production"
 ];
 
-const COMMERCIAL_TERMS = [
-  "100% Escrow Upfront",
-  "1-Round Revision Guarantee",
-  "30-Day Paid Whitelisting Available",
-  "Organic Posting Only",
-  "Base + Affiliate Performance",
-  "Retainer / Ambassador Available"
-];
-
 export const GENRE_COLORS = {
   "Tech & Gadgets": "bg-blue-500",
   "Beauty & Skincare": "bg-pink-500",
@@ -74,22 +65,83 @@ export const GENRE_COLORS = {
 
 const SOCIAL_PLATFORMS = ["YouTube", "Instagram", "TikTok", "Twitch", "X (Twitter)", "LinkedIn"];
 
+function SectionCard({ icon: Icon, title, description, action, children, testId, className }) {
+  return (
+    <section className={cn("rounded-2xl border border-border bg-card p-5 shadow-xs sm:p-6", className)} data-testid={testId}>
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            {Icon ? <Icon className="h-4 w-4 shrink-0 text-muted-foreground" /> : null}
+            <h2 className="text-sm font-semibold tracking-tight text-foreground">{title}</h2>
+          </div>
+          {description ? <p className="mt-1 text-xs leading-5 text-muted-foreground">{description}</p> : null}
+        </div>
+        {action}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function Field({ label, hint, htmlFor, children, className }) {
+  return (
+    <div className={cn("space-y-1.5", className)}>
+      <div className="flex items-center justify-between gap-2">
+        <label htmlFor={htmlFor} className="text-xs font-medium text-foreground">{label}</label>
+        {hint ? <span className="text-[11px] text-muted-foreground">{hint}</span> : null}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function CountBadge({ value }) {
+  return (
+    <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-muted px-1.5 py-0.5 font-num text-[10px] font-semibold text-muted-foreground">
+      {value}
+    </span>
+  );
+}
+
+function ToggleChip({ active, onClick, children, testId }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      data-testid={testId}
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+        active
+          ? "border-primary/30 bg-primary/10 text-primary"
+          : "border-border bg-card text-muted-foreground hover:border-primary/30 hover:text-foreground"
+      )}
+    >
+      {active ? <Check className="h-3 w-3 shrink-0" /> : <Plus className="h-3 w-3 shrink-0" />}
+      {children}
+    </button>
+  );
+}
+
+function EmptyRow({ children }) {
+  return (
+    <div className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-xs text-muted-foreground">
+      {children}
+    </div>
+  );
+}
+
 export default function Account() {
   const { user, refresh, logout } = useAuth();
   const navigate = useNavigate();
   const isCreator = user?.role === "creator";
-  const c = user?.creator || {};
-  const co = user?.company || {};
 
-  // Form states
   const [form, setForm] = useState({});
   const [selectedSubNiches, setSelectedSubNiches] = useState([]);
   const [selectedContentTypes, setSelectedContentTypes] = useState([]);
-  const [selectedCommercialTerms, setSelectedCommercialTerms] = useState([]);
   const [platformsList, setPlatformsList] = useState([]);
   const [projectsList, setProjectsList] = useState([]);
 
-  // Dialogs
   const [addPlatformOpen, setAddPlatformOpen] = useState(false);
   const [newPlatform, setNewPlatform] = useState({ platform: "YouTube", handle: "", followers: "", posts_count: "", avg_views: "" });
 
@@ -113,36 +165,35 @@ export default function Account() {
   const [customSubNicheInput, setCustomSubNicheInput] = useState("");
 
   useEffect(() => {
-    if (user) {
-      if (isCreator) {
-        setForm({
-          name: user.name || "",
-          niche: c.niche || "Tech & Gadgets",
-          bio: c.bio || "",
-          pitch: c.pitch || "",
-          location: c.location || "",
-          rate_post: c.rates?.post ?? "",
-          rate_video: c.rates?.video ?? "",
-          rate_story: c.rates?.story ?? "",
-        });
-        setSelectedSubNiches(c.sub_niches || []);
-        setSelectedContentTypes(c.content_types || []);
-        setSelectedCommercialTerms(c.commercial_terms || []);
-        setPlatformsList(c.platforms || []);
-        setProjectsList(c.projects || []);
-      } else {
-        setForm({
-          name: user.name || "",
-          company_name: co.name || "",
-          industry: co.industry || "",
-          website: co.website || "",
-          employees: co.employees || "",
-          about: co.about || "",
-        });
-        setSelectedCommercialTerms(co.commercial_terms || []);
-      }
+    if (!user) return;
+    const creator = user.creator || {};
+    const company = user.company || {};
+    if (user.role === "creator") {
+      setForm({
+        name: user.name || "",
+        niche: creator.niche || "Tech & Gadgets",
+        bio: creator.bio || "",
+        pitch: creator.pitch || "",
+        location: creator.location || "",
+        rate_post: creator.rates?.post ?? "",
+        rate_video: creator.rates?.video ?? "",
+        rate_story: creator.rates?.story ?? "",
+      });
+      setSelectedSubNiches(creator.sub_niches || []);
+      setSelectedContentTypes(creator.content_types || []);
+      setPlatformsList(creator.platforms || []);
+      setProjectsList(creator.projects || []);
+    } else {
+      setForm({
+        name: user.name || "",
+        company_name: company.name || "",
+        industry: company.industry || "",
+        website: company.website || "",
+        employees: company.employees || "",
+        about: company.about || "",
+      });
     }
-  }, [user?.user_id]);
+  }, [user]);
 
   const toggleSubNiche = (sn) => {
     setSelectedSubNiches((prev) =>
@@ -164,12 +215,6 @@ export default function Account() {
     );
   };
 
-  const toggleCommercialTerm = (term) => {
-    setSelectedCommercialTerms((prev) =>
-      prev.includes(term) ? prev.filter((item) => item !== term) : [...prev, term]
-    );
-  };
-
   const handleAddPlatform = () => {
     if (!newPlatform.handle.trim()) {
       toast.error("Please enter account handle");
@@ -183,7 +228,6 @@ export default function Account() {
       avg_views: Number(newPlatform.avg_views) || 0,
       verified: true,
     };
-    // Replace if same platform exists, otherwise add
     setPlatformsList((prev) => [...prev.filter((p) => p.platform !== clean.platform), clean]);
     setNewPlatform({ platform: "YouTube", handle: "", followers: "", posts_count: "", avg_views: "" });
     setAddPlatformOpen(false);
@@ -284,7 +328,6 @@ export default function Account() {
               niche: form.niche,
               sub_niches: selectedSubNiches,
               content_types: selectedContentTypes,
-              commercial_terms: selectedCommercialTerms,
               platforms: platformsList,
               projects: projectsList,
               bio: form.bio,
@@ -305,7 +348,6 @@ export default function Account() {
               website: form.website,
               employees: Number(form.employees) || 0,
               about: form.about,
-              commercial_terms: selectedCommercialTerms,
             },
           };
       await api.put("/profile", payload);
@@ -317,72 +359,73 @@ export default function Account() {
   };
 
   const availableSubNiches = PRESET_SUB_NICHES[form.niche] || [];
+  const allSubNiches = [...availableSubNiches, ...selectedSubNiches.filter((sn) => !availableSubNiches.includes(sn))];
 
   return (
-    <div data-testid="account-page" className="space-y-8">
-      <PageHead title="Profile & Portfolio" sub="Manage your media kit, channels, preset tags, and project showcase." />
+    <div data-testid="account-page" className="space-y-6">
+      <PageHead title="Profile" sub="Manage your public profile, channels and portfolio." />
 
-      {/* Profile Header Summary */}
-      <div className="rounded-2xl border border-border bg-card p-6 shadow-xs" data-testid="profile-summary-card">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <UserAvatar user={user} className="h-16 w-16 rounded-2xl ring-2 ring-primary/20" />
+      <div className="rounded-2xl border border-border bg-card p-5 shadow-xs sm:p-6" data-testid="profile-summary-card">
+        <div className="flex flex-wrap items-center justify-between gap-4 sm:gap-5">
+          <div className="flex min-w-0 items-center gap-4">
+            <UserAvatar user={user} className="h-14 w-14 shrink-0 rounded-full text-sm" />
             <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <p className="font-display text-lg font-bold text-foreground">{user?.display_name}</p>
-                {user?.verified && (
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="truncate font-display text-lg font-bold text-foreground">{user?.display_name}</p>
+                {user?.verified ? (
                   <span
-                    className="flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-400"
+                    className="flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400"
                     data-testid="verified-pill"
                   >
-                    <BadgeCheck className="h-3.5 w-3.5" /> Verified
+                    <BadgeCheck className="h-3 w-3" /> Verified
                   </span>
-                )}
+                ) : null}
               </div>
-              <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
+              <p className="mt-0.5 truncate text-sm text-muted-foreground">{user?.email}</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Role: <span className="capitalize font-semibold text-foreground">{user?.role}</span> · Member since{" "}
-                {fmtDate(user?.created_at)}
+                <span className="font-medium capitalize text-foreground">{user?.role}</span>
+                <span className="mx-1.5 text-border">·</span>
+                Member since {fmtDate(user?.created_at)}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            {!user?.verified && (
-              <Button size="sm" className="rounded-full" onClick={() => navigate("/verify")} data-testid="start-verification-button">
+            {!user?.verified ? (
+              <Button size="sm" variant="outline" className="rounded-lg" onClick={() => navigate("/verify")} data-testid="start-verification-button">
                 Verify now
               </Button>
-            )}
-            <Button className="rounded-full px-6 font-semibold" onClick={save} data-testid="profile-save-button">
-              Save All Changes
+            ) : null}
+            <Button className="rounded-lg px-4 font-semibold" onClick={save} data-testid="profile-save-button">
+              Save changes
             </Button>
           </div>
         </div>
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-2">
-        {/* Left Column: Basic Details, Rates & Presets */}
-        <div className="space-y-6">
-          <div className="rounded-2xl border border-border bg-card p-6 shadow-xs" data-testid="profile-edit-card">
-            <p className="eyebrow mb-4">{isCreator ? "Creator Media Kit Details" : "Company Profile Details"}</p>
-            <div className="grid gap-4">
-              <div>
-                <label className="eyebrow mb-1 block">Display Name</label>
-                <Input
-                  value={form.name || ""}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder={isCreator ? "Your creator name" : "Contact person"}
-                  data-testid="profile-name-input"
-                />
-              </div>
-
-              {isCreator ? (
-                <>
-                  {/* Primary Niche Presets */}
-                  <div>
-                    <label className="eyebrow mb-1.5 block">Primary Genre / Niche</label>
+      <div className="grid gap-6 lg:grid-cols-12">
+        <div className="space-y-6 lg:col-span-7">
+          <SectionCard
+            icon={isCreator ? User : Building2}
+            title={isCreator ? "Profile details" : "Company details"}
+            description={isCreator ? "Your public identity and story." : "How sponsors see your company."}
+            testId="profile-edit-card"
+          >
+            {isCreator ? (
+              <div className="space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Display name" htmlFor="profile-name">
+                    <Input
+                      id="profile-name"
+                      value={form.name || ""}
+                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                      placeholder="Your creator name"
+                      data-testid="profile-name-input"
+                    />
+                  </Field>
+                  <Field label="Primary niche" htmlFor="profile-niche">
                     <Select value={form.niche} onValueChange={(v) => setForm({ ...form, niche: v })}>
-                      <SelectTrigger data-testid="profile-niche-select">
+                      <SelectTrigger id="profile-niche" data-testid="profile-niche-select">
                         <SelectValue placeholder="Select primary niche" />
                       </SelectTrigger>
                       <SelectContent>
@@ -393,521 +436,411 @@ export default function Account() {
                         ))}
                       </SelectContent>
                     </Select>
-                  </div>
+                  </Field>
+                </div>
 
-                  {/* Sub-Niches Preset Chips */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="eyebrow">Sub-Niches & Focus Tags (Click presets to toggle)</label>
-                      <span className="text-[11px] text-muted-foreground">{selectedSubNiches.length} selected</span>
-                    </div>
+                <Field label="Location" htmlFor="profile-location">
+                  <Input
+                    id="profile-location"
+                    value={form.location || ""}
+                    onChange={(e) => setForm({ ...form, location: e.target.value })}
+                    placeholder="e.g. Austin, USA"
+                    data-testid="profile-location-input"
+                  />
+                </Field>
 
-                    <div className="flex flex-wrap gap-1.5">
-                      {availableSubNiches.map((sn) => {
-                        const active = selectedSubNiches.includes(sn);
-                        return (
-                          <button
-                            key={sn}
-                            type="button"
-                            onClick={() => toggleSubNiche(sn)}
-                            className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
-                              active
-                                ? "bg-primary text-primary-foreground shadow-xs font-semibold"
-                                : "border border-border bg-background text-muted-foreground hover:border-primary/40"
-                            }`}
-                          >
-                            {active ? "✓ " : "+ "}
-                            {sn}
-                          </button>
-                        );
-                      })}
-                    </div>
+                <Field label="Bio" htmlFor="profile-bio">
+                  <Textarea
+                    id="profile-bio"
+                    value={form.bio || ""}
+                    onChange={(e) => setForm({ ...form, bio: e.target.value })}
+                    placeholder="What you create and who your audience is"
+                    rows={3}
+                    data-testid="profile-bio-input"
+                  />
+                </Field>
 
-                    {/* Custom Sub-niche input */}
-                    <div className="mt-2.5 flex items-center gap-2">
-                      <Input
-                        placeholder="Add custom sub-niche tag…"
-                        value={customSubNicheInput}
-                        onChange={(e) => setCustomSubNicheInput(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addCustomSubNiche())}
-                        className="h-8 text-xs"
-                      />
-                      <Button type="button" size="sm" variant="secondary" onClick={addCustomSubNiche} className="h-8 rounded-full text-xs">
-                        Add Tag
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Content Formats / Deliverables Presets */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="eyebrow">Content Deliverables Offered (Click to toggle)</label>
-                      <span className="text-[11px] text-muted-foreground">{selectedContentTypes.length} selected</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {CONTENT_TYPES.map((ct) => {
-                        const active = selectedContentTypes.includes(ct);
-                        return (
-                          <button
-                            key={ct}
-                            type="button"
-                            onClick={() => toggleContentType(ct)}
-                            className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
-                              active
-                                ? "bg-secondary text-secondary-foreground ring-1 ring-primary/40 font-semibold"
-                                : "border border-border bg-background text-muted-foreground hover:border-primary/40"
-                            }`}
-                          >
-                            {active ? "✓ " : "+ "}
-                            {ct}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Commercial Terms Presets */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="eyebrow">Commercial & Working Terms (Click to toggle)</label>
-                      <span className="text-[11px] text-muted-foreground">{selectedCommercialTerms.length} selected</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {COMMERCIAL_TERMS.map((term) => {
-                        const active = selectedCommercialTerms.includes(term);
-                        return (
-                          <button
-                            key={term}
-                            type="button"
-                            onClick={() => toggleCommercialTerm(term)}
-                            className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
-                              active
-                                ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 font-semibold"
-                                : "border border-border bg-background text-muted-foreground hover:border-primary/40"
-                            }`}
-                          >
-                            {active ? "✓ " : "+ "}
-                            {term}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="eyebrow mb-1 block">Location</label>
+                <Field label="Sponsor pitch" htmlFor="profile-pitch">
+                  <Textarea
+                    id="profile-pitch"
+                    value={form.pitch || ""}
+                    onChange={(e) => setForm({ ...form, pitch: e.target.value })}
+                    placeholder="Why sponsors should work with you"
+                    rows={2}
+                    data-testid="profile-pitch-input"
+                  />
+                </Field>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Contact name" htmlFor="profile-name">
                     <Input
-                      value={form.location || ""}
-                      onChange={(e) => setForm({ ...form, location: e.target.value })}
-                      placeholder="e.g. Austin, USA"
-                      data-testid="profile-location-input"
+                      id="profile-name"
+                      value={form.name || ""}
+                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                      placeholder="Contact person"
+                      data-testid="profile-name-input"
                     />
-                  </div>
-
-                  <div>
-                    <label className="eyebrow mb-1 block">Bio</label>
-                    <Textarea
-                      value={form.bio || ""}
-                      onChange={(e) => setForm({ ...form, bio: e.target.value })}
-                      placeholder="Short bio explaining what you create and who your audience is"
-                      rows={2}
-                      data-testid="profile-bio-input"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="eyebrow mb-1 block">Sponsor Pitch</label>
-                    <Textarea
-                      value={form.pitch || ""}
-                      onChange={(e) => setForm({ ...form, pitch: e.target.value })}
-                      placeholder="Why sponsors should pick you (e.g. high retention, loyal community, native integrations)"
-                      rows={2}
-                      data-testid="profile-pitch-input"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="eyebrow mb-1.5 block">Standard Rates ($ USD)</label>
-                    <div className="grid grid-cols-3 gap-3">
-                      <div>
-                        <span className="text-[10px] text-muted-foreground block mb-1">Post / Carousel</span>
-                        <Input
-                          type="number"
-                          value={form.rate_post ?? ""}
-                          onChange={(e) => setForm({ ...form, rate_post: e.target.value })}
-                          placeholder="Post $"
-                          data-testid="profile-rate-post-input"
-                        />
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-muted-foreground block mb-1">Dedicated Video</span>
-                        <Input
-                          type="number"
-                          value={form.rate_video ?? ""}
-                          onChange={(e) => setForm({ ...form, rate_video: e.target.value })}
-                          placeholder="Video $"
-                          data-testid="profile-rate-video-input"
-                        />
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-muted-foreground block mb-1">Story / Status</span>
-                        <Input
-                          type="number"
-                          value={form.rate_story ?? ""}
-                          onChange={(e) => setForm({ ...form, rate_story: e.target.value })}
-                          placeholder="Story $"
-                          data-testid="profile-rate-story-input"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div>
-                    <label className="eyebrow mb-1 block">Company Name</label>
+                  </Field>
+                  <Field label="Company name" htmlFor="profile-company-name">
                     <Input
+                      id="profile-company-name"
                       value={form.company_name || ""}
                       onChange={(e) => setForm({ ...form, company_name: e.target.value })}
                       placeholder="Company name"
                       data-testid="profile-company-name-input"
                     />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="eyebrow mb-1 block">Industry</label>
-                      <Input
-                        value={form.industry || ""}
-                        onChange={(e) => setForm({ ...form, industry: e.target.value })}
-                        placeholder="Industry"
-                        data-testid="profile-industry-input"
-                      />
-                    </div>
-                    <div>
-                      <label className="eyebrow mb-1 block">Website</label>
-                      <Input
-                        value={form.website || ""}
-                        onChange={(e) => setForm({ ...form, website: e.target.value })}
-                        placeholder="Website"
-                        data-testid="profile-website-input"
-                      />
-                    </div>
-                  </div>
+                  </Field>
+                </div>
 
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="eyebrow">Company Commercial Terms</label>
-                      <span className="text-[11px] text-muted-foreground">{selectedCommercialTerms.length} selected</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {COMMERCIAL_TERMS.map((term) => {
-                        const active = selectedCommercialTerms.includes(term);
-                        return (
-                          <button
-                            key={term}
-                            type="button"
-                            onClick={() => toggleCommercialTerm(term)}
-                            className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
-                              active
-                                ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 font-semibold"
-                                : "border border-border bg-background text-muted-foreground hover:border-primary/40"
-                            }`}
-                          >
-                            {active ? "✓ " : "+ "}
-                            {term}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="eyebrow mb-1 block">Employees</label>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Industry" htmlFor="profile-industry">
                     <Input
-                      type="number"
-                      value={form.employees ?? ""}
-                      onChange={(e) => setForm({ ...form, employees: e.target.value })}
-                      placeholder="Employees"
-                      data-testid="profile-employees-input"
+                      id="profile-industry"
+                      value={form.industry || ""}
+                      onChange={(e) => setForm({ ...form, industry: e.target.value })}
+                      placeholder="Industry"
+                      data-testid="profile-industry-input"
                     />
-                  </div>
+                  </Field>
+                  <Field label="Website" htmlFor="profile-website">
+                    <Input
+                      id="profile-website"
+                      value={form.website || ""}
+                      onChange={(e) => setForm({ ...form, website: e.target.value })}
+                      placeholder="https://"
+                      data-testid="profile-website-input"
+                    />
+                  </Field>
+                </div>
 
-                  <div>
-                    <label className="eyebrow mb-1 block">About the Company</label>
-                    <Textarea
-                      value={form.about || ""}
-                      onChange={(e) => setForm({ ...form, about: e.target.value })}
-                      placeholder="About company mission and campaign objectives"
-                      rows={3}
-                      data-testid="profile-about-input"
+                <Field label="Employees" htmlFor="profile-employees">
+                  <Input
+                    id="profile-employees"
+                    type="number"
+                    value={form.employees ?? ""}
+                    onChange={(e) => setForm({ ...form, employees: e.target.value })}
+                    placeholder="Team size"
+                    data-testid="profile-employees-input"
+                  />
+                </Field>
+
+                <Field label="About the company" htmlFor="profile-about">
+                  <Textarea
+                    id="profile-about"
+                    value={form.about || ""}
+                    onChange={(e) => setForm({ ...form, about: e.target.value })}
+                    placeholder="Mission and campaign objectives"
+                    rows={4}
+                    data-testid="profile-about-input"
+                  />
+                </Field>
+              </div>
+            )}
+          </SectionCard>
+
+          {isCreator ? (
+            <>
+              <SectionCard
+                icon={Target}
+                title="Focus areas"
+                description="Topics that describe your content."
+                action={<CountBadge value={selectedSubNiches.length} />}
+              >
+                <div className="flex flex-wrap gap-2">
+                  {allSubNiches.map((sn) => (
+                    <ToggleChip key={sn} active={selectedSubNiches.includes(sn)} onClick={() => toggleSubNiche(sn)}>
+                      {sn}
+                    </ToggleChip>
+                  ))}
+                </div>
+                <div className="mt-4 flex items-center gap-2">
+                  <Input
+                    placeholder="Add a custom focus area"
+                    value={customSubNicheInput}
+                    onChange={(e) => setCustomSubNicheInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addCustomSubNiche())}
+                    className="h-9 text-xs"
+                  />
+                  <Button type="button" size="sm" variant="secondary" onClick={addCustomSubNiche} className="h-9 shrink-0 rounded-lg">
+                    Add
+                  </Button>
+                </div>
+              </SectionCard>
+
+              <SectionCard
+                icon={Layers}
+                title="Deliverables"
+                description="Formats you offer sponsors."
+                action={<CountBadge value={selectedContentTypes.length} />}
+              >
+                <div className="flex flex-wrap gap-2">
+                  {CONTENT_TYPES.map((ct) => (
+                    <ToggleChip key={ct} active={selectedContentTypes.includes(ct)} onClick={() => toggleContentType(ct)}>
+                      {ct}
+                    </ToggleChip>
+                  ))}
+                </div>
+              </SectionCard>
+
+              <SectionCard
+                icon={Sparkles}
+                title="Deliverable rates"
+                description="Starting rates in USD for deliverables."
+              >
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <Field label="Post / Carousel" htmlFor="profile-rate-post">
+                    <Input
+                      id="profile-rate-post"
+                      type="number"
+                      value={form.rate_post ?? ""}
+                      onChange={(e) => setForm({ ...form, rate_post: e.target.value })}
+                      placeholder="0"
+                      data-testid="profile-rate-post-input"
                     />
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
+                  </Field>
+                  <Field label="Dedicated video" htmlFor="profile-rate-video">
+                    <Input
+                      id="profile-rate-video"
+                      type="number"
+                      value={form.rate_video ?? ""}
+                      onChange={(e) => setForm({ ...form, rate_video: e.target.value })}
+                      placeholder="0"
+                      data-testid="profile-rate-video-input"
+                    />
+                  </Field>
+                  <Field label="Story / Status" htmlFor="profile-rate-story">
+                    <Input
+                      id="profile-rate-story"
+                      type="number"
+                      value={form.rate_story ?? ""}
+                      onChange={(e) => setForm({ ...form, rate_story: e.target.value })}
+                      placeholder="0"
+                      data-testid="profile-rate-story-input"
+                    />
+                  </Field>
+                </div>
+              </SectionCard>
+            </>
+          ) : null}
         </div>
 
-        {/* Right Column: Social Channels & Portfolio Showcase (Behance Style) */}
-        <div className="space-y-6">
-          {isCreator && (
-            <>
-              {/* Connected Social Accounts */}
-              <div className="rounded-2xl border border-border bg-card p-6 shadow-xs" data-testid="social-accounts-panel">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="font-display text-base font-bold text-foreground">Connected Channels</h3>
-                    <p className="text-xs text-muted-foreground">Platforms that power your live audience reach.</p>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="rounded-full text-xs font-semibold"
-                    onClick={() => setAddPlatformOpen(true)}
-                    data-testid="add-platform-button"
-                  >
-                    <Plus className="mr-1 h-3.5 w-3.5" /> Add Channel
-                  </Button>
-                </div>
-
-                {!platformsList.length ? (
-                  <p className="text-xs text-muted-foreground">No social channels linked yet. Add your channels to display your reach.</p>
-                ) : (
-                  <div className="space-y-2.5">
-                    {platformsList.map((p) => (
-                      <div
-                        key={p.platform}
-                        className="flex items-center justify-between rounded-xl border border-border bg-background/50 p-3 text-xs"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary font-bold">
-                            {p.platform[0]}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-bold text-foreground">{p.platform}</span>
-                              <span className="text-muted-foreground">{p.handle}</span>
-                            </div>
-                            <div className="flex items-center gap-3 text-[11px] text-muted-foreground mt-0.5">
-                              <span>
-                                <strong className="text-foreground">{fmtNum(p.followers)}</strong> followers
-                              </span>
-                              {p.posts_count ? (
-                                <span>
-                                  <strong className="text-foreground">{p.posts_count}</strong> posts
-                                </span>
-                              ) : null}
-                              {p.avg_views ? (
-                                <span>
-                                  <strong className="text-foreground">{fmtNum(p.avg_views)}</strong> avg views
-                                </span>
-                              ) : null}
-                            </div>
-                          </div>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => handleRemovePlatform(p.platform)}
-                          className="text-muted-foreground hover:text-red-500 p-1 transition-colors"
-                          title="Remove platform"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+        <div className="space-y-6 lg:col-span-5">
+          {isCreator ? (
+            <SectionCard
+              icon={Globe}
+              title="Channels"
+              action={(
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-lg text-xs font-semibold"
+                  onClick={() => setAddPlatformOpen(true)}
+                  data-testid="add-platform-button"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Add
+                </Button>
+              )}
+              testId="social-accounts-panel"
+            >
+              {!platformsList.length ? (
+                <EmptyRow>No channels connected yet.</EmptyRow>
+              ) : (
+                <div className="space-y-2">
+                  {platformsList.map((p) => (
+                    <div
+                      key={p.platform}
+                      className="flex items-center gap-3 rounded-xl border border-border/70 bg-muted/30 p-3"
+                    >
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-sm font-bold text-primary">
+                        {p.platform[0]}
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* GitHub-Style Projects / Portfolio Repositories Showcase */}
-              <div className="rounded-2xl border border-border bg-card p-6 shadow-xs" data-testid="portfolio-projects-panel">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <FolderGit2 className="h-4 w-4 text-primary" />
-                      <h3 className="font-display text-base font-bold text-foreground">Projects & Pinned Repositories</h3>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Showcase past deliverables with bio, genre, topics/tags, and achieved metrics.
-                    </p>
-                  </div>
-                  <Button
-                    size="sm"
-                    className="rounded-full text-xs font-semibold"
-                    onClick={() => setAddProjectOpen(true)}
-                    data-testid="add-project-button"
-                  >
-                    <Plus className="mr-1 h-3.5 w-3.5" /> Add Project
-                  </Button>
-                </div>
-
-                {!projectsList.length ? (
-                  <div className="rounded-xl border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
-                    <FolderGit2 className="mx-auto h-8 w-8 text-muted-foreground/50 mb-2" />
-                    <p className="font-semibold text-foreground">No projects added yet</p>
-                    <p className="mt-1">Add your best sponsor collabs, videos, and case studies with topics/tags.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {projectsList.map((prj) => {
-                      const genreColor = GENRE_COLORS[prj.genre] || "bg-primary";
-                      const isPinned = prj.pinned ?? true;
-                      return (
-                        <div
-                          key={prj.project_id}
-                          className="group relative flex flex-col sm:flex-row gap-3.5 rounded-xl border border-border bg-background/50 p-4 text-xs transition-all hover:border-primary/50 hover:shadow-xs"
-                          data-testid={`project-item-${prj.project_id}`}
-                        >
-                          {/* Thumbnail / Media Preview */}
-                          <div className="relative h-28 w-full sm:w-40 shrink-0 overflow-hidden rounded-lg bg-muted border border-border/60">
-                            {prj.media_url ? (
-                              <img src={prj.media_url} alt={prj.title} className="h-full w-full object-cover" />
-                            ) : (
-                              <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-                                <Video className="h-6 w-6" />
-                              </div>
-                            )}
-                            <span className="absolute bottom-1 right-1 rounded-md bg-black/75 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                              {prj.deliverable_type?.split(" ")[0] || "Video"}
-                            </span>
-                          </div>
-
-                          {/* GitHub Repo Details Content */}
-                          <div className="flex-1 min-w-0 flex flex-col justify-between">
-                            <div>
-                              {/* Header: Title + Brand + Pinned + Actions */}
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <BookOpen className="h-3.5 w-3.5 text-primary shrink-0" />
-                                  <h4 className="font-bold text-sm text-foreground hover:text-primary transition-colors">
-                                    {prj.title}
-                                  </h4>
-                                  {prj.brand && (
-                                    <span className="rounded-full border border-border bg-card px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                                      {prj.brand}
-                                    </span>
-                                  )}
-                                  {isPinned && (
-                                    <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-500 dark:text-amber-400">
-                                      <Pin className="h-2.5 w-2.5 fill-current" /> Pinned
-                                    </span>
-                                  )}
-                                </div>
-
-                                <div className="flex items-center gap-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleTogglePinProject(prj.project_id)}
-                                    className={`p-1.5 rounded-lg transition-colors ${
-                                      isPinned
-                                        ? "text-amber-500 hover:bg-amber-500/10"
-                                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                                    }`}
-                                    title={isPinned ? "Unpin project" : "Pin to profile"}
-                                  >
-                                    <Pin className={`h-3.5 w-3.5 ${isPinned ? "fill-current" : ""}`} />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemoveProject(prj.project_id)}
-                                    className="p-1.5 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors"
-                                    title="Delete project"
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </button>
-                                </div>
-                              </div>
-
-                              {/* Project Bio / Description */}
-                              <p className="mt-1.5 text-muted-foreground text-[11px] leading-relaxed line-clamp-2">
-                                {prj.bio || prj.description}
-                              </p>
-
-                              {/* Topics / Tags Chips (GitHub Style) */}
-                              {prj.tags?.length > 0 && (
-                                <div className="mt-2 flex flex-wrap gap-1">
-                                  {prj.tags.map((t) => (
-                                    <span
-                                      key={t}
-                                      className="inline-flex items-center rounded-full bg-secondary/80 px-2 py-0.5 text-[10px] font-medium text-secondary-foreground"
-                                    >
-                                      #{t}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Footer: Genre indicator dot + Metrics + Live Link */}
-                            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border/50 pt-2 text-[11px]">
-                              <div className="flex items-center gap-3">
-                                {/* Genre with Language dot */}
-                                <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
-                                  <span className={`h-2.5 w-2.5 rounded-full ${genreColor}`} />
-                                  {prj.genre || "General"}
-                                </span>
-
-                                {prj.metrics && (
-                                  <span className="inline-flex items-center gap-1 font-semibold text-primary">
-                                    <Sparkles className="h-3 w-3" />
-                                    {prj.metrics}
-                                  </span>
-                                )}
-                              </div>
-
-                              {prj.link && (
-                                <a
-                                  href={prj.link}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
-                                >
-                                  Live Collab <ExternalLink className="h-3 w-3" />
-                                </a>
-                              )}
-                            </div>
-                          </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="truncate text-xs font-semibold text-foreground">{p.platform}</span>
+                          <span className="truncate text-xs text-muted-foreground">{p.handle}</span>
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </>
-          )}
+                        <div className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11px] text-muted-foreground">
+                          <span><strong className="font-medium text-foreground">{fmtNum(p.followers)}</strong> followers</span>
+                          {p.posts_count ? <span><strong className="font-medium text-foreground">{p.posts_count}</strong> posts</span> : null}
+                          {p.avg_views ? <span><strong className="font-medium text-foreground">{fmtNum(p.avg_views)}</strong> avg views</span> : null}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemovePlatform(p.platform)}
+                        className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                        title="Remove channel"
+                        aria-label={`Remove ${p.platform}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </SectionCard>
+          ) : null}
 
           <TemplatesPanel />
 
-          {/* Session Card */}
-          <div className="rounded-2xl border border-border bg-card p-6 shadow-xs" data-testid="session-card">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <ShieldCheck className="h-5 w-5 text-primary" />
-                <div>
-                  <p className="text-sm font-semibold">Active Session</p>
-                  <p className="text-xs text-muted-foreground">
-                    Signed in as {user?.email} · role: {user?.role}
-                  </p>
-                </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4 shadow-xs" data-testid="session-card">
+            <div className="flex min-w-0 items-center gap-3">
+              <ShieldCheck className="h-5 w-5 shrink-0 text-muted-foreground" />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold">Active session</p>
+                <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
               </div>
-              <Button variant="secondary" className="rounded-full text-red-600 dark:text-red-400" onClick={logout} data-testid="account-logout-button">
-                <LogOut className="mr-1 h-4 w-4" /> Log out
-              </Button>
             </div>
+            <Button variant="ghost" size="sm" className="rounded-lg text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={logout} data-testid="account-logout-button">
+              <LogOut className="h-4 w-4" /> Log out
+            </Button>
           </div>
         </div>
       </div>
 
-      {/* Add Social Platform Dialog */}
+      {isCreator ? (
+        <SectionCard
+          icon={FolderGit2}
+          title="Portfolio"
+          description="Past projects and case studies."
+          action={(
+            <Button
+              size="sm"
+              className="rounded-lg text-xs font-semibold"
+              onClick={() => setAddProjectOpen(true)}
+              data-testid="add-project-button"
+            >
+              <Plus className="h-3.5 w-3.5" /> Add project
+            </Button>
+          )}
+          testId="portfolio-projects-panel"
+        >
+          {!projectsList.length ? (
+            <EmptyRow>
+              <FolderGit2 className="mx-auto mb-2 h-7 w-7 text-muted-foreground/60" />
+              <p className="font-medium text-foreground">No projects yet</p>
+              <p className="mt-1">Add your best collaborations and case studies.</p>
+            </EmptyRow>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {projectsList.map((prj) => {
+                const genreColor = GENRE_COLORS[prj.genre] || "bg-primary";
+                const isPinned = prj.pinned ?? true;
+                return (
+                  <article
+                    key={prj.project_id}
+                    className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-primary/40"
+                    data-testid={`project-item-${prj.project_id}`}
+                  >
+                    <div className="relative aspect-[16/9] overflow-hidden bg-muted">
+                      {prj.media_url ? (
+                        <img src={prj.media_url} alt={prj.title} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                          <Video className="h-6 w-6" />
+                        </div>
+                      )}
+                      <span className="absolute bottom-2 left-2 rounded-md bg-background/90 px-2 py-0.5 text-[10px] font-semibold text-foreground backdrop-blur">
+                        {prj.deliverable_type?.split(" ")[0] || "Video"}
+                      </span>
+                      <div className="absolute right-2 top-2 flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleTogglePinProject(prj.project_id)}
+                          className={cn(
+                            "rounded-md border border-border/60 bg-background/90 p-1.5 backdrop-blur transition-colors",
+                            isPinned ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                          )}
+                          title={isPinned ? "Unpin project" : "Pin project"}
+                          aria-label={isPinned ? "Unpin project" : "Pin project"}
+                        >
+                          <Pin className={cn("h-3.5 w-3.5", isPinned && "fill-current")} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveProject(prj.project_id)}
+                          className="rounded-md border border-border/60 bg-background/90 p-1.5 text-muted-foreground backdrop-blur transition-colors hover:text-destructive"
+                          title="Delete project"
+                          aria-label="Delete project"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-1 flex-col p-4">
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="line-clamp-1 text-sm font-semibold text-foreground">{prj.title}</h3>
+                        {isPinned ? (
+                          <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                            <Pin className="h-2.5 w-2.5 fill-current" /> Pinned
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">
+                        {prj.brand || "Independent"}
+                        <span className="mx-1 text-border">·</span>
+                        {prj.deliverable_type || "Video"}
+                      </p>
+                      <p className="mt-2 line-clamp-2 text-xs leading-5 text-muted-foreground">
+                        {prj.bio || prj.description}
+                      </p>
+
+                      {prj.tags?.length > 0 ? (
+                        <div className="mt-3 flex flex-wrap gap-1">
+                          {prj.tags.map((t) => (
+                            <span
+                              key={t}
+                              className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
+                            >
+                              #{t}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+
+                      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-border/70 pt-3 text-[11px]">
+                        <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
+                          <span className={`h-2 w-2 rounded-full ${genreColor}`} />
+                          {prj.genre || "General"}
+                        </span>
+                        <div className="flex items-center gap-2.5">
+                          {prj.metrics ? (
+                            <span className="inline-flex items-center gap-1 text-muted-foreground">
+                              <Sparkles className="h-3 w-3" />
+                              {prj.metrics}
+                            </span>
+                          ) : null}
+                          {prj.link ? (
+                            <a
+                              href={prj.link}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
+                            >
+                              View <ExternalLink className="h-3 w-3" />
+                            </a>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </SectionCard>
+      ) : null}
+
       <Dialog open={addPlatformOpen} onOpenChange={setAddPlatformOpen}>
         <DialogContent data-testid="add-platform-dialog">
           <DialogHeader>
-            <DialogTitle>Add Social Channel</DialogTitle>
+            <DialogTitle>Add channel</DialogTitle>
           </DialogHeader>
-          <div className="grid gap-3 text-xs">
-            <div>
-              <label className="eyebrow mb-1 block">Platform</label>
+          <div className="grid gap-4 text-xs">
+            <Field label="Platform">
               <Select value={newPlatform.platform} onValueChange={(v) => setNewPlatform({ ...newPlatform, platform: v })}>
                 <SelectTrigger>
                   <SelectValue />
@@ -920,110 +853,93 @@ export default function Account() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
+            </Field>
 
-            <div>
-              <label className="eyebrow mb-1 block">Handle / Username</label>
+            <Field label="Handle">
               <Input
                 placeholder="@handle"
                 value={newPlatform.handle}
                 onChange={(e) => setNewPlatform({ ...newPlatform, handle: e.target.value })}
               />
-            </div>
+            </Field>
 
-            <div className="grid grid-cols-3 gap-2">
-              <div>
-                <label className="eyebrow mb-1 block">Followers</label>
+            <div className="grid grid-cols-3 gap-3">
+              <Field label="Followers">
                 <Input
                   type="number"
-                  placeholder="e.g. 250000"
+                  placeholder="250000"
                   value={newPlatform.followers}
                   onChange={(e) => setNewPlatform({ ...newPlatform, followers: e.target.value })}
                 />
-              </div>
-              <div>
-                <label className="eyebrow mb-1 block">Videos/Posts</label>
+              </Field>
+              <Field label="Posts">
                 <Input
                   type="number"
-                  placeholder="e.g. 180"
+                  placeholder="180"
                   value={newPlatform.posts_count}
                   onChange={(e) => setNewPlatform({ ...newPlatform, posts_count: e.target.value })}
                 />
-              </div>
-              <div>
-                <label className="eyebrow mb-1 block">Avg Views</label>
+              </Field>
+              <Field label="Avg views">
                 <Input
                   type="number"
-                  placeholder="e.g. 85000"
+                  placeholder="85000"
                   value={newPlatform.avg_views}
                   onChange={(e) => setNewPlatform({ ...newPlatform, avg_views: e.target.value })}
                 />
-              </div>
+              </Field>
             </div>
           </div>
           <DialogFooter>
-            <Button className="rounded-full" onClick={handleAddPlatform}>
-              Save Channel
+            <Button className="rounded-lg" onClick={handleAddPlatform}>
+              Add channel
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Add GitHub-Style Portfolio Project Dialog */}
       <Dialog open={addProjectOpen} onOpenChange={setAddProjectOpen}>
-        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto" data-testid="add-project-dialog">
+        <DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto" data-testid="add-project-dialog">
           <DialogHeader>
             <div className="flex items-center gap-2">
               <FolderGit2 className="h-5 w-5 text-primary" />
-              <DialogTitle>Add Project to Profile & Showcase</DialogTitle>
+              <DialogTitle>Add project</DialogTitle>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Add your deliverable with required standard fields (bio, genre, multiple topics/tags) just like a GitHub repository.
-            </p>
+            <p className="mt-1 text-xs text-muted-foreground">Showcase a past collaboration or case study.</p>
           </DialogHeader>
 
-          <div className="grid gap-4 text-xs mt-2">
-            {/* Core Required Fields: Title & Brand */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="eyebrow mb-1 block">Project Title *</label>
+          <div className="mt-2 grid gap-4 text-xs">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Field label="Project title *">
                 <Input
                   placeholder="e.g. Smart Desk Tour 2026"
                   value={newProject.title}
                   onChange={(e) => setNewProject({ ...newProject, title: e.target.value })}
                   data-testid="project-title-input"
                 />
-              </div>
-              <div>
-                <label className="eyebrow mb-1 block">Client / Sponsor Brand</label>
+              </Field>
+              <Field label="Client / brand">
                 <Input
-                  placeholder="e.g. Autonomous AI or Personal"
+                  placeholder="e.g. Autonomous AI"
                   value={newProject.brand}
                   onChange={(e) => setNewProject({ ...newProject, brand: e.target.value })}
                   data-testid="project-brand-input"
                 />
-              </div>
+              </Field>
             </div>
 
-            {/* Standard Field: Project Bio / Description */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="eyebrow">Project Bio & Short Summary *</label>
-                <span className="text-[11px] text-muted-foreground">What was this project about?</span>
-              </div>
+            <Field label="Summary *">
               <Textarea
-                placeholder="Brief summary explaining the concept, creative angle, product featured, and campaign outcome…"
-                rows={2}
+                placeholder="What the project was about and how it performed"
+                rows={3}
                 value={newProject.bio}
                 onChange={(e) => setNewProject({ ...newProject, bio: e.target.value })}
                 data-testid="project-bio-input"
               />
-            </div>
+            </Field>
 
-            {/* Standard Field: Primary Genre */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="eyebrow mb-1 block">Primary Genre / Category *</label>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Field label="Genre">
                 <Select
                   value={newProject.genre}
                   onValueChange={(v) => setNewProject({ ...newProject, genre: v })}
@@ -1042,10 +958,9 @@ export default function Account() {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
+              </Field>
 
-              <div>
-                <label className="eyebrow mb-1 block">Deliverable Format</label>
+              <Field label="Deliverable">
                 <Select
                   value={newProject.deliverable_type}
                   onValueChange={(v) => setNewProject({ ...newProject, deliverable_type: v })}
@@ -1061,22 +976,20 @@ export default function Account() {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
+              </Field>
             </div>
 
-            {/* Standard Field: Topics / Tags (Multiple) */}
-            <div className="rounded-xl border border-border/80 bg-background/50 p-3 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <label className="eyebrow flex items-center gap-1.5">
-                  <Hash className="h-3 w-3 text-primary" /> Topics & Tags (Multiple)
-                </label>
-                <span className="text-[11px] text-muted-foreground">{newProject.tags?.length || 0} tags added</span>
+            <div className="space-y-3 rounded-xl border border-border/80 bg-muted/30 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+                  <Hash className="h-3 w-3 text-muted-foreground" /> Tags
+                </span>
+                <CountBadge value={newProject.tags?.length || 0} />
               </div>
 
-              {/* Tag Input Field */}
               <div className="flex items-center gap-2">
                 <Input
-                  placeholder="Add a topic (e.g. smart-home, unboxing, hardware)"
+                  placeholder="Add a topic"
                   value={projectTagInput}
                   onChange={(e) => setProjectTagInput(e.target.value)}
                   onKeyDown={(e) => {
@@ -1085,113 +998,102 @@ export default function Account() {
                       handleAddProjectTag();
                     }
                   }}
-                  className="h-8 text-xs font-mono"
+                  className="h-9 text-xs"
                   data-testid="project-tag-input"
                 />
                 <Button
                   type="button"
                   size="sm"
                   variant="secondary"
-                  className="h-8 shrink-0 rounded-lg text-xs font-semibold px-3"
+                  className="h-9 shrink-0 rounded-lg px-3 text-xs font-semibold"
                   onClick={() => handleAddProjectTag()}
                   data-testid="add-tag-button"
                 >
-                  + Tag
+                  Add
                 </Button>
               </div>
 
-              {/* Quick Tag Suggestions for the selected genre */}
-              {PRESET_SUB_NICHES[newProject.genre]?.length > 0 && (
-                <div className="pt-1">
-                  <span className="text-[10px] text-muted-foreground block mb-1">Suggested for {newProject.genre}:</span>
-                  <div className="flex flex-wrap gap-1">
-                    {PRESET_SUB_NICHES[newProject.genre].slice(0, 5).map((sug) => {
-                      const already = newProject.tags?.includes(sug);
-                      return (
-                        <button
-                          key={sug}
-                          type="button"
-                          onClick={() => handleAddProjectTag(sug)}
-                          disabled={already}
-                          className={`rounded-full px-2 py-0.5 text-[10px] transition-all font-mono ${
-                            already
-                              ? "opacity-40 cursor-not-allowed bg-muted text-muted-foreground"
-                              : "border border-border bg-card text-muted-foreground hover:border-primary/50 hover:text-foreground"
-                          }`}
-                        >
-                          +{sug}
-                        </button>
-                      );
-                    })}
-                  </div>
+              {PRESET_SUB_NICHES[newProject.genre]?.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {PRESET_SUB_NICHES[newProject.genre].slice(0, 5).map((sug) => {
+                    const already = newProject.tags?.includes(sug);
+                    return (
+                      <button
+                        key={sug}
+                        type="button"
+                        onClick={() => handleAddProjectTag(sug)}
+                        disabled={already}
+                        className={cn(
+                          "rounded-full border px-2.5 py-1 text-[10px] transition-colors",
+                          already
+                            ? "cursor-not-allowed border-transparent bg-muted text-muted-foreground opacity-50"
+                            : "border-border bg-card text-muted-foreground hover:border-primary/30 hover:text-foreground"
+                        )}
+                      >
+                        {sug}
+                      </button>
+                    );
+                  })}
                 </div>
-              )}
+              ) : null}
 
-              {/* Active Tags Pills List */}
-              {newProject.tags?.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 pt-1 border-t border-border/50">
+              {newProject.tags?.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5 border-t border-border/60 pt-3">
                   {newProject.tags.map((t) => (
                     <span
                       key={t}
-                      className="inline-flex items-center gap-1 rounded-full bg-primary/10 border border-primary/20 px-2.5 py-0.5 text-[11px] font-mono font-medium text-primary"
+                      className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary"
                     >
                       #{t}
                       <button
                         type="button"
                         onClick={() => handleRemoveProjectTag(t)}
-                        className="hover:text-red-500 transition-colors ml-0.5"
+                        className="rounded-full transition-colors hover:text-destructive"
+                        aria-label={`Remove tag ${t}`}
                       >
                         <X className="h-3 w-3" />
                       </button>
                     </span>
                   ))}
                 </div>
-              )}
+              ) : null}
             </div>
 
-            {/* Presentation Details: Metrics & Links */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="eyebrow mb-1 block">Key Metrics Achieved</label>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Field label="Metrics">
                 <Input
-                  placeholder="e.g. 1.4M Views · 9.2% CTR · $24k Sales"
+                  placeholder="e.g. 1.4M views · 9.2% CTR"
                   value={newProject.metrics}
                   onChange={(e) => setNewProject({ ...newProject, metrics: e.target.value })}
                 />
-              </div>
-
-              <div>
-                <label className="eyebrow mb-1 block">Live Link / Video URL</label>
+              </Field>
+              <Field label="Live link">
                 <Input
-                  placeholder="https://youtube.com/watch?v=..."
+                  placeholder="https://"
                   value={newProject.link}
                   onChange={(e) => setNewProject({ ...newProject, link: e.target.value })}
                 />
-              </div>
+              </Field>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="eyebrow mb-1 block">Thumbnail URL</label>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Field label="Thumbnail URL">
                 <Input
-                  placeholder="https://images.unsplash.com/..."
+                  placeholder="https://images..."
                   value={newProject.media_url}
                   onChange={(e) => setNewProject({ ...newProject, media_url: e.target.value })}
                 />
-              </div>
-
-              <div>
-                <label className="eyebrow mb-1 block">Embed or Document Link (optional)</label>
+              </Field>
+              <Field label="Embed URL">
                 <Input
-                  placeholder="https://youtube.com/embed/... or case study"
+                  placeholder="Optional"
                   value={newProject.embed_url}
                   onChange={(e) => setNewProject({ ...newProject, embed_url: e.target.value })}
                 />
-              </div>
+              </Field>
             </div>
 
-            {/* Pinned to Profile Overview Checkbox */}
-            <div className="flex items-center gap-2 rounded-xl border border-border/70 bg-card p-3">
+            <label htmlFor="pinProjectCheckbox" className="flex cursor-pointer items-center gap-2 rounded-xl border border-border/70 bg-card p-3">
               <input
                 type="checkbox"
                 id="pinProjectCheckbox"
@@ -1199,23 +1101,18 @@ export default function Account() {
                 onChange={(e) => setNewProject({ ...newProject, pinned: e.target.checked })}
                 className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
               />
-              <label htmlFor="pinProjectCheckbox" className="text-xs cursor-pointer select-none">
-                <span className="font-semibold text-foreground flex items-center gap-1">
-                  <Pin className="h-3 w-3 text-amber-500 fill-current" /> Pin to profile overview
-                </span>
-                <span className="block text-[11px] text-muted-foreground">
-                  Pinned repositories are featured at the very top of your media kit for sponsors.
-                </span>
-              </label>
-            </div>
+              <span className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+                <Pin className="h-3 w-3 text-primary fill-current" /> Pin to profile
+              </span>
+            </label>
           </div>
 
           <DialogFooter className="mt-2">
-            <Button variant="outline" className="rounded-full" onClick={() => setAddProjectOpen(false)}>
+            <Button variant="outline" className="rounded-lg" onClick={() => setAddProjectOpen(false)}>
               Cancel
             </Button>
-            <Button className="rounded-full font-semibold" onClick={handleAddProject} data-testid="submit-project-button">
-              Add to Profile Showcase
+            <Button className="rounded-lg font-semibold" onClick={handleAddProject} data-testid="submit-project-button">
+              Add project
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1252,36 +1149,41 @@ function TemplatesPanel() {
   };
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-6 shadow-xs" data-testid="templates-panel">
-      <div className="mb-4 flex items-center justify-between">
-        <p className="eyebrow flex items-center gap-2"><FileText className="h-4 w-4 text-primary" /> Template Library</p>
-        <Button size="sm" variant="secondary" className="rounded-full" onClick={() => setOpen(true)} data-testid="new-template-button">
-          <Plus className="mr-1 h-3.5 w-3.5" /> New
+    <SectionCard
+      icon={FileText}
+      title="Templates"
+      action={(
+        <Button size="sm" variant="outline" className="rounded-lg text-xs font-semibold" onClick={() => setOpen(true)} data-testid="new-template-button">
+          <Plus className="h-3.5 w-3.5" /> New
         </Button>
-      </div>
+      )}
+      testId="templates-panel"
+    >
       {!templates?.length ? (
-        <p className="text-xs text-muted-foreground" data-testid="templates-empty">No templates yet — save reusable briefs, outreach messages and agreements.</p>
+        <EmptyRow>
+          <p data-testid="templates-empty">No templates yet.</p>
+        </EmptyRow>
       ) : (
-        <div className="space-y-3" data-testid="templates-list">
+        <div className="space-y-2" data-testid="templates-list">
           {templates.map((t) => (
-            <div key={t.tpl_id} className="rounded-xl border border-border p-3" data-testid={`template-${t.tpl_id}`}>
-              <div className="flex items-center justify-between gap-2">
+            <div key={t.tpl_id} className="rounded-xl border border-border/70 p-3" data-testid={`template-${t.tpl_id}`}>
+              <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold">{t.title}</p>
-                  <p className="eyebrow mt-0.5">{t.kind}</p>
+                  <p className="truncate text-xs font-semibold text-foreground">{t.title}</p>
+                  <p className="mt-0.5 text-[11px] capitalize text-muted-foreground">{t.kind}</p>
                 </div>
-                <button onClick={() => remove(t.tpl_id)} className="text-muted-foreground hover:text-red-400" data-testid={`template-delete-${t.tpl_id}`}>
-                  <Trash2 className="h-4 w-4" />
+                <button onClick={() => remove(t.tpl_id)} className="rounded-md p-1 text-muted-foreground transition-colors hover:text-destructive" aria-label={`Delete ${t.title}`} data-testid={`template-delete-${t.tpl_id}`}>
+                  <Trash2 className="h-3.5 w-3.5" />
                 </button>
               </div>
-              <p className="mt-2 line-clamp-3 whitespace-pre-wrap text-xs text-muted-foreground">{t.body}</p>
+              <p className="mt-2 line-clamp-2 whitespace-pre-wrap text-[11px] leading-5 text-muted-foreground">{t.body}</p>
             </div>
           ))}
         </div>
       )}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent data-testid="new-template-dialog">
-          <DialogHeader><DialogTitle>New Template</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>New template</DialogTitle></DialogHeader>
           <div className="grid gap-3">
             <Select value={form.kind} onValueChange={(v) => setForm({ ...form, kind: v })}>
               <SelectTrigger data-testid="template-kind-select"><SelectValue /></SelectTrigger>
@@ -1295,12 +1197,12 @@ function TemplatesPanel() {
             <Textarea placeholder="Body" rows={5} value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} data-testid="template-body-input" />
           </div>
           <DialogFooter>
-            <Button className="rounded-full" onClick={create} disabled={busy} data-testid="template-submit-button">
+            <Button className="rounded-lg" onClick={create} disabled={busy} data-testid="template-submit-button">
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save template"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </SectionCard>
   );
 }

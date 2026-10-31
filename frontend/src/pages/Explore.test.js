@@ -131,7 +131,7 @@ describe("Explore Page Serious Filters and Stats System", () => {
 
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     qc.setQueryData(
-      ["creators", "", "all", "all", "all", "all", "", "", "", "", "", "", "", "followers"],
+      ["creators", "", "all", "all", "all", "", "", "", "", "", "", "", "followers"],
       mockCreators
     );
     qc.setQueryData(["connections"], []);
@@ -160,7 +160,6 @@ describe("Explore Page Serious Filters and Stats System", () => {
     expect(container.textContent).toContain("240K"); // Avg views
     expect(container.textContent).toContain("4.8%"); // Engagement
     expect(container.textContent).toContain("Dedicated Long-Form Video");
-    expect(container.textContent).toContain("100% Escrow Upfront");
     expect(container.textContent).toContain("Smart Desk Tour 2026");
     expect(container.textContent).toContain("#Smart Home");
   });
@@ -169,7 +168,7 @@ describe("Explore Page Serious Filters and Stats System", () => {
     mockUser = { user_id: "usr_elena", role: "company" };
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     qc.setQueryData(
-      ["creators", "", "all", "all", "all", "all", "", "", "", "", "", "", "", "followers"],
+      ["creators", "", "all", "all", "all", "", "", "", "", "", "", "", "followers"],
       []
     );
     qc.setQueryData(["connections"], []);
@@ -222,13 +221,12 @@ describe("Explore Page Serious Filters and Stats System", () => {
           employees: 240,
           connections_count: 15,
           total_spend: 42000,
-          commercial_terms: ["100% Escrow Upfront", "1-Round Revision Guarantee"],
         },
       },
     ];
 
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    qc.setQueryData(["campaigns", "", "all", "all", "", "", "all"], mockCampaigns);
+    qc.setQueryData(["campaigns", "", "all", "all", "", ""], mockCampaigns);
     qc.setQueryData(["applications"], []);
 
     await act(async () => {
@@ -246,6 +244,5 @@ describe("Explore Page Serious Filters and Stats System", () => {
     expect(container.textContent).toContain("Nova Athletics");
     expect(container.textContent).toContain("15 connections");
     expect(container.textContent).toContain("$42,000 total spend");
-    expect(container.textContent).toContain("100% Escrow Upfront");
   });
 });

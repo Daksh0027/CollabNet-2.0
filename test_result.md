@@ -193,10 +193,34 @@ frontend:
         agent: "main"
         comment: "Created src/pages/Explore.test.js with 3 tests verifying company view, advanced filters drawer toggle with sliders, and creator campaign filters. All 36 frontend tests across 8 test suites passed."
 
+  - task: "GitHub-Style Projects & Topic Tags System (Account.jsx & Explore.jsx)"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/Account.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Implemented GitHub-style project repositories on creator profile: required title, bio, primary genre (with language color dot), multiple topics/tags adder & chip manager, pinned repository toggling, and in-modal topic tag filter and search."
+
+  - task: "Removal of Generic Commercial Terms Filter (Explore.jsx & Account.jsx)"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/Explore.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Per user request ('terms filter should be removed... usually very custom for every deal'), removed the 'All Terms' dropdown, drawer preset chips, and card badges. Deals are negotiated per-contract rather than pre-filtered."
+
 metadata:
   created_by: "main_agent"
-  version: "1.2"
-  test_sequence: 3
+  version: "1.4"
+  test_sequence: 5
   run_ui: false
 
 test_plan:
@@ -207,4 +231,4 @@ test_plan:
 
 agent_communication:
   - agent: "main"
-    message: "Completed implementation of interactive presets, numeric sliders, multi-channel portfolio manager, and Behance-style project showcase. All 19 backend pytest tests and all 36 frontend jest tests pass."
+    message: "Removed generic commercial terms filters and preset dropdowns per user request. Kept deal terms custom to each contract negotiation. All 20 backend pytest tests and 36 frontend jest tests passing cleanly."

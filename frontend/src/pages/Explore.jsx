@@ -54,15 +54,6 @@ const CONTENT_TYPES = [
 
 const PLATFORMS = ["YouTube", "Instagram", "TikTok", "Twitch"];
 
-const COMMERCIAL_TERMS = [
-  "100% Escrow Upfront",
-  "1-Round Revision Guarantee",
-  "30-Day Paid Whitelisting Available",
-  "Organic Posting Only",
-  "Base + Affiliate Performance",
-  "Retainer / Ambassador Available"
-];
-
 const SORT_OPTIONS = [
   { value: "followers", label: "Top Followers" },
   { value: "views", label: "Highest Avg Views" },
@@ -94,7 +85,6 @@ function CompanyExplore() {
   const [niche, setNiche] = useState("all");
   const [platform, setPlatform] = useState("all");
   const [contentType, setContentType] = useState("all");
-  const [commercialTerm, setCommercialTerm] = useState("all");
   const [sortBy, setSortBy] = useState("followers");
 
   // Numeric Thresholds (Sliders)
@@ -118,7 +108,6 @@ function CompanyExplore() {
     if (niche !== "all") count++;
     if (platform !== "all") count++;
     if (contentType !== "all") count++;
-    if (commercialTerm !== "all") count++;
     if (minF > 0) count++;
     if (maxF > 0) count++;
     if (minViews > 0) count++;
@@ -127,14 +116,13 @@ function CompanyExplore() {
     if (minRate > 0) count++;
     if (maxRate > 0) count++;
     return count;
-  }, [niche, platform, contentType, commercialTerm, minF, maxF, minViews, minEngagement, minConnections, minRate, maxRate]);
+  }, [niche, platform, contentType, minF, maxF, minViews, minEngagement, minConnections, minRate, maxRate]);
 
   const resetFilters = () => {
     setSearch("");
     setNiche("all");
     setPlatform("all");
     setContentType("all");
-    setCommercialTerm("all");
     setMinF(0);
     setMaxF(0);
     setMinViews(0);
@@ -152,7 +140,6 @@ function CompanyExplore() {
       niche,
       platform,
       contentType,
-      commercialTerm,
       minF ? String(minF) : "",
       maxF ? String(maxF) : "",
       minViews ? String(minViews) : "",
@@ -170,7 +157,6 @@ function CompanyExplore() {
             niche: niche === "all" ? "" : niche,
             platform: platform === "all" ? "" : platform,
             content_type: contentType === "all" ? "" : contentType,
-            commercial_term: commercialTerm === "all" ? "" : commercialTerm,
             min_followers: Number(minF) || 0,
             max_followers: Number(maxF) || 0,
             min_views: Number(minViews) || 0,
@@ -485,38 +471,6 @@ function CompanyExplore() {
                 </div>
               </div>
             </div>
-
-            {/* Commercial Terms Presets */}
-            <div>
-              <span className="eyebrow block mb-1.5">Commercial & Working Terms</span>
-              <div className="flex flex-wrap gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setCommercialTerm("all")}
-                  className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
-                    commercialTerm === "all"
-                      ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 font-semibold"
-                      : "border border-border bg-background text-muted-foreground hover:border-primary/40"
-                  }`}
-                >
-                  Any Terms
-                </button>
-                {COMMERCIAL_TERMS.map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setCommercialTerm(commercialTerm === t ? "all" : t)}
-                    className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
-                      commercialTerm === t
-                        ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 font-semibold"
-                        : "border border-border bg-background text-muted-foreground hover:border-primary/40"
-                    }`}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
-            </div>
           </div>
         )}
       </div>
@@ -639,25 +593,6 @@ function CompanyExplore() {
                       {c.content_types.length > 3 && (
                         <span className="rounded-md bg-secondary/50 px-1.5 py-0.5 text-[10px] text-muted-foreground">
                           +{c.content_types.length - 3}
-                        </span>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Commercial Terms Badges */}
-                  {c.commercial_terms?.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {c.commercial_terms.slice(0, 2).map((term) => (
-                        <span
-                          key={term}
-                          className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400"
-                        >
-                          {term}
-                        </span>
-                      ))}
-                      {c.commercial_terms.length > 2 && (
-                        <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                          +{c.commercial_terms.length - 2}
                         </span>
                       )}
                     </div>
@@ -1110,40 +1045,22 @@ function CompanyExplore() {
                   </div>
                 </div>
 
-                {/* Deliverables & Commercial Terms */}
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {detail.creator?.content_types?.length > 0 && (
-                    <div className="rounded-xl border border-border bg-card p-3">
-                      <h4 className="eyebrow mb-2">Supported Content Formats</h4>
-                      <div className="flex flex-wrap gap-1.5">
-                        {detail.creator.content_types.map((ct) => (
-                          <span
-                            key={ct}
-                            className="rounded-md bg-secondary px-2.5 py-1 text-[11px] font-medium text-secondary-foreground"
-                          >
-                            {ct}
-                          </span>
-                        ))}
-                      </div>
+                {/* Supported Content Formats */}
+                {detail.creator?.content_types?.length > 0 && (
+                  <div className="rounded-xl border border-border bg-card p-3">
+                    <h4 className="eyebrow mb-2">Supported Content Formats</h4>
+                    <div className="flex flex-wrap gap-1.5">
+                      {detail.creator.content_types.map((ct) => (
+                        <span
+                          key={ct}
+                          className="rounded-md bg-secondary px-2.5 py-1 text-[11px] font-medium text-secondary-foreground"
+                        >
+                          {ct}
+                        </span>
+                      ))}
                     </div>
-                  )}
-
-                  {detail.creator?.commercial_terms?.length > 0 && (
-                    <div className="rounded-xl border border-border bg-card p-3">
-                      <h4 className="eyebrow mb-2">Commercial & Working Terms</h4>
-                      <div className="flex flex-wrap gap-1.5">
-                        {detail.creator.commercial_terms.map((term) => (
-                          <span
-                            key={term}
-                            className="rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-medium text-muted-foreground"
-                          >
-                            {term}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 {/* Client Reviews */}
                 {detail.reviews?.length ? (
@@ -1234,14 +1151,13 @@ function CreatorExplore() {
   const [deliverable, setDeliverable] = useState("all");
   const [minBudget, setMinBudget] = useState("");
   const [maxBudget, setMaxBudget] = useState("");
-  const [commercialTerm, setCommercialTerm] = useState("all");
 
   const [applyFor, setApplyFor] = useState(null);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
   const { data: campaigns, isLoading } = useQuery({
-    queryKey: ["campaigns", search, niche, deliverable, minBudget, maxBudget, commercialTerm],
+    queryKey: ["campaigns", search, niche, deliverable, minBudget, maxBudget],
     queryFn: async () =>
       (
         await api.get("/campaigns", {
@@ -1251,7 +1167,6 @@ function CreatorExplore() {
             content_type: deliverable === "all" ? "" : deliverable,
             min_budget: Number(minBudget) || 0,
             max_budget: Number(maxBudget) || 0,
-            commercial_term: commercialTerm === "all" ? "" : commercialTerm,
           },
         })
       ).data,
@@ -1289,14 +1204,13 @@ function CreatorExplore() {
     setDeliverable("all");
     setMinBudget("");
     setMaxBudget("");
-    setCommercialTerm("all");
   };
 
   return (
     <div data-testid="explore-campaigns-page">
       <PageHead
         title="Open Campaigns"
-        sub="Browse briefs published by verified sponsors. Filter by budget tiers, deliverables, and commercial terms."
+        sub="Browse briefs published by verified sponsors. Filter by budget tiers and deliverables."
       />
 
       {/* Campaign Search and Filter Bar */}
@@ -1361,21 +1275,7 @@ function CreatorExplore() {
             />
           </div>
 
-          <Select value={commercialTerm} onValueChange={setCommercialTerm}>
-            <SelectTrigger className="w-44" data-testid="campaign-commercial-term-select">
-              <SelectValue placeholder="Commercial Terms" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Terms</SelectItem>
-              {COMMERCIAL_TERMS.map((t) => (
-                <SelectItem key={t} value={t}>
-                  {t}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {(niche !== "all" || deliverable !== "all" || minBudget || maxBudget || commercialTerm !== "all" || search) && (
+          {(niche !== "all" || deliverable !== "all" || minBudget || maxBudget || search) && (
             <Button
               variant="ghost"
               size="sm"
@@ -1467,21 +1367,6 @@ function CreatorExplore() {
                   </span>
                 ))}
               </div>
-
-              {/* Commercial Terms */}
-              {c.company?.commercial_terms?.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-1.5 border-t border-border/50 pt-2.5">
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground self-center mr-1">Terms:</span>
-                  {c.company.commercial_terms.map((term) => (
-                    <span
-                      key={term}
-                      className="rounded-full border border-border bg-card px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
-                    >
-                      {term}
-                    </span>
-                  ))}
-                </div>
-              )}
 
               <div className="mt-5 flex items-center justify-between border-t border-border/50 pt-4">
                 <span className="text-xs text-muted-foreground">Deadline: {fmtDate(c.deadline)}</span>
