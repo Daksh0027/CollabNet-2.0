@@ -204,6 +204,28 @@ async def ensure_thread(a: str, b: str) -> str:
     return tid
 
 
+async def add_contract_chat_message(c: dict, sender_id: str, text: str):
+    thread_id = await ensure_thread(c["company_id"], c["creator_id"])
+    created_at = now()
+    message = {
+        "msg_id": uid("msg"),
+        "thread_id": thread_id,
+        "sender_id": sender_id,
+        "text": text,
+        "attachments": [],
+        "audio_url": "",
+        "audio_duration": 0,
+        "created_at": created_at,
+    }
+    await db.messages.insert_one(message)
+    await db.threads.update_one({"thread_id": thread_id}, {"$set": {
+        "last_message": text[:120],
+        "last_at": created_at,
+        "last_sender_id": sender_id,
+        f"reads.{sender_id}": created_at,
+    }})
+
+
 def default_agreement(company: str, creator: str, title: str, deliverables: List[str],
                       start: str, end: str, compensation) -> str:
     items = "\n".join([f"  - {d}" for d in deliverables]) or "  - To be agreed in chat"
@@ -1093,10 +1115,64 @@ class ContractIn(BaseModel):
     agreement_text: str = ""
 
 
+class ContractRevisionIn(BaseModel):
+    title: str
+    deliverables: List[str] = []
+    start_date: str = ""
+    end_date: str = ""
+    compensation: float = 0
+    agreement_text: str = ""
+    change_summary: str = ""
+
+
+class ContractChangeRequestIn(BaseModel):
+    version: int
+    comment: str
+
+
+def contract_snapshot(c: dict, version: int, author_id: str = "", change_summary: str = "") -> dict:
+    return {
+        "version": version,
+        "version_id": uid("ver"),
+        "title": c.get("title", ""),
+        "deliverables": list(c.get("deliverables", [])),
+        "start_date": c.get("start_date", ""),
+        "end_date": c.get("end_date", ""),
+        "compensation": c.get("compensation", 0),
+        "agreement_text": c.get("agreement_text", ""),
+        "author_id": author_id,
+        "change_summary": change_summary,
+        "created_at": now(),
+    }
+
+
+def contract_history(c: dict) -> list:
+    history = c.get("versions")
+    if history:
+        return history
+    # Legacy seeded contracts predate versioning. Expose a stable v1 snapshot
+    # without changing their persisted shape until the next revision.
+    return [{
+        "version": 1,
+        "version_id": f"{c.get('deal_id', 'deal')}_v1",
+        "title": c.get("title", ""),
+        "deliverables": list(c.get("deliverables", [])),
+        "start_date": c.get("start_date", ""),
+        "end_date": c.get("end_date", ""),
+        "compensation": c.get("compensation", 0),
+        "agreement_text": c.get("agreement_text", ""),
+        "author_id": c.get("company_id", ""),
+        "change_summary": "Original agreement",
+        "created_at": c.get("created_at", ""),
+    }]
+
+
 def enrich_contract(c: dict, me_id: str) -> dict:
     other_id = c["creator_id"] if me_id == c["company_id"] else c["company_id"]
     my_role = "company" if me_id == c["company_id"] else "creator"
-    return {**c, "other_role": other_id and ("company" if my_role == "creator" else "creator"),
+    return {**c, "versions": contract_history(c),
+            "change_requests": c.get("change_requests", []),
+            "other_role": other_id and ("company" if my_role == "creator" else "creator"),
             "my_role": my_role}
 
 
@@ -1108,9 +1184,24 @@ async def list_contracts(request: Request):
     out = []
     for c in docs:
         other_id = c["creator_id"] if user["user_id"] == c["company_id"] else c["company_id"]
-        out.append({**c, "other": await enrich_user(other_id),
+        out.append({**enrich_contract(c, user["user_id"]), "other": await enrich_user(other_id),
                     "my_role": "company" if user["user_id"] == c["company_id"] else "creator"})
     return out
+
+
+@api_router.get("/contracts/{deal_id}/history")
+async def contract_history_endpoint(deal_id: str, request: Request):
+    user = await get_user(request)
+    c = await db.contracts.find_one({"deal_id": deal_id}, {"_id": 0})
+    if not c or user["user_id"] not in (c["company_id"], c["creator_id"]):
+        raise HTTPException(404, "Deal not found")
+    return {
+        "deal_id": deal_id,
+        "current_version": c.get("current_version", contract_history(c)[-1]["version"]),
+        "accepted_version": c.get("accepted_version"),
+        "versions": contract_history(c),
+        "change_requests": c.get("change_requests", []),
+    }
 
 
 @api_router.get("/contracts/{deal_id}")
@@ -1121,7 +1212,7 @@ async def get_contract(deal_id: str, request: Request):
         raise HTTPException(404, "Deal not found")
     other_id = c["creator_id"] if user["user_id"] == c["company_id"] else c["company_id"]
     reviews = await db.reviews.find({"deal_id": deal_id}, {"_id": 0}).to_list(10)
-    return {**c, "other": await enrich_user(other_id),
+    return {**enrich_contract(c, user["user_id"]), "other": await enrich_user(other_id),
             "my_role": "company" if user["user_id"] == c["company_id"] else "creator",
             "reviews": reviews}
 
@@ -1159,14 +1250,109 @@ async def create_contract(payload: ContractIn, request: Request):
             "company": {"signed": False, "name": "", "signed_at": ""},
             "creator": {"signed": False, "name": "", "signed_at": ""}},
         "funding_status": "unfunded", "funded_at": "", "released_at": "", "stripe_session_id": "",
+        "current_version": 1, "accepted_version": None, "versions": [],
+        "change_requests": [],
         "created_at": now(), "updated_at": now(),
     }
+    doc["versions"] = [contract_snapshot(doc, 1, user["user_id"], "Original agreement")]
     await db.contracts.insert_one({**doc})
     await notify(payload.counterpart_id, "contract", f"Deal room opened: {payload.title}",
                  f"{display_name(user)} drafted an agreement for review.", "/app/contracts",
                  origin=user.get("role", "company"), actor_id=user["user_id"])
     await log_activity(user["user_id"], f"Opened deal room: {payload.title}.")
     return clean(doc)
+
+
+@api_router.post("/contracts/{deal_id}/revisions")
+async def revise_contract(deal_id: str, payload: ContractRevisionIn, request: Request):
+    user = await get_user(request)
+    c = await db.contracts.find_one({"deal_id": deal_id}, {"_id": 0})
+    if not c or user["user_id"] not in (c["company_id"], c["creator_id"]):
+        raise HTTPException(404, "Deal not found")
+    if c.get("status") in ("completed", "disputed"):
+        raise HTTPException(400, "Completed or disputed contracts cannot be revised")
+    if c.get("funding_status") in ("funded", "released"):
+        raise HTTPException(400, "Funded contracts require an amendment flow and cannot be revised here")
+    if not payload.title.strip():
+        raise HTTPException(400, "A contract title is required")
+    current_version = c.get("current_version", contract_history(c)[-1]["version"])
+    revision = {
+        "title": payload.title.strip(),
+        "deliverables": [d.strip() for d in payload.deliverables if d.strip()],
+        "start_date": payload.start_date,
+        "end_date": payload.end_date,
+        "compensation": payload.compensation,
+        "agreement_text": payload.agreement_text.strip() or default_agreement(
+            display_name(await db.users.find_one({"user_id": c["company_id"]}, {"_id": 0})),
+            display_name(await db.users.find_one({"user_id": c["creator_id"]}, {"_id": 0})),
+            payload.title, payload.deliverables, payload.start_date or "TBD",
+            payload.end_date or "TBD", int(payload.compensation)),
+    }
+    version_doc = contract_snapshot({**c, **revision}, current_version + 1,
+                                    user["user_id"], payload.change_summary.strip() or "Updated contract terms")
+    versions = contract_history(c) + [version_doc]
+    await db.contracts.update_one({"deal_id": deal_id}, {"$set": {
+        **revision,
+        "current_version": version_doc["version"],
+        "accepted_version": None,
+        "versions": versions,
+        "status": "in_review",
+        "signatures": {
+            "company": {"signed": False, "name": "", "signed_at": ""},
+            "creator": {"signed": False, "name": "", "signed_at": ""},
+        },
+        "updated_at": now(),
+    }})
+    other_id = c["creator_id"] if user["user_id"] == c["company_id"] else c["company_id"]
+    await notify(other_id, "contract", f"Contract revision {version_doc['version']} for {c['title']}",
+                 "Review the updated terms and request changes or sign the new version.",
+                 "/app/contracts", origin=user.get("role", "company"), actor_id=user["user_id"])
+    await add_contract_chat_message(
+        c, user["user_id"],
+        f"Contract revision v{version_doc['version']} sent for review: {version_doc['change_summary']}"
+    )
+    await log_activity(user["user_id"], f"Created contract revision {version_doc['version']} for {c['title']}.")
+    return version_doc
+
+
+@api_router.post("/contracts/{deal_id}/change-requests")
+async def request_contract_changes(deal_id: str, payload: ContractChangeRequestIn, request: Request):
+    user = await get_user(request)
+    c = await db.contracts.find_one({"deal_id": deal_id}, {"_id": 0})
+    if not c or user["user_id"] not in (c["company_id"], c["creator_id"]):
+        raise HTTPException(404, "Deal not found")
+    current_version = c.get("current_version", contract_history(c)[-1]["version"])
+    if payload.version != current_version:
+        raise HTTPException(409, "Change requests must target the current contract version")
+    comment = payload.comment.strip()
+    if not comment:
+        raise HTTPException(400, "Explain the requested change")
+    change = {
+        "change_request_id": uid("chg"), "version": payload.version,
+        "requester_id": user["user_id"], "comment": comment,
+        "status": "open", "created_at": now(),
+    }
+    await db.contracts.update_one({"deal_id": deal_id}, {
+        "$set": {
+            "status": "in_review",
+            "accepted_version": None,
+            "signatures": {
+                "company": {"signed": False, "name": "", "signed_at": ""},
+                "creator": {"signed": False, "name": "", "signed_at": ""},
+            },
+            "updated_at": now(),
+        },
+        "$push": {"change_requests": change},
+    })
+    other_id = c["creator_id"] if user["user_id"] == c["company_id"] else c["company_id"]
+    await notify(other_id, "contract", f"Changes requested for {c['title']}",
+                 comment, "/app/contracts", origin=user.get("role", "company"), actor_id=user["user_id"])
+    await add_contract_chat_message(
+        c, user["user_id"],
+        f"Changes requested on contract v{payload.version}: {comment}"
+    )
+    await log_activity(user["user_id"], f"Requested changes to version {payload.version} of {c['title']}.")
+    return change
 
 
 class SignIn(BaseModel):
@@ -1206,7 +1392,9 @@ async def sign_contract(deal_id: str, payload: SignIn, request: Request):
         "ip_address": request.client.host if request.client else "",
         "user_agent": request.headers.get("user-agent", "")[:500],
         "signed_at": signed_at,
-        "document_hash": hashlib.sha256(c.get("agreement_text", "").encode("utf-8")).hexdigest(),
+        "document_hash": hashlib.sha256(
+            json.dumps(contract_history(c)[-1], sort_keys=True).encode("utf-8")
+        ).hexdigest(),
         "signature_hash": hashlib.sha256(signature_json.encode("utf-8")).hexdigest(),
         "verification_id": uid("verify"),
     }
@@ -1223,6 +1411,7 @@ async def sign_contract(deal_id: str, payload: SignIn, request: Request):
     upd = {**sig, "updated_at": now()}
     if both:
         upd["status"] = "upcoming"
+        upd["accepted_version"] = c.get("current_version", contract_history(c)[-1]["version"])
     await db.contracts.update_one({"deal_id": deal_id}, {"$set": upd})
     if both:
         start = c["start_date"] or day_offset(7)
