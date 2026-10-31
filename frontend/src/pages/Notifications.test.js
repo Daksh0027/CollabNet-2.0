@@ -142,6 +142,52 @@ describe("Notifications Page and Category Filtering", () => {
     expect(html).toContain("All caught up");
   });
 
+  it("marks unread notifications as read in the backend when the page is opened", async () => {
+    const notification = {
+      notif_id: "ntf_auto_read",
+      type: "message",
+      title: "New message",
+      body: "A new message arrived",
+      origin: "creator",
+      read: false,
+      created_at: new Date().toISOString(),
+    };
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+    });
+    qc.setQueryData(["notifications", "all"], {
+      pages: [{
+        notifications: [notification],
+        counts: { all: 1, creators: 1, companies: 0 },
+        unread: 1,
+        unread_counts: { all: 1, creators: 1, companies: 0 },
+        has_more: false,
+        next_offset: 1,
+      }],
+      pageParams: [0],
+    });
+    const container = document.createElement("div");
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={qc}>
+          <Notifications />
+        </QueryClientProvider>
+      );
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(mockApiPost).toHaveBeenCalledWith("/notifications/read");
+    const cached = qc.getQueryData(["notifications", "all"]);
+    expect(cached.pages[0].notifications[0].read).toBe(true);
+    expect(cached.pages[0].unread).toBe(0);
+    expect(cached.pages[0].unread_counts).toEqual({ all: 0, creators: 0, companies: 0 });
+
+    await act(async () => root.unmount());
+    qc.clear();
+  });
+
   it("filters when a category button is clicked", async () => {
     mockApiGet.mockResolvedValue({
       data: {

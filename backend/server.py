@@ -103,10 +103,44 @@ def pub_user(u: Optional[dict], full: bool = False) -> Optional[dict]:
         "role": u.get("role"),
         "verified": u.get("verified", False),
     }
+    if u.get("role") == "creator" and u.get("creator"):
+        c = u["creator"]
+        base["creator"] = {
+            "niche": c.get("niche", ""),
+            "sub_niches": c.get("sub_niches", []),
+            "bio": c.get("bio", ""),
+            "pitch": c.get("pitch", ""),
+            "location": c.get("location", ""),
+            "content_types": c.get("content_types", []),
+            "commercial_terms": c.get("commercial_terms", []),
+            "platforms": c.get("platforms", []),
+            "projects": c.get("projects", []),
+            "rates": c.get("rates", {}),
+            "stats": c.get("stats", {}),
+            "connections_count": c.get("connections_count", 0),
+            "completed_deals_count": c.get("completed_deals_count", 0),
+            "on_time_delivery_rate": c.get("on_time_delivery_rate", 98.0),
+        }
+    elif u.get("role") == "company" and u.get("company"):
+        co = u["company"]
+        base["company"] = {
+            "name": co.get("name", ""),
+            "industry": co.get("industry", ""),
+            "employees": co.get("employees", 0),
+            "website": co.get("website", ""),
+            "about": co.get("about", ""),
+            "commercial_terms": co.get("commercial_terms", []),
+            "total_spend": co.get("total_spend", 0),
+            "completed_campaigns_count": co.get("completed_campaigns_count", 0),
+            "avg_payout_hours": co.get("avg_payout_hours", 24),
+            "connections_count": co.get("connections_count", 0),
+        }
     if full:
         base["email"] = u.get("email", "")
-        base["company"] = u.get("company", {})
-        base["creator"] = u.get("creator", {})
+        if u.get("company"):
+            base["company"] = u.get("company", {})
+        if u.get("creator"):
+            base["creator"] = u.get("creator", {})
         base["created_at"] = u.get("created_at")
     return base
 
@@ -359,12 +393,11 @@ async def update_profile(payload: ProfileIn, request: Request):
     if payload.name:
         upd["name"] = payload.name
     if payload.creator is not None and user.get("role") == "creator":
-        keep = user.get("creator", {}).get("platforms")
-        if keep:
-            payload.creator["platforms"] = keep
-        upd["creator"] = {**user.get("creator", {}), **payload.creator}
+        current_creator = user.get("creator", {})
+        upd["creator"] = {**current_creator, **payload.creator}
     if payload.company is not None and user.get("role") == "company":
-        upd["company"] = {**user.get("company", {}), **payload.company}
+        current_company = user.get("company", {})
+        upd["company"] = {**current_company, **payload.company}
     if upd:
         await db.users.update_one({"user_id": user["user_id"]}, {"$set": upd})
     fresh = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0})
@@ -372,35 +405,212 @@ async def update_profile(payload: ProfileIn, request: Request):
 
 
 @api_router.get("/creators")
-async def list_creators(request: Request, search: str = "", niche: str = "", platform: str = "",
-                        min_followers: int = 0, max_followers: int = 0):
+async def list_creators(
+    request: Request,
+    search: str = "",
+    niche: str = "",
+    content_type: str = "",
+    platform: str = "",
+    min_followers: int = 0,
+    max_followers: int = 0,
+    min_views: int = 0,
+    min_engagement: float = 0.0,
+    min_connections: int = 0,
+    min_rate: int = 0,
+    max_rate: int = 0,
+    commercial_term: str = "",
+    sort_by: str = "followers",
+):
     await get_user(request)
     docs = await db.users.find({"role": "creator", "verified": True}, {"_id": 0}).to_list(500)
+
+    # 1. Pre-aggregate connection counts
+    conn_docs = await db.connections.find({"status": "accepted"}, {"from_id": 1, "to_id": 1, "_id": 0}).to_list(10000)
+    conn_counts = {}
+    for cd in conn_docs:
+        f, t = cd.get("from_id"), cd.get("to_id")
+        if f: conn_counts[f] = conn_counts.get(f, 0) + 1
+        if t: conn_counts[t] = conn_counts.get(t, 0) + 1
+
+    # 2. Pre-aggregate completed deals count
+    deal_docs = await db.contracts.find({"status": "completed"}, {"creator_id": 1, "_id": 0}).to_list(5000)
+    deal_counts = {}
+    for dd in deal_docs:
+        cid = dd.get("creator_id")
+        if cid: deal_counts[cid] = deal_counts.get(cid, 0) + 1
+
+    # 3. Pre-aggregate review ratings
+    review_docs = await db.reviews.find({"status": "approved"}, {"reviewee_id": 1, "rating": 1, "_id": 0}).to_list(5000)
+    ratings_map = {}
+    for rd in review_docs:
+        rid = rd.get("reviewee_id")
+        if rid:
+            ratings_map.setdefault(rid, []).append(rd.get("rating", 5))
+
     out = []
+
+    # Parse multi-value filters
+    niche_filters = [n.strip().lower() for n in niche.split(",") if n.strip() and n.strip().lower() != "all"]
+    ct_filters = [ct.strip().lower() for ct in content_type.split(",") if ct.strip() and ct.strip().lower() != "all"]
+    plat_filters = [p.strip().lower() for p in platform.split(",") if p.strip() and p.strip().lower() != "all"]
+    term_filters = [t.strip().lower() for t in commercial_term.split(",") if t.strip() and t.strip().lower() != "all"]
+
     for u in docs:
+        uid = u["user_id"]
         c = u.get("creator", {})
         plats = c.get("platforms", [])
-        followers = max([p.get("followers", 0) for p in plats], default=0)
-        if search and search.lower() not in (u.get("name", "").lower() + " " + c.get("niche", "").lower() + " " + c.get("bio", "").lower()):
-            continue
-        if niche and c.get("niche", "") != niche:
-            continue
-        if platform and not any(p.get("platform") == platform for p in plats):
-            continue
-        if min_followers and followers < min_followers:
-            continue
-        if max_followers and followers > max_followers:
-            continue
+
+        # Followers metrics
+        followers_list = [p.get("followers", 0) for p in plats]
+        top_followers = max(followers_list, default=0)
+        total_reach = sum(followers_list)
+
+        # Views metrics
+        views_list = [p.get("avg_views", 0) for p in plats]
+        if c.get("stats", {}).get("avg_views"):
+            views_list.append(c["stats"]["avg_views"])
+        top_avg_views = max(views_list, default=0)
+
+        # Engagement metrics
+        eng_list = [p.get("engagement_rate", 0) for p in plats]
+        if c.get("stats", {}).get("engagement"):
+            eng_list.append(c["stats"]["engagement"])
+        top_engagement = max(eng_list, default=0.0)
+
+        # Rates
         rates = c.get("rates", {})
+        rates_values = [v for v in rates.values() if isinstance(v, (int, float)) and v > 0]
+        rate_from = min(rates_values, default=0)
+
+        # User stats
+        user_conns = conn_counts.get(uid, c.get("connections_count", 0))
+        user_deals = deal_counts.get(uid, c.get("completed_deals_count", 0))
+        user_reviews = ratings_map.get(uid, [])
+        avg_rating = round(sum(user_reviews) / len(user_reviews), 1) if user_reviews else None
+
+        # Niches & content types
+        creator_niche = c.get("niche", "")
+        creator_sub_niches = c.get("sub_niches", [])
+        all_niches_lower = [creator_niche.lower()] + [sn.lower() for sn in creator_sub_niches]
+
+        creator_content_types = c.get("content_types", [])
+        creator_ct_lower = [ct.lower() for ct in creator_content_types]
+
+        creator_terms = c.get("commercial_terms", [])
+        creator_terms_lower = [t.lower() for t in creator_terms]
+
+        # 1. Search filter
+        if search:
+            searchable = (
+                u.get("name", "") + " " +
+                u.get("display_name", "") + " " +
+                creator_niche + " " +
+                " ".join(creator_sub_niches) + " " +
+                c.get("bio", "") + " " +
+                c.get("location", "") + " " +
+                c.get("pitch", "") + " " +
+                " ".join(creator_content_types)
+            ).lower()
+            if search.lower() not in searchable:
+                continue
+
+        # 2. Niches filter
+        if niche_filters:
+            if not any(nf in all_niches_lower for nf in niche_filters):
+                continue
+
+        # 3. Content type filter
+        if ct_filters:
+            if not any(cf in creator_ct_lower for cf in ct_filters):
+                continue
+
+        # 4. Platform filter
+        plat_names_lower = [p.get("platform", "").lower() for p in plats]
+        if plat_filters:
+            if not any(pf in plat_names_lower for pf in plat_filters):
+                continue
+
+        # Metrics for filtered platform (or top platform)
+        if plat_filters:
+            matching_plats = [p for p in plats if p.get("platform", "").lower() in plat_filters]
+            effective_followers = max([p.get("followers", 0) for p in matching_plats], default=0)
+            effective_views = max([p.get("avg_views", 0) for p in matching_plats], default=0)
+            effective_engagement = max([p.get("engagement_rate", 0) for p in matching_plats], default=0.0)
+        else:
+            effective_followers = top_followers
+            effective_views = top_avg_views
+            effective_engagement = top_engagement
+
+        # 5. Follower range filter
+        if min_followers > 0 and effective_followers < min_followers:
+            continue
+        if max_followers > 0 and effective_followers > max_followers:
+            continue
+
+        # 6. Min views threshold
+        if min_views > 0 and effective_views < min_views:
+            continue
+
+        # 7. Min engagement rate threshold
+        if min_engagement > 0.0 and effective_engagement < min_engagement:
+            continue
+
+        # 8. Min connections filter
+        if min_connections > 0 and user_conns < min_connections:
+            continue
+
+        # 9. Rate filter
+        if min_rate > 0 and rate_from < min_rate:
+            continue
+        if max_rate > 0 and rate_from > max_rate:
+            continue
+
+        # 10. Commercial terms filter
+        if term_filters:
+            if not any(tf in creator_terms_lower for tf in term_filters):
+                continue
+
         out.append({
             **pub_user(u),
-            "niche": c.get("niche", ""), "bio": c.get("bio", ""),
-            "location": c.get("location", ""), "platforms": plats,
-            "rates": rates, "stats": c.get("stats", {}),
-            "rate_from": min([v for v in rates.values() if v], default=0),
-            "top_followers": followers,
+            "niche": creator_niche,
+            "sub_niches": creator_sub_niches,
+            "bio": c.get("bio", ""),
+            "location": c.get("location", ""),
+            "pitch": c.get("pitch", ""),
+            "content_types": creator_content_types,
+            "commercial_terms": creator_terms,
+            "platforms": plats,
+            "projects": c.get("projects", []),
+            "rates": rates,
+            "stats": c.get("stats", {}),
+            "rate_from": rate_from,
+            "top_followers": top_followers,
+            "total_reach": total_reach,
+            "avg_views": top_avg_views,
+            "engagement_rate": top_engagement,
+            "connections_count": user_conns,
+            "completed_deals_count": user_deals,
+            "on_time_delivery_rate": c.get("on_time_delivery_rate", 98.0),
+            "rating_avg": avg_rating,
+            "review_count": len(user_reviews),
         })
-    out.sort(key=lambda x: x["top_followers"], reverse=True)
+
+    # Sort
+    if sort_by == "views":
+        out.sort(key=lambda x: x["avg_views"], reverse=True)
+    elif sort_by == "engagement":
+        out.sort(key=lambda x: x["engagement_rate"], reverse=True)
+    elif sort_by == "connections":
+        out.sort(key=lambda x: x["connections_count"], reverse=True)
+    elif sort_by == "rate_asc":
+        out.sort(key=lambda x: x["rate_from"])
+    elif sort_by == "rate_desc":
+        out.sort(key=lambda x: x["rate_from"], reverse=True)
+    elif sort_by == "rating":
+        out.sort(key=lambda x: (x["rating_avg"] or 0), reverse=True)
+    else:  # "followers"
+        out.sort(key=lambda x: x["top_followers"], reverse=True)
+
     return out
 
 
@@ -412,7 +622,22 @@ async def get_public_user(user_id: str, request: Request):
         raise HTTPException(404, "User not found")
     reviews = await db.reviews.find({"reviewee_id": user_id, "status": "approved"}, {"_id": 0}).sort("created_at", -1).to_list(50)
     avg = round(sum(r["rating"] for r in reviews) / len(reviews), 1) if reviews else None
-    return {**pub_user(u, full=True), "reviews": reviews, "rating_avg": avg, "review_count": len(reviews)}
+    conns_count = await db.connections.count_documents({
+        "$or": [{"from_id": user_id}, {"to_id": user_id}],
+        "status": "accepted"
+    })
+    deals_count = await db.contracts.count_documents({
+        "$or": [{"creator_id": user_id}, {"company_id": user_id}],
+        "status": "completed"
+    })
+    return {
+        **pub_user(u, full=True),
+        "reviews": reviews,
+        "rating_avg": avg,
+        "review_count": len(reviews),
+        "connections_count": conns_count,
+        "completed_deals_count": deals_count
+    }
 
 
 # ---------------------------------------------------------------- connections
@@ -512,15 +737,102 @@ class CampaignIn(BaseModel):
 
 
 @api_router.get("/campaigns")
-async def list_campaigns(request: Request, mine: int = 0):
+async def list_campaigns(
+    request: Request,
+    mine: int = 0,
+    search: str = "",
+    niche: str = "",
+    content_type: str = "",
+    min_budget: int = 0,
+    max_budget: int = 0,
+    commercial_term: str = "",
+):
     user = await get_user(request)
     q = {}
     if mine:
         q["company_id"] = user["user_id"]
     else:
         q["status"] = "open"
-    docs = await db.campaigns.find(q, {"_id": 0}).sort("created_at", -1).to_list(100)
-    return [{**c, "company": await enrich_user(c["company_id"])} for c in docs]
+    docs = await db.campaigns.find(q, {"_id": 0}).sort("created_at", -1).to_list(200)
+
+    # Pre-fetch all companies
+    comp_ids = list(set(c["company_id"] for c in docs if c.get("company_id")))
+    comp_users = await db.users.find({"user_id": {"$in": comp_ids}}, {"_id": 0}).to_list(len(comp_ids) or 10)
+    comp_map = {cu["user_id"]: cu for cu in comp_users}
+
+    # Pre-fetch connections count
+    conn_docs = await db.connections.find({"status": "accepted"}, {"from_id": 1, "to_id": 1, "_id": 0}).to_list(10000)
+    conn_counts = {}
+    for cd in conn_docs:
+        f, t = cd.get("from_id"), cd.get("to_id")
+        if f:
+            conn_counts[f] = conn_counts.get(f, 0) + 1
+        if t:
+            conn_counts[t] = conn_counts.get(t, 0) + 1
+
+    out = []
+    niche_filters = [n.strip().lower() for n in niche.split(",") if n.strip() and n.strip().lower() != "all"]
+    ct_filters = [ct.strip().lower() for ct in content_type.split(",") if ct.strip() and ct.strip().lower() != "all"]
+    term_filters = [t.strip().lower() for t in commercial_term.split(",") if t.strip() and t.strip().lower() != "all"]
+
+    for c in docs:
+        cu = comp_map.get(c["company_id"], {})
+        co = cu.get("company", {})
+        comp_conns = conn_counts.get(c["company_id"], 0)
+
+        # 1. Search
+        if search:
+            search_str = (
+                c.get("title", "") + " " +
+                c.get("brief", "") + " " +
+                co.get("name", "") + " " +
+                co.get("industry", "") + " " +
+                " ".join(c.get("niches", [])) + " " +
+                " ".join(c.get("deliverables", []))
+            ).lower()
+            if search.lower() not in search_str:
+                continue
+
+        # 2. Niche filter
+        if niche_filters:
+            camp_niches = [cn.lower() for cn in c.get("niches", [])]
+            if not any(nf in camp_niches for nf in niche_filters):
+                continue
+
+        # 3. Content type filter
+        if ct_filters:
+            deliv_text = " ".join(c.get("deliverables", [])).lower()
+            if not any(ct in deliv_text for ct in ct_filters):
+                continue
+
+        # 4. Budget filter
+        b_min = c.get("budget_min", 0)
+        b_max = c.get("budget_max", 0)
+        if min_budget > 0 and b_max < min_budget:
+            continue
+        if max_budget > 0 and b_min > max_budget:
+            continue
+
+        # 5. Commercial terms filter
+        if term_filters:
+            co_terms = [t.lower() for t in co.get("commercial_terms", [])]
+            if not any(tf in co_terms for tf in term_filters):
+                continue
+
+        enr_comp = {
+            **pub_user(cu),
+            "industry": co.get("industry", ""),
+            "employees": co.get("employees", 0),
+            "website": co.get("website", ""),
+            "about": co.get("about", ""),
+            "commercial_terms": co.get("commercial_terms", []),
+            "total_spend": co.get("total_spend", 0),
+            "completed_campaigns_count": co.get("completed_campaigns_count", 0),
+            "connections_count": comp_conns,
+        }
+        out.append({**c, "company": enr_comp})
+
+    return out
 
 
 @api_router.post("/campaigns")
@@ -1789,6 +2101,225 @@ async def startup():
         await db.contracts.update_many(
             {"funding_status": {"$exists": False}},
             {"$set": {"funding_status": "unfunded"}})
+
+        # Backfill profiling stats, content types, and commercial terms
+        creator_enrichments = {
+            "maya.chen@collabonet.demo": {
+                "sub_niches": ["Smart Home", "Consumer Audio", "AI Tools"],
+                "content_types": ["Dedicated Long-Form Video", "Short-Form Video", "Integrated Segment"],
+                "commercial_terms": ["100% Escrow Upfront", "1-Round Revision Guarantee", "30-Day Paid Whitelisting Available"],
+                "completed_deals_count": 14,
+                "on_time_delivery_rate": 98.5,
+                "platforms": [
+                    {"platform": "YouTube", "handle": "@mayabuilds", "followers": 850000, "posts_count": 312, "avg_views": 240000, "engagement_rate": 4.8, "verified": True},
+                    {"platform": "Instagram", "handle": "@maya.chen", "followers": 120000, "posts_count": 184, "avg_views": 45000, "engagement_rate": 5.2, "verified": True}
+                ],
+                "projects": [
+                    {
+                        "project_id": "prj_maya_1",
+                        "title": "Smart Home Desk Setup & Ergonomics 2026",
+                        "brand": "Autonomous AI",
+                        "deliverable_type": "Dedicated Long-Form Video",
+                        "media_type": "video",
+                        "media_url": "https://images.unsplash.com/photo-1593062096033-9a26b09da705?w=800&auto=format&fit=crop&q=80",
+                        "embed_url": "https://www.youtube.com/embed/dQw4w9WgXcQ",
+                        "metrics": "1.4M Views · 9.2% CTR · $24k GMV",
+                        "link": "https://youtube.com/@mayabuilds",
+                        "description": "Showcasing desk automation, cable management, and high-productivity dev workstation ergonomics.",
+                        "date": "Jan 2026"
+                    },
+                    {
+                        "project_id": "prj_maya_2",
+                        "title": "Keychron Q3 Pro Custom Build & Sound Test",
+                        "brand": "Keychron Tech",
+                        "deliverable_type": "Short-Form Video",
+                        "media_type": "video",
+                        "media_url": "https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=800&auto=format&fit=crop&q=80",
+                        "embed_url": "https://www.youtube.com/embed/dQw4w9WgXcQ",
+                        "metrics": "680K Views · 45K Saves · 12% Engagement",
+                        "link": "https://instagram.com/maya.chen",
+                        "description": "High-velocity ASMR switch review and programming layout walkthrough.",
+                        "date": "Feb 2026"
+                    }
+                ]
+            },
+            "dario.velez@collabonet.demo": {
+                "sub_niches": ["Solo Travel", "City Guides", "Cinematic Vlogs"],
+                "content_types": ["Dedicated Long-Form Video", "Short-Form Video"],
+                "commercial_terms": ["100% Escrow Upfront", "Organic Posting Only"],
+                "completed_deals_count": 9,
+                "on_time_delivery_rate": 100.0,
+                "platforms": [
+                    {"platform": "YouTube", "handle": "@darioabroad", "followers": 420000, "posts_count": 165, "avg_views": 150000, "engagement_rate": 5.6, "verified": True},
+                    {"platform": "Instagram", "handle": "@dario.velez", "followers": 95000, "posts_count": 210, "avg_views": 32000, "engagement_rate": 6.1, "verified": True}
+                ],
+                "projects": [
+                    {
+                        "project_id": "prj_dario_1",
+                        "title": "Azores Atlantic Archipelago Expedition",
+                        "brand": "Wanderer Gear",
+                        "deliverable_type": "Dedicated Long-Form Video",
+                        "media_type": "video",
+                        "media_url": "https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&auto=format&fit=crop&q=80",
+                        "metrics": "820K Views · 14.2 min Avg Watch Time",
+                        "link": "https://youtube.com/@darioabroad",
+                        "description": "Cinematic documentary travelogue putting waterproof technical packs through cliffside storms.",
+                        "date": "Mar 2026"
+                    }
+                ]
+            },
+            "priya.nair@collabonet.demo": {
+                "sub_niches": ["Dermatological Care", "Clean Beauty", "Routine Guides"],
+                "content_types": ["Short-Form Video", "Integrated Segment", "Carousel / Thought Leadership"],
+                "commercial_terms": ["100% Escrow Upfront", "30-Day Paid Whitelisting Available"],
+                "completed_deals_count": 22,
+                "on_time_delivery_rate": 97.0,
+                "platforms": [
+                    {"platform": "Instagram", "handle": "@priyaglow", "followers": 950000, "posts_count": 420, "avg_views": 180000, "engagement_rate": 6.2, "verified": True},
+                    {"platform": "YouTube", "handle": "@priyanair", "followers": 210000, "posts_count": 110, "avg_views": 85000, "engagement_rate": 5.4, "verified": True}
+                ],
+                "projects": [
+                    {
+                        "project_id": "prj_priya_1",
+                        "title": "Ceramides & Peptides: Skin Barrier Breakdown",
+                        "brand": "Lumen Skincare",
+                        "deliverable_type": "Short-Form Video",
+                        "media_type": "video",
+                        "media_url": "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
+                        "metrics": "1.1M Views · 18% Share Rate · #1 Trending Skincare Reel",
+                        "link": "https://instagram.com/priyaglow",
+                        "description": "Scientific ingredient breakdown highlighting formulation purity and morning routine steps.",
+                        "date": "Feb 2026"
+                    }
+                ]
+            },
+            "jonas.weber@collabonet.demo": {
+                "sub_niches": ["Strength & Conditioning", "Running", "Nutrition & Supplements"],
+                "content_types": ["Dedicated Long-Form Video", "Short-Form Video", "Podcast Episode / Audio Read"],
+                "commercial_terms": ["100% Escrow Upfront", "1-Round Revision Guarantee"],
+                "completed_deals_count": 11,
+                "on_time_delivery_rate": 95.5,
+                "platforms": [
+                    {"platform": "YouTube", "handle": "@jonaslifts", "followers": 310000, "posts_count": 220, "avg_views": 120000, "engagement_rate": 5.1, "verified": True},
+                    {"platform": "Instagram", "handle": "@jonas.weber", "followers": 180000, "posts_count": 280, "avg_views": 42000, "engagement_rate": 5.8, "verified": True}
+                ],
+                "projects": [
+                    {
+                        "project_id": "prj_jonas_1",
+                        "title": "Sub-3 Marathon Prep & Electrolyte Protocol",
+                        "brand": "HydratePro",
+                        "deliverable_type": "Dedicated Long-Form Video",
+                        "media_type": "video",
+                        "media_url": "https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=800&auto=format&fit=crop&q=80",
+                        "metrics": "450K Views · 8.2% CTR",
+                        "link": "https://youtube.com/@jonaslifts",
+                        "description": "Full race nutrition breakdown and heart rate recovery analysis.",
+                        "date": "Jan 2026"
+                    }
+                ]
+            },
+            "sofia.ramos@collabonet.demo": {
+                "sub_niches": ["Quick Recipes", "Kitchen Tech", "Street Food"],
+                "content_types": ["Short-Form Video", "UGC Ad Production", "Carousel / Thought Leadership"],
+                "commercial_terms": ["100% Escrow Upfront", "30-Day Paid Whitelisting Available", "1-Round Revision Guarantee"],
+                "completed_deals_count": 18,
+                "on_time_delivery_rate": 100.0,
+                "platforms": [
+                    {"platform": "TikTok", "handle": "@sofiacooks", "followers": 700000, "posts_count": 390, "avg_views": 300000, "engagement_rate": 7.0, "verified": True},
+                    {"platform": "Instagram", "handle": "@sofiacooks", "followers": 540000, "posts_count": 310, "avg_views": 160000, "engagement_rate": 6.8, "verified": True}
+                ],
+                "projects": [
+                    {
+                        "project_id": "prj_sofia_1",
+                        "title": "Cold Brew Espresso Tonic & Coffee Cocktails",
+                        "brand": "Brewhaus Coffee",
+                        "deliverable_type": "Short-Form Video",
+                        "media_type": "video",
+                        "media_url": "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=800&auto=format&fit=crop&q=80",
+                        "metrics": "920K TikTok Views · 14.5% Engagement",
+                        "link": "https://tiktok.com/@sofiacooks",
+                        "description": "Fast-paced summer drink series featuring canned cold brew.",
+                        "date": "Feb 2026"
+                    }
+                ]
+            },
+            "leo.tanaka@collabonet.demo": {
+                "sub_niches": ["PC Hardware", "Competitive Gaming", "Live Streams"],
+                "content_types": ["Live Stream Placement", "Dedicated Long-Form Video", "Short-Form Video"],
+                "commercial_terms": ["100% Escrow Upfront", "Base + Affiliate Performance"],
+                "completed_deals_count": 7,
+                "on_time_delivery_rate": 94.0,
+                "platforms": [
+                    {"platform": "Twitch", "handle": "@leoplays", "followers": 220000, "posts_count": 180, "avg_views": 90000, "engagement_rate": 8.3, "verified": True},
+                    {"platform": "YouTube", "handle": "@leoplays", "followers": 190000, "posts_count": 145, "avg_views": 75000, "engagement_rate": 7.1, "verified": True}
+                ],
+                "projects": [
+                    {
+                        "project_id": "prj_leo_1",
+                        "title": "360Hz OLED Esports Monitor 8-Hour Tournament Stream",
+                        "brand": "Apex Displays",
+                        "deliverable_type": "Live Stream Placement",
+                        "media_type": "video",
+                        "media_url": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=800&auto=format&fit=crop&q=80",
+                        "metrics": "24K Peak CCV · 110K Total Stream Viewers",
+                        "link": "https://twitch.tv/leoplays",
+                        "description": "Live hardware stress test and low-latency benchmark stream.",
+                        "date": "Jan 2026"
+                    }
+                ]
+            }
+        }
+        for email, fields in creator_enrichments.items():
+            u = await db.users.find_one({"email": email})
+            if u:
+                c = u.get("creator", {})
+                upd = {}
+                for k, v in fields.items():
+                    if k == "platforms":
+                        existing_plats = c.get("platforms", [])
+                        if not any("posts_count" in p for p in existing_plats):
+                            upd["creator.platforms"] = v
+                    elif k == "projects":
+                        if not c.get("projects"):
+                            upd["creator.projects"] = v
+                    elif k not in c or not c.get(k):
+                        upd[f"creator.{k}"] = v
+                if upd:
+                    await db.users.update_one({"email": email}, {"$set": upd})
+
+        company_enrichments = {
+            "elena.brand@collabonet.demo": {
+                "commercial_terms": ["100% Escrow Upfront", "1-Round Revision Guarantee", "30-Day Paid Whitelisting Available"],
+                "preferred_formats": ["Dedicated Long-Form Video", "Short-Form Video"],
+                "total_spend": 42000,
+                "completed_campaigns_count": 15,
+                "avg_payout_hours": 18
+            },
+            "marcus.feld@collabonet.demo": {
+                "commercial_terms": ["100% Escrow Upfront", "Product Gifting / Seeding Available", "Base + Affiliate Performance"],
+                "preferred_formats": ["Short-Form Video", "UGC Ad Production"],
+                "total_spend": 18500,
+                "completed_campaigns_count": 8,
+                "avg_payout_hours": 12
+            },
+            "ava.sato@collabonet.demo": {
+                "commercial_terms": ["100% Escrow Upfront", "1-Round Revision Guarantee", "Retainer / Ambassador Available"],
+                "preferred_formats": ["Short-Form Video", "Integrated Segment", "Carousel / Thought Leadership"],
+                "total_spend": 56000,
+                "completed_campaigns_count": 19,
+                "avg_payout_hours": 14
+            }
+        }
+        for email, fields in company_enrichments.items():
+            u = await db.users.find_one({"email": email})
+            if u:
+                co = u.get("company", {})
+                upd = {}
+                for k, v in fields.items():
+                    if k not in co or not co.get(k):
+                        upd[f"company.{k}"] = v
+                if upd:
+                    await db.users.update_one({"email": email}, {"$set": upd})
     except Exception as e:
         logger.error(f"Startup migration failed: {e}")
 
