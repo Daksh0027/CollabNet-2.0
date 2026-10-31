@@ -24,7 +24,6 @@ const LazySettingsModal = lazy(() =>
 const NAV = [
   { to: "/app/overview", label: "Overview", icon: LayoutDashboard },
   { to: "/app/explore", label: "Explore", icon: Compass },
-  { to: "/app/notifications", label: "Notifications", icon: Bell, badgeType: "notifications" },
   { to: "/app/messages", label: "Messages", icon: MessagesSquare, badgeType: "messages" },
   { to: "/app/campaigns", label: "Campaigns & Events", icon: Megaphone },
   { to: "/app/contracts", label: "Contracts", icon: FileSignature },

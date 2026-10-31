@@ -2,7 +2,8 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-route
 import { Toaster } from "sonner";
 import { Loader2 } from "lucide-react";
 import { AuthProvider, useAuth } from "@/lib/auth";
-import { ThemeProvider } from "@/lib/theme";
+import { BlendProvider } from "@/blend/provider";
+import { ThemeProvider, useTheme } from "@/lib/theme";
 import AuthCallback from "@/components/AuthCallback";
 import Shell from "@/components/Shell";
 import Landing from "@/pages/Landing";
@@ -81,14 +82,22 @@ function AppRouter() {
 export default function App() {
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <BrowserRouter>
-          <AppRouter />
-          <ThemedToaster />
-        </BrowserRouter>
-      </AuthProvider>
+      <BlendThemeBridge>
+        <AuthProvider>
+          <BrowserRouter>
+            <AppRouter />
+            <ThemedToaster />
+          </BrowserRouter>
+        </AuthProvider>
+      </BlendThemeBridge>
     </ThemeProvider>
   );
+}
+
+function BlendThemeBridge({ children }) {
+  const { theme } = useTheme();
+
+  return <BlendProvider theme={theme}>{children}</BlendProvider>;
 }
 
 function ThemedToaster() {

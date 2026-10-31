@@ -1,4 +1,5 @@
 const path = require("path");
+const os = require("os");
 require("dotenv").config();
 
 const enableHealthCheck = process.env.ENABLE_HEALTH_CHECK === "true";
@@ -45,6 +46,11 @@ module.exports = {
           "**/public/**",
         ],
       };
+      webpackConfig.plugins.forEach((plugin) => {
+        if (plugin.constructor?.name === "ESLintWebpackPlugin" && plugin.options) {
+          plugin.options.cacheLocation = path.join(os.tmpdir(), "collabnet-eslintcache");
+        }
+      });
       if (enableHealthCheck && healthPluginInstance) {
         webpackConfig.plugins.push(healthPluginInstance);
       }

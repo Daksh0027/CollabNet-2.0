@@ -199,104 +199,155 @@ export default function Landing() {
   };
 
   return (
-    <div className="grain min-h-screen overflow-x-hidden">
-      {/* ambient background */}
-      <div className="pointer-events-none fixed inset-0 -z-10">
-        <div className="absolute inset-0 grid-bg opacity-60" />
-        <div className="absolute -top-40 left-1/2 h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-primary/20 blur-[140px]" />
-        <div className="absolute top-1/3 -right-40 h-96 w-96 rounded-full bg-primary/10 blur-[130px]" />
+    <div className="grain min-h-screen overflow-x-hidden bg-[#ebf5ff] text-slate-900">
+      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.8),_rgba(184,220,255,0.85)_34%,_rgba(111,188,255,0.9)_100%)]" />
+        <div className="absolute left-1/2 top-16 h-[680px] w-[680px] -translate-x-1/2 rounded-full bg-white/20 blur-[120px]" />
+        <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-white/20 to-transparent" />
       </div>
 
-      {/* header */}
-      <header className="sticky top-0 z-50 border-b border-border/50 bg-background/70 backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary font-display text-sm font-bold text-primary-foreground">C</div>
-            <span className="font-display text-sm font-semibold tracking-wide">CollaboNet</span>
+      <header className="relative mx-auto max-w-6xl px-4 pt-5 sm:px-6">
+        <div className="flex items-center justify-between rounded-full border border-white/60 bg-white/20 px-4 py-3 shadow-[0_10px_30px_rgba(31,90,140,0.08)] backdrop-blur-md sm:px-6">
+          <div className="flex items-center gap-2 text-slate-800">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-500 text-sm font-bold text-white shadow-md shadow-sky-200">C</div>
+            <span className="text-lg font-semibold tracking-tight">CollaboNet</span>
           </div>
-          <div className="flex items-center gap-2 sm:gap-3">
+
+          <nav className="hidden items-center gap-6 text-sm font-medium text-slate-700 md:flex">
+            <span>Home</span>
+            <span>Services</span>
+            <span>About us</span>
+            <span>More links</span>
+          </nav>
+
+          <div className="flex items-center gap-3">
             <button
               onClick={loginWithGoogle}
-              className="rounded-full border border-border bg-card/50 px-4 py-2 text-sm font-semibold backdrop-blur-md transition-colors hover:border-primary hover:text-primary"
+              className="hidden rounded-full border border-white/60 bg-white/20 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-white/30 sm:inline-flex"
               data-testid="login-google-button"
             >
               Log in
+            </button>
+            <button
+              onClick={() => demoLogin("creator")}
+              disabled={busy !== ""}
+              className="inline-flex items-center justify-center rounded-full bg-[#d9f95d] px-4 py-2 text-sm font-bold text-slate-900 shadow-[0_6px_18px_rgba(153,203,51,0.45)] transition hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(153,203,51,0.5)] disabled:opacity-60"
+              data-testid="demo-creator-button"
+            >
+              {busy === "creator" ? <Loader2 className="h-4 w-4 animate-spin" /> : "Explore demo"}
             </button>
           </div>
         </div>
       </header>
 
-      {/* hero */}
-      <section className="relative mx-auto max-w-6xl px-6 pb-24 pt-14 sm:pt-20">
-        <div className="grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr]">
-          <motion.div variants={stagger} initial="hidden" animate="show">
-            <motion.div variants={fadeUp}>
-              <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-3 py-1">
-                <span className="live-dot h-1.5 w-1.5 rounded-full bg-primary" />
-                <span className="eyebrow !text-primary">Sponsor ↔ Creator marketplace</span>
-              </span>
-            </motion.div>
-
-            <motion.h1 variants={fadeUp} className="font-display mt-6 max-w-2xl text-4xl font-bold leading-[1.06] tracking-tight sm:text-5xl lg:text-6xl">
-              Campaigns that start with a <span className="text-shimmer">handshake</span>, not a cold DM.
-            </motion.h1>
-
-            <motion.p variants={fadeUp} className="mt-6 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-              From first contact to signed agreement to delivered, reviewed campaign,
-              with escrow-backed pay and a shared calendar. Verified brands meet verified creators.
-            </motion.p>
-
-            <motion.div variants={fadeUp} className="mt-9 flex flex-wrap items-center gap-3">
-              <button
-                onClick={loginWithGoogle}
-                className="accent-glow flex items-center gap-3 rounded-full bg-primary px-6 py-3.5 text-sm font-bold text-primary-foreground transition-transform hover:scale-[1.03] active:scale-[0.98]"
-                data-testid="signup-google-button"
-              >
-                <GoogleIcon /> Sign up with Google
-              </button>
-            </motion.div>
-
-            <motion.div variants={fadeUp} className="mt-5">
-              <p className="eyebrow mb-2 flex items-center gap-2">
-              <Sparkles className="h-3.5 w-3.5 text-primary" /> no signup needed, jump into a live demo
-              </p>
-              <div className="flex flex-wrap gap-3">
-                <button
-                  onClick={() => demoLogin("creator")}
-                  disabled={busy !== ""}
-                  className="pulse-ring flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-5 py-3 text-sm font-semibold text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 hover:bg-primary/20 hover:border-primary active:scale-[0.98] disabled:opacity-50 motion-reduce:transition-none"
-                  data-testid="demo-creator-button"
-                >
-                  {busy === "creator" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Clapperboard className="h-4 w-4" />} Enter as Creator
-                </button>
-                <button
-                  onClick={() => demoLogin("company")}
-                  disabled={busy !== ""}
-                  className="flex items-center gap-2 rounded-full border border-border bg-card/60 px-5 py-3 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 hover:border-primary hover:bg-primary/5 active:scale-[0.98] disabled:opacity-50 motion-reduce:transition-none"
-                  data-testid="demo-company-button"
-                >
-                  {busy === "company" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Building2 className="h-4 w-4 text-primary" />} Enter as Sponsor
-                </button>
-              </div>
-            </motion.div>
-
-            <motion.div variants={fadeUp} className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
-              {["Escrow-backed pay", "Both sides e-sign", "Moderated reviews"].map((t) => (
-                <span key={t} className="flex items-center gap-1.5">
-                  <Check className="h-3.5 w-3.5 text-primary" /> {t}
-                </span>
-              ))}
-            </motion.div>
+      <section className="relative mx-auto max-w-6xl px-4 pb-16 pt-10 sm:px-6 lg:pb-24 lg:pt-14">
+        <motion.div
+          initial="hidden"
+          animate="show"
+          variants={stagger}
+          className="text-center"
+        >
+          <motion.div variants={fadeUp}>
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/60 bg-white/20 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-700 backdrop-blur-sm">
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              sponsor ↔ creator marketplace
+            </span>
           </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, scale: 0.94, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: 0.15 }}
+          <motion.h1
+            variants={fadeUp}
+            className="mx-auto mt-8 max-w-4xl font-sans text-4xl font-semibold leading-none tracking-[-0.08em] text-slate-900 sm:text-5xl md:text-6xl lg:text-[6rem]"
           >
-            <JudgeConsole role={role} setRole={setRole} onEnter={demoLogin} busy={busy} />
+            Campaigns that start with a handshake, not a cold DM.
+          </motion.h1>
+
+          <motion.p
+            variants={fadeUp}
+            className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-slate-700 sm:text-lg"
+          >
+            From first contact to signed agreement to final payout, CollaboNet keeps every campaign in one room with escrow-backed pay and a shared calendar.
+          </motion.p>
+
+          <motion.div variants={fadeUp} className="mt-8 flex flex-wrap items-center justify-center gap-4">
+            <button
+              onClick={() => demoLogin("creator")}
+              disabled={busy !== ""}
+              className="inline-flex items-center gap-2 rounded-full bg-sky-600 px-7 py-4 text-sm font-bold text-white shadow-[0_12px_24px_rgba(14,103,201,0.35)] transition hover:-translate-y-0.5 hover:bg-sky-500 disabled:opacity-60"
+              data-testid="demo-creator-button"
+            >
+              {busy === "creator" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+              Enter as Creator
+            </button>
+            <button
+              onClick={() => demoLogin("company")}
+              disabled={busy !== ""}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-700/20 bg-white/35 px-7 py-4 text-sm font-bold text-slate-800 shadow-[0_6px_18px_rgba(31,90,140,0.08)] transition hover:-translate-y-0.5 hover:bg-white/50 disabled:opacity-60"
+              data-testid="demo-company-button"
+            >
+              {busy === "company" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Building2 className="h-4 w-4 text-sky-700" />}
+              Enter as Sponsor
+            </button>
           </motion.div>
-        </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 26 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: 0.15 }}
+          className="mt-12 flex flex-col items-end justify-center gap-5 md:flex-row md:items-end"
+        >
+          <div className="w-full max-w-[310px] rounded-[30px] border border-slate-200/70 bg-white/70 p-4 shadow-[0_18px_40px_rgba(31,90,140,0.12)] backdrop-blur-md">
+            <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+              <span>Before</span>
+              <span className="rounded-full bg-slate-100 px-2 py-1 text-[#ef4444]">-25</span>
+            </div>
+            <div className="mt-4 flex items-center gap-3">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-sky-300 to-slate-200 text-lg font-bold text-slate-700 shadow-inner">D</div>
+              <div className="text-left text-sm">
+                <p className="font-semibold text-slate-800">Dylan McKay</p>
+                <p className="text-xs text-slate-500">Chief Guy</p>
+              </div>
+            </div>
+            <div className="mt-4 rounded-2xl bg-slate-50 p-3">
+              <div className="flex items-center justify-between text-[11px] text-slate-500">
+                <span>Followers</span>
+                <span className="font-semibold text-slate-800">2.1k</span>
+              </div>
+              <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-200">
+                <div className="h-full w-[55%] rounded-full bg-gradient-to-r from-sky-500 to-sky-400" />
+              </div>
+              <p className="mt-3 text-[11px] text-slate-500">Profile views <span className="font-semibold text-[#ef4444]">-14%</span></p>
+            </div>
+          </div>
+
+          <div className="flex h-12 w-12 items-center justify-center rounded-full border border-slate-200/80 bg-white/70 text-sky-700 shadow-[0_18px_30px_rgba(14,103,201,0.12)]">
+            <ArrowRight className="h-5 w-5" />
+          </div>
+
+          <div className="w-full max-w-[310px] rounded-[30px] border border-sky-100 bg-white/70 p-4 shadow-[0_18px_40px_rgba(31,90,140,0.12)] backdrop-blur-md">
+            <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+              <span>After</span>
+              <span className="rounded-full bg-emerald-50 px-2 py-1 text-emerald-600">+300%</span>
+            </div>
+            <div className="mt-4 flex items-center gap-3">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-sky-300 to-emerald-200 text-lg font-bold text-slate-700 shadow-inner">D</div>
+              <div className="text-left text-sm">
+                <p className="font-semibold text-slate-800">Dylan McKay</p>
+                <p className="text-xs text-slate-500">CEO & Founder</p>
+              </div>
+            </div>
+            <div className="mt-4 rounded-2xl bg-slate-50 p-3">
+              <div className="flex items-center justify-between text-[11px] text-slate-500">
+                <span>Followers</span>
+                <span className="font-semibold text-emerald-600">2400+</span>
+              </div>
+              <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-200">
+                <div className="h-full w-[90%] rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400" />
+              </div>
+              <p className="mt-3 text-[11px] text-slate-500">Profile views <span className="font-semibold text-emerald-600">+300%</span></p>
+            </div>
+          </div>
+        </motion.div>
       </section>
 
       {/* how it works — workflow deck */}

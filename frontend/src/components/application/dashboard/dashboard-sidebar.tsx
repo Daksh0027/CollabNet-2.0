@@ -354,9 +354,7 @@ export function DashboardSidebar({
                 : "max-w-[206px] scale-100 opacity-100",
             )}
           >
-            {headerContent ?? (
-              {headerContent}
-            )}
+            {headerContent ?? null}
           </div>
           {mobile && flat ? (
             <div
