@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  BadgeCheck, Building2, Check, ExternalLink, FileText, FolderGit2, Globe,
+  BadgeCheck, Building2, Check, ExternalLink, FolderGit2, Globe,
   Hash, Layers, Loader2, LogOut, Pin, Plus, ShieldCheck, Sparkles, Target,
   Trash2, User, Video, X,
 } from "lucide-react";
@@ -683,8 +683,6 @@ export default function Account() {
             </SectionCard>
           ) : null}
 
-          <TemplatesPanel />
-
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4 shadow-xs" data-testid="session-card">
             <div className="flex min-w-0 items-center gap-3">
               <ShieldCheck className="h-5 w-5 shrink-0 text-muted-foreground" />
@@ -1118,91 +1116,5 @@ export default function Account() {
         </DialogContent>
       </Dialog>
     </div>
-  );
-}
-
-function TemplatesPanel() {
-  const qc = useQueryClient();
-  const { data: templates } = useQuery({ queryKey: ["templates"], queryFn: async () => (await api.get("/templates")).data });
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ kind: "brief", title: "", body: "" });
-  const [busy, setBusy] = useState(false);
-
-  const create = async () => {
-    if (!form.title || !form.body) { toast.error("Title and body required"); return; }
-    setBusy(true);
-    try {
-      await api.post("/templates", form);
-      toast.success("Template saved");
-      setOpen(false);
-      setForm({ kind: "brief", title: "", body: "" });
-      qc.invalidateQueries({ queryKey: ["templates"] });
-    } catch (e) { toast.error("Could not save"); }
-    finally { setBusy(false); }
-  };
-
-  const remove = async (tplId) => {
-    try {
-      await api.delete(`/templates/${tplId}`);
-      qc.invalidateQueries({ queryKey: ["templates"] });
-    } catch (e) { toast.error("Could not delete"); }
-  };
-
-  return (
-    <SectionCard
-      icon={FileText}
-      title="Templates"
-      action={(
-        <Button size="sm" variant="outline" className="rounded-lg text-xs font-semibold" onClick={() => setOpen(true)} data-testid="new-template-button">
-          <Plus className="h-3.5 w-3.5" /> New
-        </Button>
-      )}
-      testId="templates-panel"
-    >
-      {!templates?.length ? (
-        <EmptyRow>
-          <p data-testid="templates-empty">No templates yet.</p>
-        </EmptyRow>
-      ) : (
-        <div className="space-y-2" data-testid="templates-list">
-          {templates.map((t) => (
-            <div key={t.tpl_id} className="rounded-xl border border-border/70 p-3" data-testid={`template-${t.tpl_id}`}>
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="truncate text-xs font-semibold text-foreground">{t.title}</p>
-                  <p className="mt-0.5 text-[11px] capitalize text-muted-foreground">{t.kind}</p>
-                </div>
-                <button onClick={() => remove(t.tpl_id)} className="rounded-md p-1 text-muted-foreground transition-colors hover:text-destructive" aria-label={`Delete ${t.title}`} data-testid={`template-delete-${t.tpl_id}`}>
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
-              <p className="mt-2 line-clamp-2 whitespace-pre-wrap text-[11px] leading-5 text-muted-foreground">{t.body}</p>
-            </div>
-          ))}
-        </div>
-      )}
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent data-testid="new-template-dialog">
-          <DialogHeader><DialogTitle>New template</DialogTitle></DialogHeader>
-          <div className="grid gap-3">
-            <Select value={form.kind} onValueChange={(v) => setForm({ ...form, kind: v })}>
-              <SelectTrigger data-testid="template-kind-select"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="brief">Brief</SelectItem>
-                <SelectItem value="outreach">Outreach message</SelectItem>
-                <SelectItem value="agreement">Agreement</SelectItem>
-              </SelectContent>
-            </Select>
-            <Input placeholder="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} data-testid="template-title-input" />
-            <Textarea placeholder="Body" rows={5} value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} data-testid="template-body-input" />
-          </div>
-          <DialogFooter>
-            <Button className="rounded-lg" onClick={create} disabled={busy} data-testid="template-submit-button">
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save template"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </SectionCard>
   );
 }

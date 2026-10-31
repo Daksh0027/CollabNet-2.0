@@ -59,8 +59,6 @@ const SORT_OPTIONS = [
   { value: "views", label: "Highest Avg Views" },
   { value: "engagement", label: "Highest Engagement %" },
   { value: "connections", label: "Most Connections" },
-  { value: "rate_asc", label: "Price: Low to High" },
-  { value: "rate_desc", label: "Price: High to Low" },
   { value: "rating", label: "Highest Rated" }
 ];
 
@@ -93,8 +91,6 @@ function CompanyExplore() {
   const [minViews, setMinViews] = useState(0);
   const [minEngagement, setMinEngagement] = useState(0);
   const [minConnections, setMinConnections] = useState(0);
-  const [minRate, setMinRate] = useState(0);
-  const [maxRate, setMaxRate] = useState(0);
 
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [connecting, setConnecting] = useState("");
@@ -113,10 +109,8 @@ function CompanyExplore() {
     if (minViews > 0) count++;
     if (minEngagement > 0) count++;
     if (minConnections > 0) count++;
-    if (minRate > 0) count++;
-    if (maxRate > 0) count++;
     return count;
-  }, [niche, platform, contentType, minF, maxF, minViews, minEngagement, minConnections, minRate, maxRate]);
+  }, [niche, platform, contentType, minF, maxF, minViews, minEngagement, minConnections]);
 
   const resetFilters = () => {
     setSearch("");
@@ -128,8 +122,6 @@ function CompanyExplore() {
     setMinViews(0);
     setMinEngagement(0);
     setMinConnections(0);
-    setMinRate(0);
-    setMaxRate(0);
     setSortBy("followers");
   };
 
@@ -145,8 +137,6 @@ function CompanyExplore() {
       minViews ? String(minViews) : "",
       minEngagement ? String(minEngagement) : "",
       minConnections ? String(minConnections) : "",
-      minRate ? String(minRate) : "",
-      maxRate ? String(maxRate) : "",
       sortBy
     ],
     queryFn: async () =>
@@ -162,8 +152,6 @@ function CompanyExplore() {
             min_views: Number(minViews) || 0,
             min_engagement: Number(minEngagement) || 0.0,
             min_connections: Number(minConnections) || 0,
-            min_rate: Number(minRate) || 0,
-            max_rate: Number(maxRate) || 0,
             sort_by: sortBy,
           },
         })
@@ -378,7 +366,7 @@ function CompanyExplore() {
             </div>
 
             {/* Precision Numeric Sliders Grid */}
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {/* Followers Range Slider */}
               <div className="space-y-2 rounded-xl border border-border/80 bg-background/50 p-3">
                 <div className="flex items-center justify-between text-xs">
@@ -445,29 +433,6 @@ function CompanyExplore() {
                   <span>0%</span>
                   <span>5%</span>
                   <span>10%</span>
-                </div>
-              </div>
-
-              {/* Max Post Rate Slider */}
-              <div className="space-y-2 rounded-xl border border-border/80 bg-background/50 p-3">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="eyebrow">Max Rate</span>
-                  <span className="font-num font-bold text-foreground">
-                    {maxRate > 0 ? fmtMoney(maxRate) : "Any"}
-                  </span>
-                </div>
-                <Slider
-                  min={0}
-                  max={5000}
-                  step={100}
-                  value={[maxRate]}
-                  onValueChange={([val]) => setMaxRate(val)}
-                  data-testid="max-rate-slider"
-                />
-                <div className="flex justify-between text-[10px] text-muted-foreground font-num">
-                  <span>$0</span>
-                  <span>$2,500</span>
-                  <span>$5,000+</span>
                 </div>
               </div>
             </div>
@@ -647,10 +612,9 @@ function CompanyExplore() {
 
                 {/* Card Footer */}
                 <div className="mt-5 flex items-center justify-between border-t border-border/60 pt-3">
-                  <div>
-                    <span className="text-[10px] block uppercase tracking-wider text-muted-foreground">Starting Rate</span>
-                    <span className="font-num text-xs text-muted-foreground">
-                      from <span className="text-sm font-bold text-foreground">{fmtMoney(c.rate_from)}</span>/post
+                  <div className="flex items-center gap-1.5">
+                    <span className="inline-flex items-center rounded-full bg-muted/60 px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+                      Custom Deal Proposal
                     </span>
                   </div>
 
@@ -1014,37 +978,6 @@ function CompanyExplore() {
                   </div>
                 )}
 
-                {/* Rates & Deliverable Formats */}
-                <div>
-                  <h4 className="eyebrow mb-2">Standard Deliverable Rates</h4>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
-                    <div className="rounded-xl border border-border bg-card p-2.5">
-                      <span className="text-muted-foreground">Post / Carousel</span>
-                      <p className="font-num text-sm font-bold text-foreground mt-1">
-                        {fmtMoney(detail.creator?.rates?.post)}
-                      </p>
-                    </div>
-                    <div className="rounded-xl border border-border bg-card p-2.5">
-                      <span className="text-muted-foreground">Dedicated Video</span>
-                      <p className="font-num text-sm font-bold text-foreground mt-1">
-                        {fmtMoney(detail.creator?.rates?.video)}
-                      </p>
-                    </div>
-                    <div className="rounded-xl border border-border bg-card p-2.5">
-                      <span className="text-muted-foreground">Story / Status</span>
-                      <p className="font-num text-sm font-bold text-foreground mt-1">
-                        {fmtMoney(detail.creator?.rates?.story)}
-                      </p>
-                    </div>
-                    <div className="rounded-xl border border-border bg-card p-2.5">
-                      <span className="text-muted-foreground">Integrated Spot</span>
-                      <p className="font-num text-sm font-bold text-foreground mt-1">
-                        {fmtMoney(detail.creator?.rates?.integrated || detail.creator?.rates?.video * 0.6)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
                 {/* Supported Content Formats */}
                 {detail.creator?.content_types?.length > 0 && (
                   <div className="rounded-xl border border-border bg-card p-3">
@@ -1149,15 +1082,13 @@ function CreatorExplore() {
   const [search, setSearch] = useState("");
   const [niche, setNiche] = useState("all");
   const [deliverable, setDeliverable] = useState("all");
-  const [minBudget, setMinBudget] = useState("");
-  const [maxBudget, setMaxBudget] = useState("");
 
   const [applyFor, setApplyFor] = useState(null);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
   const { data: campaigns, isLoading } = useQuery({
-    queryKey: ["campaigns", search, niche, deliverable, minBudget, maxBudget],
+    queryKey: ["campaigns", search, niche, deliverable],
     queryFn: async () =>
       (
         await api.get("/campaigns", {
@@ -1165,8 +1096,6 @@ function CreatorExplore() {
             search,
             niche: niche === "all" ? "" : niche,
             content_type: deliverable === "all" ? "" : deliverable,
-            min_budget: Number(minBudget) || 0,
-            max_budget: Number(maxBudget) || 0,
           },
         })
       ).data,
@@ -1202,15 +1131,13 @@ function CreatorExplore() {
     setSearch("");
     setNiche("all");
     setDeliverable("all");
-    setMinBudget("");
-    setMaxBudget("");
   };
 
   return (
     <div data-testid="explore-campaigns-page">
       <PageHead
         title="Open Campaigns"
-        sub="Browse briefs published by verified sponsors. Filter by budget tiers and deliverables."
+        sub="Browse briefs published by verified sponsors. Discover opportunities by niche and deliverable formats."
       />
 
       {/* Campaign Search and Filter Bar */}
@@ -1255,27 +1182,7 @@ function CreatorExplore() {
             </SelectContent>
           </Select>
 
-          <div className="flex items-center gap-1.5">
-            <Input
-              className="w-24"
-              placeholder="Min $"
-              type="number"
-              value={minBudget}
-              onChange={(e) => setMinBudget(e.target.value)}
-              data-testid="campaign-min-budget-input"
-            />
-            <span className="text-xs text-muted-foreground">–</span>
-            <Input
-              className="w-24"
-              placeholder="Max $"
-              type="number"
-              value={maxBudget}
-              onChange={(e) => setMaxBudget(e.target.value)}
-              data-testid="campaign-max-budget-input"
-            />
-          </div>
-
-          {(niche !== "all" || deliverable !== "all" || minBudget || maxBudget || search) && (
+          {(niche !== "all" || deliverable !== "all" || search) && (
             <Button
               variant="ghost"
               size="sm"
@@ -1296,7 +1203,7 @@ function CreatorExplore() {
         <EmptyState
           icon={Search}
           title="No open campaigns match your search"
-          body="Try adjusting your budget or deliverables filters to see more open briefs."
+          body="Try selecting All Niches or clearing your search to see more briefs."
           testId="campaigns-empty"
         />
       ) : (
@@ -1325,20 +1232,14 @@ function CreatorExplore() {
                         <Users className="h-3 w-3 text-primary" />
                         {c.company?.connections_count || 0} connections
                       </span>
-                      {c.company?.total_spend > 0 && (
-                        <span>
-                          <span className="font-semibold text-foreground">{fmtMoney(c.company.total_spend)}</span> total spend
-                        </span>
-                      )}
                     </div>
                   </div>
                 </div>
 
                 <div className="text-right">
-                  <span className="text-[10px] block uppercase tracking-wider text-muted-foreground">Campaign Budget</span>
-                  <p className="font-num text-base font-bold text-primary">
-                    {fmtMoney(c.budget_min)} – {fmtMoney(c.budget_max)}
-                  </p>
+                  <span className="inline-flex items-center rounded-full bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                    Paid Campaign · Negotiable
+                  </span>
                   <div className="mt-1 flex justify-end">
                     {appliedCampIds.has(c.camp_id) ? <StatusPill status="pending" /> : null}
                   </div>

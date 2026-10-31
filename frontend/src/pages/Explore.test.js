@@ -131,7 +131,7 @@ describe("Explore Page Serious Filters and Stats System", () => {
 
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     qc.setQueryData(
-      ["creators", "", "all", "all", "all", "", "", "", "", "", "", "", "followers"],
+      ["creators", "", "all", "all", "all", "", "", "", "", "", "followers"],
       mockCreators
     );
     qc.setQueryData(["connections"], []);
@@ -168,7 +168,7 @@ describe("Explore Page Serious Filters and Stats System", () => {
     mockUser = { user_id: "usr_elena", role: "company" };
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     qc.setQueryData(
-      ["creators", "", "all", "all", "all", "", "", "", "", "", "", "", "followers"],
+      ["creators", "", "all", "all", "all", "", "", "", "", "", "followers"],
       []
     );
     qc.setQueryData(["connections"], []);
@@ -192,7 +192,8 @@ describe("Explore Page Serious Filters and Stats System", () => {
     expect(container.querySelector('[data-testid="min-followers-slider"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="min-views-slider"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="min-engagement-slider"]')).not.toBeNull();
-    expect(container.querySelector('[data-testid="max-rate-slider"]')).not.toBeNull();
+    // Public rate slider is cleanly removed
+    expect(container.querySelector('[data-testid="max-rate-slider"]')).toBeNull();
   });
 
   it("renders creator view with campaign filters and sponsor reliability metrics", async () => {
@@ -226,7 +227,7 @@ describe("Explore Page Serious Filters and Stats System", () => {
     ];
 
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    qc.setQueryData(["campaigns", "", "all", "all", "", ""], mockCampaigns);
+    qc.setQueryData(["campaigns", "", "all", "all"], mockCampaigns);
     qc.setQueryData(["applications"], []);
 
     await act(async () => {
@@ -243,6 +244,9 @@ describe("Explore Page Serious Filters and Stats System", () => {
     expect(container.querySelector('[data-testid="campaign-card-cmp_1"]')).not.toBeNull();
     expect(container.textContent).toContain("Nova Athletics");
     expect(container.textContent).toContain("15 connections");
-    expect(container.textContent).toContain("$42,000 total spend");
+    expect(container.textContent).toContain("Paid Campaign · Negotiable");
+    // Public budget inputs are cleanly removed
+    expect(container.querySelector('[data-testid="campaign-min-budget-input"]')).toBeNull();
+    expect(container.querySelector('[data-testid="campaign-max-budget-input"]')).toBeNull();
   });
 });

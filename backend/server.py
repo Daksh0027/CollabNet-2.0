@@ -304,15 +304,6 @@ async def auth_role(payload: RoleIn, request: Request):
     if payload.role not in ("creator", "company"):
         raise HTTPException(400, "Invalid role")
     await db.users.update_one({"user_id": user["user_id"]}, {"$set": {"role": payload.role}})
-    templates = [
-        {"kind": "brief", "title": "Standard campaign brief", "body": "Deliverables:\n- \nTiming:\n- \nBudget:\n- \nDos & don'ts:\n- "},
-        {"kind": "outreach", "title": "First-touch outreach", "body": "Hi {name}, we love your work in {niche}. We're planning a campaign and think you'd be a great fit. Open to a quick chat?"},
-        {"kind": "agreement", "title": "Simple collaboration agreement", "body": "Scope:\nTimeline:\nCompensation:\nUsage rights:\nCompletion & review:"},
-    ]
-    for t in templates:
-        await db.templates.insert_one({
-            "tpl_id": uid("tpl"), "owner_id": user["user_id"], **t, "created_at": now(),
-        })
     await log_activity(user["user_id"], f"Joined CollaboNet as a {'creator' if payload.role == 'creator' else 'company / sponsor'}.")
     return {"ok": True, "role": payload.role}
 
@@ -1523,35 +1514,6 @@ async def overview(request: Request):
                       "in_negotiation": len(in_negotiation), "total_spend": spend},
             "requests_in": enriched_reqs, "activities": activities, "next_step": next_step,
         }
-
-
-# ---------------------------------------------------------------- templates
-class TemplateIn(BaseModel):
-    kind: str
-    title: str
-    body: str
-
-
-@api_router.get("/templates")
-async def list_templates(request: Request):
-    user = await get_user(request)
-    return await db.templates.find({"owner_id": user["user_id"]}, {"_id": 0}).sort("created_at", -1).to_list(50)
-
-
-@api_router.post("/templates")
-async def create_template(payload: TemplateIn, request: Request):
-    user = await get_user(request)
-    doc = {"tpl_id": uid("tpl"), "owner_id": user["user_id"], "kind": payload.kind,
-           "title": payload.title, "body": payload.body, "created_at": now()}
-    await db.templates.insert_one({**doc})
-    return doc
-
-
-@api_router.delete("/templates/{tpl_id}")
-async def delete_template(tpl_id: str, request: Request):
-    user = await get_user(request)
-    await db.templates.delete_one({"tpl_id": tpl_id, "owner_id": user["user_id"]})
-    return {"ok": True}
 
 
 # ---------------------------------------------------------------- payments (escrow)

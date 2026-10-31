@@ -217,10 +217,34 @@ frontend:
         agent: "main"
         comment: "Per user request ('terms filter should be removed... usually very custom for every deal'), removed the 'All Terms' dropdown, drawer preset chips, and card badges. Deals are negotiated per-contract rather than pre-filtered."
 
+  - task: "Removal of Public Rate, Budget & Cost Range Filters (Explore.jsx & Account.jsx)"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/Explore.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Per user request ('remove it cleanly and the general cost range filter too probably cause both parties: creators and sponsors/companies would not prefer putting these things in public'), cleanly removed Max Rate slider, Min $/Max $ budget filter inputs, public dollar budget labels from campaign cards ('Paid Campaign · Negotiable'), and public starting rates from creator cards ('Custom Deal Proposal'). Deliverable rates in Account settings are retained as private baseline rates for proposal drafting."
+
+  - task: "Removal of Isolated Templates System (Account.jsx & server.py)"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/Account.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Per user request ('remove this template system too bro completely cleanly too'), removed the isolated TemplatesPanel component and +New button from Account.jsx, cleaned up unused imports, and removed legacy /templates API endpoints and seed insertion from server.py. All 36 frontend tests and 20 backend pytest tests pass cleanly."
+
 metadata:
   created_by: "main_agent"
-  version: "1.4"
-  test_sequence: 5
+  version: "1.6"
+  test_sequence: 7
   run_ui: false
 
 test_plan:
@@ -231,4 +255,4 @@ test_plan:
 
 agent_communication:
   - agent: "main"
-    message: "Removed generic commercial terms filters and preset dropdowns per user request. Kept deal terms custom to each contract negotiation. All 20 backend pytest tests and 36 frontend jest tests passing cleanly."
+    message: "Completely removed the isolated Templates system from both Account.jsx and server.py. Added documentation of UX architectural decisions and evolutions. All 36 frontend jest tests and 20 backend pytest tests passing cleanly."
