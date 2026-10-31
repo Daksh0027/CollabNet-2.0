@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
-import { FileSignature, Loader2, Lock, PenLine, Plus, ShieldAlert, Star, Check } from "lucide-react";
+import { ArrowLeft, FileSignature, GitPullRequest, History, Loader2, Lock, MessageSquare, PenLine, Plus, ShieldAlert, Star, Check } from "lucide-react";
 import { toast } from "sonner";
 import api, { fmtMoney, fmtDate, timeAgo } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -33,6 +33,8 @@ export default function Contracts() {
       />
       {isLoading ? (
         <div className="py-24 text-center text-sm text-muted-foreground">Loading…</div>
+      ) : deal ? (
+        <DealRoom key={deal.deal_id} deal={deal} onClose={() => setOpenId(null)} />
       ) : !deals?.length ? (
         <EmptyState icon={FileSignature} title="No deal rooms yet" body="Open one with an accepted connection — scope, dates and pay go in writing." testId="contracts-empty" />
       ) : (
@@ -60,7 +62,6 @@ export default function Contracts() {
         </div>
       )}
 
-      {deal ? <DealRoom key={deal.deal_id} deal={deal} onClose={() => setOpenId(null)} /> : null}
       <NewDealDialog open={newOpen} onClose={() => setNewOpen(false)} />
     </div>
   );
@@ -75,6 +76,9 @@ function DealRoom({ deal, onClose }) {
   const [busy, setBusy] = useState(false);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
+  const [revisionOpen, setRevisionOpen] = useState(false);
+  const [changeRequestOpen, setChangeRequestOpen] = useState(false);
+  const [changeComment, setChangeComment] = useState("");
 
   const ESCROW_COPY = {
     unfunded: "Fee not secured yet. Fund escrow so the creator can see the money is committed before work starts — it releases automatically when the campaign is marked delivered.",
@@ -109,16 +113,39 @@ function DealRoom({ deal, onClose }) {
   const otherRole = deal.my_role === "company" ? "creator" : "company";
   const otherSig = deal.signatures[otherRole];
   const myReview = deal.reviews?.find((r) => r.reviewer_id === user?.user_id);
+  const currentVersion = deal.current_version || deal.versions?.length || 1;
+
+  const requestChanges = () => run(async () => {
+    await api.post(`/contracts/${deal.deal_id}/change-requests`, {
+      version: currentVersion,
+      comment: changeComment,
+    });
+    setChangeComment("");
+  }, "Change request sent");
 
   return (
-    <Dialog open={!!deal} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl" data-testid="deal-room-dialog">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-3">
-            {deal.title} <StatusPill status={deal.status} />
-          </DialogTitle>
-        </DialogHeader>
-        <div className="max-h-[65vh] space-y-5 overflow-y-auto pr-2">
+    <>
+      <section className="space-y-6" data-testid="deal-room-workspace">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-5">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" className="rounded-full" onClick={onClose} data-testid="close-deal-workspace">
+              <ArrowLeft className="mr-1.5 h-4 w-4" /> All contracts
+            </Button>
+            <span className="hidden h-5 w-px bg-border sm:block" />
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="font-display text-xl font-semibold">{deal.title}</h1>
+                <StatusPill status={deal.status} />
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">Contract review workspace · Version {currentVersion}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <UserAvatar user={deal.other} className="h-7 w-7" />
+            <span>{deal.other?.display_name}</span>
+          </div>
+        </div>
+        <div className="space-y-5">
           <div className="flex items-center gap-3 rounded-xl border border-border p-3">
             <UserAvatar user={deal.other} />
             <div>
@@ -154,9 +181,73 @@ function DealRoom({ deal, onClose }) {
             </ul>
           </div>
 
-          <div>
-            <p className="eyebrow mb-2">Written agreement</p>
-            <pre className="whitespace-pre-wrap rounded-xl border border-border bg-secondary/40 p-4 text-xs leading-relaxed" data-testid="deal-agreement-text">{deal.agreement_text}</pre>
+          <div className="rounded-2xl border border-border bg-card/60 p-4" data-testid="contract-review-panel">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="eyebrow flex items-center gap-1.5"><GitPullRequest className="h-3.5 w-3.5 text-primary" /> Contract review</p>
+                <p className="mt-1 text-sm font-semibold">Reviewing version {currentVersion}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {deal.status === "in_review" ? "Comment on the terms below, then approve and sign or request changes." : "This is the accepted contract version."}
+                </p>
+              </div>
+              {!["completed", "disputed"].includes(deal.status) ? (
+                <Button variant="outline" size="sm" className="rounded-full" onClick={() => setRevisionOpen(true)} data-testid="new-contract-revision-button">
+                  <Plus className="mr-1.5 h-4 w-4" /> Edit &amp; send for review
+                </Button>
+              ) : null}
+            </div>
+            <pre className="mt-4 whitespace-pre-wrap rounded-xl border border-border bg-secondary/40 p-4 text-xs leading-relaxed" data-testid="deal-agreement-text">{deal.agreement_text}</pre>
+            <div className="mt-4 border-t border-border pt-4" data-testid="contract-history">
+              <div className="flex items-center justify-between">
+                <p className="eyebrow flex items-center gap-1.5"><History className="h-3.5 w-3.5" /> Review history</p>
+                <span className="text-xs text-muted-foreground">{deal.versions?.length || 1} version{(deal.versions?.length || 1) === 1 ? "" : "s"}</span>
+              </div>
+              <div className="mt-3 space-y-3">
+                {(deal.versions || []).slice().reverse().map((version, index) => (
+                  <div key={version.version_id} className="relative flex gap-3 text-xs">
+                    {index < (deal.versions || []).length - 1 ? <span className="absolute left-[5px] top-3 h-full w-px bg-border" /> : null}
+                    <span className={`relative mt-1 h-3 w-3 shrink-0 rounded-full border-2 ${version.version === currentVersion ? "border-primary bg-primary/30" : "border-muted-foreground/40 bg-card"}`} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="font-semibold">Version {version.version} {version.version === currentVersion ? "· current" : ""}</p>
+                        <span className="text-muted-foreground">{fmtDate(version.created_at)}</span>
+                      </div>
+                      <p className="mt-1 text-muted-foreground">{version.change_summary || "Updated agreement terms"}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {(deal.change_requests || []).length ? (
+                <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3" data-testid="contract-change-requests">
+                  <p className="eyebrow flex items-center gap-1.5"><MessageSquare className="h-3.5 w-3.5" /> Review comments</p>
+                  {(deal.change_requests || []).slice().reverse().map((request) => (
+                    <p key={request.change_request_id} className="mt-2 text-xs text-muted-foreground">
+                      v{request.version} · {request.comment} · <span className="capitalize">{request.status}</span>
+                    </p>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+            {!["completed", "disputed"].includes(deal.status) ? (
+              <div className="mt-4 border-t border-border pt-4">
+                {!changeRequestOpen ? (
+                  <Button variant="ghost" size="sm" className="rounded-full px-0 text-muted-foreground hover:bg-transparent hover:text-foreground" onClick={() => setChangeRequestOpen(true)} data-testid="open-change-request-button">
+                    <MessageSquare className="mr-1.5 h-4 w-4" /> Request changes instead
+                  </Button>
+                ) : (
+                  <div data-testid="change-request-form">
+                    <p className="text-xs font-semibold">What should change in version {currentVersion}?</p>
+                    <Textarea className="mt-2" rows={2} placeholder="Mention the term or section and the change you need…" value={changeComment} onChange={(e) => setChangeComment(e.target.value)} autoFocus />
+                    <div className="mt-2 flex justify-end gap-2">
+                      <Button size="sm" variant="ghost" className="rounded-full" onClick={() => setChangeRequestOpen(false)}>Cancel</Button>
+                      <Button size="sm" className="rounded-full" disabled={busy || !changeComment.trim()} onClick={requestChanges} data-testid="request-contract-changes-button">
+                        Request changes
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : null}
           </div>
 
           <div className="grid gap-2 sm:grid-cols-2" data-testid="deal-signatures">
@@ -179,9 +270,9 @@ function DealRoom({ deal, onClose }) {
             {!mySig?.signed && deal.status === "in_review" ? (
               <div className="signature-consent-panel w-full" data-testid="signature-consent-panel">
                 <div>
-                  <p className="text-sm font-semibold text-foreground">Sign the agreement</p>
+                  <p className="text-sm font-semibold text-foreground">Approve and sign version {currentVersion}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Add your signature below. Both parties must sign before the agreement is active.
+                    Your signature records approval of this exact version. Both parties must sign before the agreement is active.
                   </p>
                 </div>
                 <Input
@@ -276,6 +367,59 @@ function DealRoom({ deal, onClose }) {
             </div>
           ) : null}
         </div>
+      </section>
+      <RevisionDialog
+        open={revisionOpen}
+        deal={deal}
+        busy={busy}
+        onClose={() => setRevisionOpen(false)}
+        onSubmit={async (payload) => {
+          await run(() => api.post(`/contracts/${deal.deal_id}/revisions`, payload), "Revision sent for review");
+          setRevisionOpen(false);
+        }}
+      />
+    </>
+  );
+}
+
+function RevisionDialog({ open, deal, busy, onClose, onSubmit }) {
+  const [form, setForm] = useState(null);
+  const revision = form || {
+    title: deal.title,
+    deliverables: (deal.deliverables || []).join("\n"),
+    start_date: deal.start_date || "",
+    end_date: deal.end_date || "",
+    compensation: deal.compensation || "",
+    agreement_text: deal.agreement_text || "",
+    change_summary: "",
+  };
+  const update = (key, value) => setForm((current) => ({ ...(current || revision), [key]: value }));
+  const submit = () => onSubmit({
+    ...revision,
+    compensation: Number(revision.compensation) || 0,
+    deliverables: revision.deliverables.split("\n").map((item) => item.trim()).filter(Boolean),
+  });
+  return (
+    <Dialog open={open} onOpenChange={(value) => !value && onClose()}>
+      <DialogContent className="max-w-lg" data-testid="contract-revision-dialog">
+        <DialogHeader><DialogTitle>Propose contract revision</DialogTitle></DialogHeader>
+        <div className="grid gap-3">
+          <p className="text-xs text-muted-foreground">The current accepted or pending version remains unchanged until both parties review this revision.</p>
+          <Input placeholder="Deal title" value={revision.title} onChange={(e) => update("title", e.target.value)} />
+          <Textarea placeholder="Deliverables (one per line)" rows={3} value={revision.deliverables} onChange={(e) => update("deliverables", e.target.value)} />
+          <div className="grid grid-cols-3 gap-3">
+            <Input placeholder="Start" type="date" value={revision.start_date} onChange={(e) => update("start_date", e.target.value)} />
+            <Input placeholder="End" type="date" value={revision.end_date} onChange={(e) => update("end_date", e.target.value)} />
+            <Input placeholder="Fee ($)" type="number" value={revision.compensation} onChange={(e) => update("compensation", e.target.value)} />
+          </div>
+          <Textarea placeholder="Agreement text" rows={4} value={revision.agreement_text} onChange={(e) => update("agreement_text", e.target.value)} />
+          <Textarea placeholder="Summarize what changed" rows={2} value={revision.change_summary} onChange={(e) => update("change_summary", e.target.value)} />
+        </div>
+        <DialogFooter>
+          <Button className="rounded-full" disabled={busy || !revision.title.trim()} onClick={submit} data-testid="submit-contract-revision-button">
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send revision"}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
