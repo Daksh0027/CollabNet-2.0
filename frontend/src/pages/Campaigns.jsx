@@ -1,16 +1,24 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Activity, ArrowUpRight, Check, Loader2, Megaphone, Plus, Sparkles, UserPlus, X } from "lucide-react";
+import { Activity, ArrowUpRight, Check, LayoutTemplate, Loader2, Megaphone, Plus, Sparkles, UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
 import api, { fmtMoney, fmtDate } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { CAMPAIGN_TEMPLATES } from "@/lib/campaignTemplates";
 import { PageHead, UserAvatar, EmptyState, StatusPill } from "@/components/common";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+function deadlineDaysFromNow(days) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
 
 export default function Campaigns() {
   const { user } = useAuth();
@@ -30,9 +38,29 @@ function CompanyCampaigns() {
   });
 
   const [open, setOpen] = useState(false);
+  const [templateOpen, setTemplateOpen] = useState(false);
   const [inviteFor, setInviteFor] = useState(null);
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({ title: "", brief: "", deliverables: "", budget_min: "", budget_max: "", deadline: "", niches: "" });
+
+  const applyTemplate = (tpl) => {
+    setForm({
+      title: tpl.name,
+      brief: tpl.brief,
+      deliverables: tpl.deliverables.join("\n"),
+      budget_min: String(tpl.budget_min),
+      budget_max: String(tpl.budget_max),
+      deadline: deadlineDaysFromNow(tpl.deadline_days),
+      niches: tpl.niches.join(", "),
+    });
+    setTemplateOpen(false);
+    setOpen(true);
+  };
+
+  const startFromScratch = () => {
+    setForm({ title: "", brief: "", deliverables: "", budget_min: "", budget_max: "", deadline: "", niches: "" });
+    setOpen(true);
+  };
 
   const create = async () => {
     if (!form.title) { toast.error("Title is required"); return; }
@@ -74,7 +102,14 @@ function CompanyCampaigns() {
       <PageHead
         title="Campaigns & Events"
         sub="Your published briefs and the creators applying to them."
-        action={<Button className="rounded-full" onClick={() => setOpen(true)} data-testid="new-brief-button"><Plus className="mr-1 h-4 w-4" /> New brief</Button>}
+        action={
+          <div className="flex gap-2">
+            <Button variant="secondary" className="rounded-full" onClick={() => setTemplateOpen(true)} data-testid="browse-templates-button">
+              <LayoutTemplate className="mr-1 h-4 w-4" /> Browse templates
+            </Button>
+            <Button className="rounded-full" onClick={startFromScratch} data-testid="new-brief-button"><Plus className="mr-1 h-4 w-4" /> New brief</Button>
+          </div>
+        }
       />
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div>
@@ -145,9 +180,58 @@ function CompanyCampaigns() {
         <CompetitiveSignals />
       </div>
 
+      <Dialog open={templateOpen} onOpenChange={setTemplateOpen}>
+        <DialogContent className="max-w-3xl" data-testid="template-library-dialog">
+          <DialogHeader>
+            <DialogTitle>Template library</DialogTitle>
+          </DialogHeader>
+          <p className="-mt-2 text-sm text-muted-foreground">
+            Start from a ready-made brief for common campaign and event types — everything stays editable before you publish.
+          </p>
+          <div className="grid max-h-[28rem] gap-3 overflow-y-auto pr-1 sm:grid-cols-2">
+            {CAMPAIGN_TEMPLATES.map((tpl) => (
+              <div key={tpl.id} className="flex flex-col rounded-2xl border border-border bg-card p-4" data-testid={`template-card-${tpl.id}`}>
+                <div className="flex items-center justify-between gap-2">
+                  <Badge variant="secondary" className="rounded-full">{tpl.category}</Badge>
+                  <span className="text-[11px] text-muted-foreground">{fmtMoney(tpl.budget_min)} – {fmtMoney(tpl.budget_max)}</span>
+                </div>
+                <h4 className="mt-2.5 font-display text-sm font-semibold">{tpl.name}</h4>
+                <p className="mt-1 flex-1 text-xs leading-5 text-muted-foreground">{tpl.description}</p>
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {tpl.niches.map((n, i) => (
+                    <span key={i} className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">{n}</span>
+                  ))}
+                </div>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="mt-3 w-full rounded-full"
+                  onClick={() => applyTemplate(tpl)}
+                  data-testid={`template-use-${tpl.id}`}
+                >
+                  Use this template
+                </Button>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" className="rounded-full" onClick={() => { setTemplateOpen(false); startFromScratch(); }} data-testid="template-skip-button">
+              Start from scratch instead
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg" data-testid="new-brief-dialog">
-          <DialogHeader><DialogTitle>New campaign brief</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <div className="flex items-center justify-between gap-3">
+              <DialogTitle>New campaign brief</DialogTitle>
+              <Button variant="ghost" size="sm" className="rounded-full" onClick={() => { setOpen(false); setTemplateOpen(true); }} data-testid="new-brief-browse-templates-link">
+                <LayoutTemplate className="mr-1 h-3.5 w-3.5" /> Browse templates
+              </Button>
+            </div>
+          </DialogHeader>
           <div className="grid gap-3">
             <Input placeholder="Campaign title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} data-testid="brief-title-input" />
             <Textarea placeholder="Brief — what's the campaign about?" rows={3} value={form.brief} onChange={(e) => setForm({ ...form, brief: e.target.value })} data-testid="brief-text-input" />
