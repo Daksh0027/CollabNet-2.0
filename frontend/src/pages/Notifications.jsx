@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -35,10 +35,48 @@ const CATEGORIES = [
   { id: "companies", label: "Companies" },
 ];
 
+const markNotificationsRead = (cached) => {
+  if (!cached) return cached;
+
+  if (Array.isArray(cached.pages)) {
+    return {
+      ...cached,
+      pages: cached.pages.map((page) => ({
+        ...page,
+        notifications: Array.isArray(page.notifications)
+          ? page.notifications.map((notification) =>
+              notification.read ? notification : { ...notification, read: true }
+            )
+          : page.notifications,
+        unread: 0,
+        unread_counts: page.unread_counts
+          ? { ...page.unread_counts, all: 0, creators: 0, companies: 0 }
+          : page.unread_counts,
+      })),
+    };
+  }
+
+  if (Array.isArray(cached.notifications)) {
+    return {
+      ...cached,
+      notifications: cached.notifications.map((notification) =>
+        notification.read ? notification : { ...notification, read: true }
+      ),
+      unread: 0,
+      unread_counts: cached.unread_counts
+        ? { ...cached.unread_counts, all: 0, creators: 0, companies: 0 }
+        : cached.unread_counts,
+    };
+  }
+
+  return cached;
+};
+
 export default function Notifications() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [activeCategory, setActiveCategory] = useState("all");
+  const autoReadPending = useRef(false);
 
   const {
     data,
@@ -64,6 +102,32 @@ export default function Notifications() {
 
   const items = data?.pages.flatMap((page) => page.notifications || []) || [];
   const counts = data?.pages[0]?.counts;
+
+  useEffect(() => {
+    if (!data || autoReadPending.current) return;
+
+    const hasUnread = data.pages.some(
+      (page) =>
+        (page.unread || page.unread_counts?.all || 0) > 0 ||
+        (page.notifications || []).some((notification) => !notification.read)
+    );
+    if (!hasUnread) return;
+
+    autoReadPending.current = true;
+    api
+      .post("/notifications/read")
+      .then(() => {
+        qc.setQueriesData({ queryKey: ["notifications"] }, markNotificationsRead);
+      })
+      .catch((error) => {
+        toast.error(
+          error?.response?.data?.detail || "Could not mark notifications as read."
+        );
+      })
+      .finally(() => {
+        autoReadPending.current = false;
+      });
+  }, [data, qc]);
 
   const handleNotificationClick = async (notification) => {
     if (notification.link) navigate(notification.link);
