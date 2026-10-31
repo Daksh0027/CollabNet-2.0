@@ -199,8 +199,8 @@ function CompanyCampaigns() {
 function CompetitiveSignals() {
   const signals = [
     { brand: "Brewhaus Coffee", signal: "Increasing creator activity around short-form product stories", confidence: 82, change: "+18%", color: "bg-amber-500" },
-    { brand: "Lumen Skincare", signal: "Testing educational content with niche beauty creators", confidence: 74, change: "+11%", color: "bg-violet-500" },
-    { brand: "HydratePro", signal: "Likely preparing a seasonal wellness push", confidence: 61, change: "+7%", color: "bg-sky-500" },
+    { brand: "Lumen Skincare", signal: "Testing educational content with niche beauty creators", confidence: 74, change: "+11%", color: "bg-primary" },
+    { brand: "HydratePro", signal: "Likely preparing a seasonal wellness push", confidence: 61, change: "+7%", color: "bg-foreground" },
   ];
 
   return (

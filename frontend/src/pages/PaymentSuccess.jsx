@@ -40,7 +40,7 @@ export default function PaymentSuccess() {
   }, [sessionId, dealId, navigate]);
 
   return (
-    <div className="grain flex min-h-screen flex-col items-center justify-center px-6 text-center" data-testid="payment-success-page">
+    <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center" data-testid="payment-success-page">
       {state === "paid" ? (
         <>
           <CheckCircle2 className="h-14 w-14 text-emerald-400" data-testid="payment-success-icon" />

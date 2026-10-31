@@ -2,6 +2,25 @@
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
+## Landing page
+
+The `/` route now renders the Blend landing page from `src/landing/LandingPage.tsx`.
+It runs with the rest of the application using `npm start` at http://localhost:3000;
+no separate Vite server is needed. The original standalone `../landing/` project
+is retained as a reference, but is not used by the frontend.
+
+- Edit page copy in `src/landing/content.ts`.
+- Blend tokens and the isolated light/dark provider live in `src/landing/blend/`.
+- Scoped styles live in `src/landing/styles/landing.css` and do not affect dashboard routes.
+- `src/pages/Landing.jsx` retains authenticated-user redirects and exposes the existing
+  creator/sponsor demo sign-in through the secondary **Sign in** action.
+- The waitlist remains a simulated submission; connect `src/landing/waitlist/WaitlistProvider.tsx`
+  to a backend endpoint before collecting real signups.
+
+Run `npm run typecheck:landing` to check the new TypeScript code, and
+`npm test -- --watch=false --runInBand --runTestsByPath src/pages/Landing.test.js src/landing/blend/provider.test.js`
+for route/auth and theme-isolation regression tests.
+
 ## Available Scripts
 
 In the project directory, you can run:

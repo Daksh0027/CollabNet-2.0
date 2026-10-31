@@ -17,7 +17,9 @@ export function isImageAttachment(att) {
 }
 
 export function hasOnlyDocumentAttachments(attachments) {
-  return Boolean(attachments?.length && attachments.every((att) => !isImageAttachment(att)));
+  return Boolean(
+    attachments?.length && attachments.every((att) => !isImageAttachment(att)),
+  );
 }
 
 function getFileTypeLabel(att) {
@@ -35,7 +37,7 @@ export function AttachmentPreview({
   if (!attachments || !attachments.length) return null;
   const lastDocumentIndex = attachments.reduce(
     (lastIndex, att, index) => (isImageAttachment(att) ? lastIndex : index),
-    -1
+    -1,
   );
 
   return (
@@ -55,7 +57,7 @@ export function AttachmentPreview({
                 alt={att.name || "Attached image"}
                 className="max-h-72 w-full object-cover rounded-xl transition-transform group-hover:scale-[1.01]"
               />
-              <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent p-2 flex items-center justify-between text-[11px] text-white">
+              <div className="absolute bottom-0 inset-x-0 bg-black/65 p-2 flex items-center justify-between text-[11px] text-white">
                 <span className="truncate max-w-[200px]">{att.name}</span>
                 <a
                   href={att.data_url}
@@ -84,13 +86,18 @@ export function AttachmentPreview({
                 <span>{getFileTypeLabel(att)}</span>
               </div>
               <div className="attachment-document-info">
-                <p className="attachment-document-name">{att.name || "Document"}</p>
+                <p className="attachment-document-name">
+                  {att.name || "Document"}
+                </p>
                 <p className="attachment-document-size">
                   {getFileTypeLabel(att)} · {formatFileSize(att.size)}
                 </p>
               </div>
               {renderMessageMeta ? (
-                <div className="attachment-message-meta" data-testid="attachment-message-meta">
+                <div
+                  className="attachment-message-meta"
+                  data-testid="attachment-message-meta"
+                >
                   <span>{messageTime}</span>
                   {mine && (
                     <DoubleCheck
@@ -143,7 +150,9 @@ export function StagedAttachmentsBar({ files, onRemove }) {
             ) : (
               <File className="h-3.5 w-3.5 text-primary shrink-0" />
             )}
-            <span className="truncate text-[11px] font-medium">{file.name}</span>
+            <span className="truncate text-[11px] font-medium">
+              {file.name}
+            </span>
             <button
               type="button"
               onClick={() => onRemove(idx)}

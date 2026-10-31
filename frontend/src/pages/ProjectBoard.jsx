@@ -627,8 +627,8 @@ export default function ProjectBoard() {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={saveTicket} className="grid gap-4">
-            <label className="grid gap-1.5 text-sm font-medium text-slate-700">
-              Title <span className="text-rose-600" aria-hidden="true">*</span>
+            <label className="grid gap-1.5 text-sm font-medium text-foreground/80">
+              Title <span className="text-destructive" aria-hidden="true">*</span>
               <Input
                 autoFocus
                 value={form.title}
@@ -638,7 +638,7 @@ export default function ProjectBoard() {
                 data-testid="ticket-title-input"
               />
             </label>
-            <label className="grid gap-1.5 text-sm font-medium text-slate-700">
+            <label className="grid gap-1.5 text-sm font-medium text-foreground/80">
               Description
               <Textarea
                 value={form.description}
@@ -651,7 +651,7 @@ export default function ProjectBoard() {
               />
             </label>
             <div className="grid gap-3 sm:grid-cols-2">
-              <label className="grid gap-1.5 text-sm font-medium text-slate-700">
+              <label className="grid gap-1.5 text-sm font-medium text-foreground/80">
                 Project
                 <Input
                   value={form.project}
@@ -661,7 +661,7 @@ export default function ProjectBoard() {
                   data-testid="ticket-project-input"
                 />
               </label>
-              <label className="grid gap-1.5 text-sm font-medium text-slate-700">
+              <label className="grid gap-1.5 text-sm font-medium text-foreground/80">
                 Label
                 <Input
                   value={form.tag}
@@ -673,7 +673,7 @@ export default function ProjectBoard() {
               </label>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
-              <label className="grid gap-1.5 text-sm font-medium text-slate-700">
+              <label className="grid gap-1.5 text-sm font-medium text-foreground/80">
                 Priority
                 <Select value={form.priority} onValueChange={(value) => setForm((current) => ({ ...current, priority: value }))}>
                   <SelectTrigger aria-label="Ticket priority" data-testid="ticket-priority-select"><SelectValue /></SelectTrigger>
@@ -682,7 +682,7 @@ export default function ProjectBoard() {
                   </SelectContent>
                 </Select>
               </label>
-              <label className="grid gap-1.5 text-sm font-medium text-slate-700">
+              <label className="grid gap-1.5 text-sm font-medium text-foreground/80">
                 Status
                 <Select value={form.status} onValueChange={(value) => setForm((current) => ({ ...current, status: value }))}>
                   <SelectTrigger aria-label="Ticket status" data-testid="ticket-status-select"><SelectValue /></SelectTrigger>
@@ -691,7 +691,7 @@ export default function ProjectBoard() {
                   </SelectContent>
                 </Select>
               </label>
-              <label className="grid gap-1.5 text-sm font-medium text-slate-700">
+              <label className="grid gap-1.5 text-sm font-medium text-foreground/80">
                 Due date
                 <Input
                   type="date"

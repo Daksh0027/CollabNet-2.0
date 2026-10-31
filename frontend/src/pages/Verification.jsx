@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 
-const PLAT_COLORS = { YouTube: "text-red-400", Instagram: "text-pink-400", TikTok: "text-sky-300", Twitch: "text-purple-400" };
+const PLAT_COLORS = { YouTube: "text-foreground", Instagram: "text-foreground", TikTok: "text-foreground", Twitch: "text-foreground" };
 
 export default function Verification() {
   const { user, refresh } = useAuth();
@@ -21,7 +21,7 @@ export default function Verification() {
 
   if (user?.verified) {
     return (
-      <div className="grain flex min-h-screen flex-col items-center justify-center px-6 text-center">
+      <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
         <BadgeCheck className="h-12 w-12 text-emerald-400" data-testid="already-verified-icon" />
         <h1 className="font-display mt-4 text-2xl font-bold">You're verified</h1>
         <p className="mt-2 text-sm text-muted-foreground">Your account is fully unlocked.</p>
@@ -88,7 +88,7 @@ export default function Verification() {
   };
 
   return (
-    <div className="grain min-h-screen px-6 py-14">
+    <div className="min-h-screen px-6 py-14">
       <div className="mx-auto max-w-2xl">
         <p className="eyebrow">Step 2 of 2 — verification</p>
         <h1 className="font-display mt-4 text-3xl font-bold tracking-tight" data-testid="verify-title">

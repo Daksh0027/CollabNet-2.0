@@ -6,8 +6,18 @@ export const checkboxSizes: Record<
   CheckboxSize,
   { box: string; glyph: string; label: string; gap: string }
 > = {
-  md: { box: "size-4", glyph: "size-4", label: "text-body-medium", gap: "gap-2" },
-  sm: { box: "size-3.5", glyph: "size-3.5", label: "text-body-2-medium", gap: "gap-1.5" },
+  md: {
+    box: "size-4",
+    glyph: "size-4",
+    label: "text-body-medium",
+    gap: "gap-2",
+  },
+  sm: {
+    box: "size-3.5",
+    glyph: "size-3.5",
+    label: "text-body-2-medium",
+    gap: "gap-1.5",
+  },
 };
 
 export interface CheckboxGlyphState {
@@ -29,7 +39,8 @@ export function CheckboxGlyph({
   state: CheckboxGlyphState;
   size?: CheckboxSize;
 }) {
-  const { isSelected, isIndeterminate, isFocusVisible, isDisabled, isHovered } = state;
+  const { isSelected, isIndeterminate, isFocusVisible, isDisabled, isHovered } =
+    state;
   const s = checkboxSizes[size];
   const isMarked = isSelected || isIndeterminate;
   const hover = isHovered && !isDisabled;
@@ -43,12 +54,12 @@ export function CheckboxGlyph({
         s.box,
         isMarked
           ? cx(
-              "bg-gradient-to-b shadow-sm",
-              hover ? "from-accent-400 to-accent-500" : "from-accent-500 to-accent-600",
+              "border border-foreground/80",
+              hover ? "bg-primary/90" : "bg-primary",
             )
           : cx(
-              "border bg-background-primary-default shadow-xs",
-              hover ? "border-primary/50" : "border-border",
+              "border bg-background-primary-default",
+              hover ? "border-foreground" : "border-input",
             ),
         isDisabled && "opacity-50",
         isFocusVisible && "ring-2 ring-border-focus-ring ring-offset-2",
@@ -56,11 +67,16 @@ export function CheckboxGlyph({
     >
       <svg viewBox="0 0 16 16" fill="none" className={s.glyph}>
         {isIndeterminate ? (
-          <path d="M4.5 8H8H11.5" stroke="white" strokeWidth="2" strokeLinecap="round" />
+          <path
+            d="M4.5 8H8H11.5"
+            stroke="black"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
         ) : isSelected ? (
           <path
             d="M4 7.7002L6.64645 10.3466C6.84171 10.5419 7.15829 10.5419 7.35355 10.3466L12 5.7002"
-            stroke="white"
+            stroke="black"
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"

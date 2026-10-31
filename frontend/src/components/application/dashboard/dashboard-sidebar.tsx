@@ -56,21 +56,31 @@ type IconComponent = ComponentType<{
  * closes, and blurs back in on expand. The icons/rows themselves stay pinned in
  * place — only these label/badge slots animate — so nothing jumps to center.
  */
-function Collapsible({ collapsed, children, className }: { collapsed: boolean; children: ReactNode; className?: string }) {
+function Collapsible({
+  collapsed,
+  children,
+  className,
+}: {
+  collapsed: boolean;
+  children: ReactNode;
+  className?: string;
+}) {
   const localize = useTemplateCopy();
-  return localize((
+  return localize(
     <span
       className={cx(
         "flex min-w-0 items-center overflow-hidden transition-[max-width,opacity,filter] duration-300 ease-in-out",
         // Expanded, the cap is the row itself: a fixed cap (it was 160px)
         // clipped any label wider than it, "Components and Blocks" included.
-        collapsed ? "max-w-0 opacity-0 blur-[3px]" : "max-w-full opacity-100 blur-0",
+        collapsed
+          ? "max-w-0 opacity-0 blur-[3px]"
+          : "max-w-full opacity-100 blur-0",
         className,
       )}
     >
       {children}
-    </span>
-  ));
+    </span>,
+  );
 }
 
 function NavItem({
@@ -94,7 +104,7 @@ function NavItem({
   onClick?: () => void;
 }) {
   const localize = useTemplateCopy();
-  return localize((
+  return localize(
     <NavLink
       to={href}
       onClick={
@@ -113,21 +123,24 @@ function NavItem({
         "flex items-center justify-between overflow-hidden rounded-2lg p-2",
         "transition-[width,background-color] duration-300 ease-in-out",
         collapsed ? "w-9" : "w-full",
-        isSelected
-          ? "bg-[#EBEBEB]"
-          : "hover:bg-sidebar-accent",
+        isSelected ? "bg-accent" : "hover:bg-sidebar-accent",
       )}
     >
       <span className="flex min-w-0 items-center gap-2">
         <Icon
-          className={cx("size-5 shrink-0", isSelected ? "text-[#171717]" : "text-foreground-icon-secondary")}
+          className={cx(
+            "size-5 shrink-0",
+            isSelected ? "text-foreground" : "text-foreground-icon-secondary",
+          )}
           aria-hidden
         />
         <Collapsible collapsed={collapsed}>
           <span
             className={cx(
               "text-body-medium whitespace-nowrap",
-              isSelected ? "text-[#171717]" : "text-text-secondary",
+              isSelected
+                ? "font-semibold text-foreground"
+                : "text-text-secondary",
             )}
           >
             {label}
@@ -135,8 +148,8 @@ function NavItem({
         </Collapsible>
       </span>
       {badge && <Collapsible collapsed={collapsed}>{badge}</Collapsible>}
-    </NavLink>
-  ));
+    </NavLink>,
+  );
 }
 
 /** A primary navigation row. Rows without an `href` are decoration only. */
@@ -155,15 +168,61 @@ export type DashboardNavKey = string;
 
 /** The Pro dashboard's navigation, the default set. */
 export const DASHBOARD_NAV: DashboardNavItem[] = [
-  { key: "home", label: "Home", icon: RiHomeLine, href: "/templates/dashboard", badge: 152 },
-  { key: "project-board", label: "Project board", icon: RiKanbanView2, href: "/templates/project-board" },
-  { key: "marketing", label: "Marketing", icon: RiMegaphoneLine, href: "/templates/marketing" },
-  { key: "calendar", label: "Calendar", icon: RiCalendarLine, href: "/templates/calendar" },
-  { key: "finance", label: "Finance", icon: RiBankLine, href: "/templates/finance" },
-  { key: "medical", label: "Medical Report", icon: RiAsterisk, href: "/templates/medical-profile" },
-  { key: "ai-chat", label: "AI Chat", icon: RiChatAiLine, href: "/templates/ai-chat" },
-  { key: "ai-image", label: "AI Image Generation", icon: RiImageAiLine, href: "/templates/ai-image-generation" },
-  { key: "profile", label: "Profile", icon: RiUserSmileLine, href: "/templates/ai-profile" },
+  {
+    key: "home",
+    label: "Home",
+    icon: RiHomeLine,
+    href: "/templates/dashboard",
+    badge: 152,
+  },
+  {
+    key: "project-board",
+    label: "Project board",
+    icon: RiKanbanView2,
+    href: "/templates/project-board",
+  },
+  {
+    key: "marketing",
+    label: "Marketing",
+    icon: RiMegaphoneLine,
+    href: "/templates/marketing",
+  },
+  {
+    key: "calendar",
+    label: "Calendar",
+    icon: RiCalendarLine,
+    href: "/templates/calendar",
+  },
+  {
+    key: "finance",
+    label: "Finance",
+    icon: RiBankLine,
+    href: "/templates/finance",
+  },
+  {
+    key: "medical",
+    label: "Medical Report",
+    icon: RiAsterisk,
+    href: "/templates/medical-profile",
+  },
+  {
+    key: "ai-chat",
+    label: "AI Chat",
+    icon: RiChatAiLine,
+    href: "/templates/ai-chat",
+  },
+  {
+    key: "ai-image",
+    label: "AI Image Generation",
+    icon: RiImageAiLine,
+    href: "/templates/ai-image-generation",
+  },
+  {
+    key: "profile",
+    label: "Profile",
+    icon: RiUserSmileLine,
+    href: "/templates/ai-profile",
+  },
 ];
 
 /**
@@ -184,32 +243,41 @@ function NavRows({
   collapsed: boolean;
 }) {
   const localize = useTemplateCopy();
-  const shown = items.filter((item) => item.label.toLocaleLowerCase().includes(query));
+  const shown = items.filter((item) =>
+    item.label.toLocaleLowerCase().includes(query),
+  );
   if (shown.length === 0 && !collapsed) {
-    return localize(<p className="px-2 py-3 text-body-regular text-text-tertiary">No results</p>);
+    return localize(
+      <p className="px-2 py-3 text-body-regular text-text-tertiary">
+        No results
+      </p>,
+    );
   }
   return shown.map((item) => {
-      const isSelected = selected === item.key;
-      return (
-        <Fragment key={item.key}>
-          <NavItem
-            icon={item.icon}
-            label={item.label}
-            href={item.href}
-            testId={item.testId}
-            isSelected={isSelected}
-            collapsed={collapsed}
-            badge={
-              item.badge !== undefined ? (
-                <Badge color={isSelected ? "primary" : "neutral"} data-testid={item.badgeTestId}>
-                  {item.badge}
-                </Badge>
-              ) : undefined
-            }
-          />
-        </Fragment>
-      );
-    });
+    const isSelected = selected === item.key;
+    return (
+      <Fragment key={item.key}>
+        <NavItem
+          icon={item.icon}
+          label={item.label}
+          href={item.href}
+          testId={item.testId}
+          isSelected={isSelected}
+          collapsed={collapsed}
+          badge={
+            item.badge !== undefined ? (
+              <Badge
+                color={isSelected ? "primary" : "neutral"}
+                data-testid={item.badgeTestId}
+              >
+                {item.badge}
+              </Badge>
+            ) : undefined
+          }
+        />
+      </Fragment>
+    );
+  });
 }
 
 export function DashboardSidebar({
@@ -255,10 +323,13 @@ export function DashboardSidebar({
   const collapsed = mobile ? false : collapsedState;
   const normalizedQuery = query.trim().toLocaleLowerCase();
 
-  const updateCollapsed = useCallback((nextCollapsed: boolean) => {
-    setCollapsed(nextCollapsed);
-    onCollapsedChange?.(nextCollapsed);
-  }, [onCollapsedChange]);
+  const updateCollapsed = useCallback(
+    (nextCollapsed: boolean) => {
+      setCollapsed(nextCollapsed);
+      onCollapsedChange?.(nextCollapsed);
+    },
+    [onCollapsedChange],
+  );
 
   const activateSearch = useCallback(() => {
     if (!mobile) updateCollapsed(false);
@@ -275,7 +346,9 @@ export function DashboardSidebar({
 
   useEffect(() => {
     if (!searchActive) return;
-    const frame = window.requestAnimationFrame(() => searchInputRef.current?.focus());
+    const frame = window.requestAnimationFrame(() =>
+      searchInputRef.current?.focus(),
+    );
     return () => window.cancelAnimationFrame(frame);
   }, [searchActive]);
 
@@ -284,7 +357,8 @@ export function DashboardSidebar({
 
     const onOutsideClick = (event: MouseEvent) => {
       const target = event.target;
-      if (target instanceof Node && searchFieldRef.current?.contains(target)) return;
+      if (target instanceof Node && searchFieldRef.current?.contains(target))
+        return;
       deactivateSearch(false);
     };
 
@@ -294,7 +368,10 @@ export function DashboardSidebar({
 
   useEffect(() => {
     const onShortcut = (event: KeyboardEvent) => {
-      if (event.key.toLocaleLowerCase() === "l" && (event.metaKey || event.ctrlKey)) {
+      if (
+        event.key.toLocaleLowerCase() === "l" &&
+        (event.metaKey || event.ctrlKey)
+      ) {
         event.preventDefault();
         activateSearch();
       }
@@ -304,7 +381,7 @@ export function DashboardSidebar({
     return () => window.removeEventListener("keydown", onShortcut);
   }, [activateSearch]);
 
-  return localize((
+  return localize(
     <aside
       data-testid="sidebar"
       className={cx(
@@ -329,9 +406,7 @@ export function DashboardSidebar({
           outside it. Padding moves the clip edge out; the matching negative
           margin borrows that space back from the rail's own padding, leaving
           every child exactly where it was. */}
-      <div
-        className="-m-2 flex min-h-0 w-[calc(100%+16px)] flex-col gap-4 overflow-y-auto p-2 [scrollbar-width:none]"
-      >
+      <div className="-m-2 flex min-h-0 w-[calc(100%+16px)] flex-col gap-4 overflow-y-auto p-2 [scrollbar-width:none]">
         {/* Workspace switcher / collapse control */}
         <div
           className={cx(
@@ -354,9 +429,7 @@ export function DashboardSidebar({
                 : "max-w-[206px] scale-100 opacity-100",
             )}
           >
-            {headerContent ?? (
-              {headerContent}
-            )}
+            {headerContent}
           </div>
           {mobile && flat ? (
             <div
@@ -405,7 +478,9 @@ export function DashboardSidebar({
                 onClick={() => deactivateSearch(true)}
                 className={cx(
                   "shrink-0 bg-background-tertiary-hover transition-opacity duration-150",
-                  searchActive ? "opacity-100 delay-150" : "pointer-events-none opacity-0 delay-0",
+                  searchActive
+                    ? "opacity-100 delay-150"
+                    : "pointer-events-none opacity-0 delay-0",
                 )}
               />
             </div>
@@ -429,12 +504,17 @@ export function DashboardSidebar({
                 updateCollapsed(!collapsedState);
               }}
               className={cx(
-                "cursor-pointer text-[#737373] transition-transform duration-300 ease-in-out",
+                "cursor-pointer text-muted-foreground transition-transform duration-300 ease-in-out",
                 collapsed && "flex w-9 items-center justify-center",
               )}
             >
               <RiSideBarFill
-                className={cx("size-5 transition-transform duration-300 ease-in-out", collapsed ? "rtl:-scale-x-100" : "-scale-x-100 rtl:scale-x-100")}
+                className={cx(
+                  "size-5 transition-transform duration-300 ease-in-out",
+                  collapsed
+                    ? "rtl:-scale-x-100"
+                    : "-scale-x-100 rtl:scale-x-100",
+                )}
                 aria-hidden
               />
             </button>
@@ -447,7 +527,10 @@ export function DashboardSidebar({
               ref={searchFieldRef}
               className="flex w-full items-center gap-2 rounded-full bg-sidebar-accent py-2 pe-2.5 ps-2 ring-2 ring-inset ring-border-button-active transition-[background-color,box-shadow] duration-[var(--input-transition-ms)] ease"
             >
-              <RiSearchLine className="size-5 shrink-0 text-foreground-icon-secondary" aria-hidden />
+              <RiSearchLine
+                className="size-5 shrink-0 text-foreground-icon-secondary"
+                aria-hidden
+              />
               <input
                 ref={searchInputRef}
                 type="search"
@@ -490,9 +573,7 @@ export function DashboardSidebar({
         </div>
       </div>
 
-      <div className="flex w-full shrink-0 flex-col gap-3">
-        {footerContent}
-      </div>
-    </aside>
-  ));
+      <div className="flex w-full shrink-0 flex-col gap-3">{footerContent}</div>
+    </aside>,
+  );
 }

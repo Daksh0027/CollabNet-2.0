@@ -89,13 +89,18 @@ function installThemeTransitionStyle(
 function storedTheme(): ThemeMode {
   if (typeof window === "undefined") return "light";
   try {
-    return window.localStorage.getItem(THEME_STORAGE_KEY) === "dark" ? "dark" : "light";
+    return window.localStorage.getItem(THEME_STORAGE_KEY) === "dark"
+      ? "dark"
+      : "light";
   } catch {
     return "light";
   }
 }
 
-export function applyTheme(theme: ThemeMode, { persist = true }: { persist?: boolean } = {}) {
+export function applyTheme(
+  theme: ThemeMode,
+  { persist = true }: { persist?: boolean } = {},
+) {
   if (typeof document === "undefined") return;
   document.documentElement.classList.toggle("dark", theme === "dark");
   if (persist) {
@@ -149,7 +154,9 @@ export async function applyThemeWithTransition(
   if (typeof document === "undefined" || currentTheme() === theme) return;
 
   const transitionDocument = document as ViewTransitionDocument;
-  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const reduceMotion = window.matchMedia(
+    "(prefers-reduced-motion: reduce)",
+  ).matches;
   if (!transitionDocument.startViewTransition || reduceMotion) {
     applyTheme(theme);
     return;
@@ -164,7 +171,11 @@ export async function applyThemeWithTransition(
 
   themeTransitionRunning = true;
   document.documentElement.classList.add("theme-transitioning");
-  const transitionStyle = installThemeTransitionStyle({ x, y }, radius, duration);
+  const transitionStyle = installThemeTransitionStyle(
+    { x, y },
+    radius,
+    duration,
+  );
   try {
     const transition = transitionDocument.startViewTransition(() => {
       flushSync(() => applyTheme(theme));
@@ -191,7 +202,9 @@ function subscribe(onStoreChange: () => void) {
   const onThemeChange = () => onStoreChange();
   const onStorage = (event: StorageEvent) => {
     if (event.key !== THEME_STORAGE_KEY) return;
-    applyTheme(event.newValue === "dark" ? "dark" : "light", { persist: false });
+    applyTheme(event.newValue === "dark" ? "dark" : "light", {
+      persist: false,
+    });
   };
   window.addEventListener(THEME_CHANGE_EVENT, onThemeChange);
   window.addEventListener("storage", onStorage);
@@ -214,7 +227,8 @@ export interface ThemeToggleProps {
    * hero shader's near-white band in both themes and a token that follows the
    * page would invert out of sight in dark mode.
    */
-  appearance?: "sidebar" | "segmented" | "sidebar-segmented" | "glass-segmented";
+  appearance?:
+    "sidebar" | "segmented" | "sidebar-segmented" | "glass-segmented";
   className?: string;
   /** Size of segmented controls; small fits inside dropdown rows. */
   size?: "small" | "medium";
@@ -255,7 +269,7 @@ export function ThemeToggle({
       { mode: "dark" as const, label: "Use dark mode", Icon: RiMoonLine },
     ];
 
-    return localize((
+    return localize(
       <div
         role="group"
         aria-label="Theme"
@@ -284,12 +298,17 @@ export function ThemeToggle({
             glass && "top-0.5 start-0.5 size-7 sm:top-1 sm:start-1 sm:size-8",
             small && "top-0.5 start-0.5 size-6",
             glass
-              ? "bg-white dark:bg-[#2e2e33]"
+              ? "border border-border bg-background"
               : sidebarSurface
                 ? "bg-theme-toggle-sidebar-selected-background"
                 : "bg-background-primary-default",
             // Segment width + the 4px gap: 28+4 on mobile, 32+4 above it.
-            dark && (small ? "translate-x-6.5 rtl:-translate-x-6.5" : glass ? "translate-x-8 rtl:-translate-x-8 sm:translate-x-9 sm:rtl:-translate-x-9" : "translate-x-9 rtl:-translate-x-9"),
+            dark &&
+              (small
+                ? "translate-x-6.5 rtl:-translate-x-6.5"
+                : glass
+                  ? "translate-x-8 rtl:-translate-x-8 sm:translate-x-9 sm:rtl:-translate-x-9"
+                  : "translate-x-9 rtl:-translate-x-9"),
           )}
         />
         {options.map(({ mode, label, Icon }) => {
@@ -334,13 +353,13 @@ export function ThemeToggle({
             </button>
           );
         })}
-      </div>
-    ));
+      </div>,
+    );
   }
 
   if (collapsed) {
     const Icon = dark ? RiSunLine : RiMoonLine;
-    return localize((
+    return localize(
       <button
         type="button"
         aria-label={dark ? "Use light mode" : "Use dark mode"}
@@ -366,11 +385,11 @@ export function ThemeToggle({
         )}
       >
         <Icon className="size-5" aria-hidden />
-      </button>
-    ));
+      </button>,
+    );
   }
 
-  return localize((
+  return localize(
     <AriaSwitch
       ref={switchRef}
       isSelected={dark}
@@ -399,12 +418,17 @@ export function ThemeToggle({
       {(state) => (
         <>
           <span className="flex min-w-0 items-center gap-2">
-            <RiMoonLine className="size-5 shrink-0 text-foreground-icon-secondary" aria-hidden />
-            <span className="text-body-medium text-text-secondary">Dark mode</span>
+            <RiMoonLine
+              className="size-5 shrink-0 text-foreground-icon-secondary"
+              aria-hidden
+            />
+            <span className="text-body-medium text-text-secondary">
+              Dark mode
+            </span>
           </span>
           <SwitchTrack state={state} size="sm" shape="pill" />
         </>
       )}
-    </AriaSwitch>
-  ));
+    </AriaSwitch>,
+  );
 }
