@@ -79,17 +79,45 @@ function DealRoom({ deal, onClose }) {
   const [revisionOpen, setRevisionOpen] = useState(false);
   const [changeRequestOpen, setChangeRequestOpen] = useState(false);
   const [changeComment, setChangeComment] = useState("");
+  const [escrowPercent, setEscrowPercent] = useState(deal.funding_percent || 100);
+  const [escrowAmountInput, setEscrowAmountInput] = useState(
+    String((Number(deal.compensation || 0) * (deal.funding_percent || 100) / 100).toFixed(2)),
+  );
 
   const ESCROW_COPY = {
-    unfunded: "Fee not secured yet. Fund escrow so the creator can see the money is committed before work starts — it releases automatically when the campaign is marked delivered.",
-    funded: "Fee secured in escrow. It releases to the creator when either of you marks the campaign delivered.",
+    unfunded: "Choose how much of the agreed fee to secure before work starts. The minimum escrow amount is 10%.",
+    funded: "The selected portion of the fee is secured in escrow. It releases to the creator when either of you marks the campaign delivered.",
     released: "Funds released from escrow. Payout to the creator's bank is queued.",
   };
 
+  const escrowAmount = Number(escrowAmountInput) || 0;
+  const totalCompensation = Number(deal.compensation || 0);
+  const minimumEscrow = totalCompensation * 0.1;
+  const displayedEscrowPercent = escrowPercent.toFixed(2);
+  const updateEscrowPercent = (value) => {
+    const percent = Number(value);
+    setEscrowPercent(percent);
+    setEscrowAmountInput((totalCompensation * percent / 100).toFixed(2));
+  };
+  const updateEscrowAmount = (value) => {
+    setEscrowAmountInput(value);
+    const amount = Number(value);
+    if (Number.isFinite(amount) && totalCompensation > 0) {
+      setEscrowPercent(Math.min(100, Math.max(10, amount / totalCompensation * 100)));
+    }
+  };
   const fundEscrow = async () => {
+    if (escrowAmount < minimumEscrow || escrowAmount > totalCompensation) {
+      toast.error(`Enter an amount between ${fmtMoney(minimumEscrow)} and ${fmtMoney(totalCompensation)}`);
+      return;
+    }
     setBusy(true);
     try {
-      const { data } = await api.post(`/payments/checkout/${deal.deal_id}`, { origin_url: window.location.origin });
+      const { data } = await api.post(`/payments/checkout/${deal.deal_id}`, {
+        origin_url: window.location.origin,
+        escrow_percent: escrowPercent,
+        escrow_amount: escrowAmount,
+      });
       window.location.href = data.checkout_url;
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Could not start checkout");
@@ -165,11 +193,52 @@ function DealRoom({ deal, onClose }) {
                 <p className="mt-1 text-xs text-muted-foreground" data-testid="escrow-copy">{ESCROW_COPY[deal.funding_status] || ESCROW_COPY.unfunded}</p>
               </div>
               {deal.my_role === "company" && (deal.funding_status || "unfunded") === "unfunded" ? (
-                <Button className="rounded-full" disabled={busy} onClick={fundEscrow} data-testid="fund-escrow-button">
-                  <Lock className="mr-1.5 h-4 w-4" /> Fund escrow — {fmtMoney(deal.compensation)}
-                </Button>
+                <div className="w-full max-w-sm">
+                  <div className="flex items-center justify-between text-xs">
+                    <label htmlFor="escrow-percent" className="font-semibold">Amount to escrow</label>
+                    <span className="font-num font-semibold text-primary" data-testid="escrow-percent-value">{displayedEscrowPercent}% · {fmtMoney(escrowAmount)}</span>
+                  </div>
+                  <input
+                    id="escrow-percent"
+                    type="range"
+                    min="10"
+                    max="100"
+                    step="10"
+                    value={escrowPercent}
+                    onChange={(e) => updateEscrowPercent(e.target.value)}
+                    className="mt-3 w-full accent-primary"
+                    data-testid="escrow-percent-input"
+                  />
+                  <div className="mt-1 flex justify-between text-[10px] text-muted-foreground"><span>10% minimum</span><span>100% full fee</span></div>
+                  <div className="mt-3">
+                    <label htmlFor="escrow-amount" className="text-xs font-semibold">Or enter an amount manually</label>
+                    <div className="relative mt-1">
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                      <Input
+                        id="escrow-amount"
+                        type="number"
+                        min={minimumEscrow.toFixed(2)}
+                        max={totalCompensation.toFixed(2)}
+                        step="0.01"
+                        value={escrowAmountInput}
+                        onChange={(e) => updateEscrowAmount(e.target.value)}
+                        className="pl-7"
+                        data-testid="escrow-amount-input"
+                      />
+                    </div>
+                    <p className="mt-1 text-[10px] text-muted-foreground">Enter between {fmtMoney(minimumEscrow)} and {fmtMoney(totalCompensation)}.</p>
+                  </div>
+                  <Button className="mt-3 w-full rounded-full" disabled={busy} onClick={fundEscrow} data-testid="fund-escrow-button">
+                    <Lock className="mr-1.5 h-4 w-4" /> Fund {displayedEscrowPercent}% — {fmtMoney(escrowAmount)}
+                  </Button>
+                </div>
               ) : (
-                <StatusPill status={deal.funding_status} />
+                <div className="text-right">
+                  <StatusPill status={deal.funding_status} />
+                  {deal.funding_status !== "unfunded" && deal.funding_percent ? (
+                    <p className="mt-1 text-[11px] text-muted-foreground">{deal.funding_percent}% secured · {fmtMoney(deal.funded_amount)}</p>
+                  ) : null}
+                </div>
               )}
             </div>
           </div>

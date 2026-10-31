@@ -143,6 +143,16 @@ def test_double_fund_guard_on_released_deal(company_client):
     assert "already released" in response.json()["detail"]
 
 
+def test_checkout_rejects_escrow_below_ten_percent(company_client):
+    deal = seeded_deals(company_client)["Launch Week Sprint"]
+    response = company_client.post(
+        f"/api/payments/checkout/{deal['deal_id']}",
+        json={"origin_url": BASE_URL, "escrow_percent": 9},
+        timeout=30,
+    )
+    assert response.status_code == 422
+
+
 def test_payment_status_unknown_session_is_not_silent(company_client):
     response = company_client.get(f"{BASE_URL}/api/payments/status/e2e_unknown_session", timeout=30)
     assert response.status_code == 404

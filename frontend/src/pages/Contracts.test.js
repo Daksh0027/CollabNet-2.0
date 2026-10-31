@@ -69,6 +69,9 @@ describe("Contracts workspace", () => {
     expect(html).toContain("Contract review workspace");
     expect(html).toContain("Review history");
     expect(html).toContain("Version 2");
+    expect(html).toContain('data-testid="escrow-percent-input"');
+    expect(html).toContain('data-testid="escrow-amount-input"');
+    expect(html).toContain("10% minimum");
     expect(html).not.toContain('data-testid="deal-room-dialog"');
   });
 });

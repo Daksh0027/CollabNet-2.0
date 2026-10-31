@@ -1,5 +1,23 @@
 # CollabNet Deal Contracts, Payments, and Reviews MVP
 
+## Current Status
+**Phase: Phase 2 — Drafting, revisions, and acceptance** (with significant portions of Phase 3 implemented).
+
+### Feature Progress
+- [x] **Contract Drafting** (Phase 2)
+- [x] **Versioning & Revisions** (Phase 2)
+- [x] **Negotiation Flow** (Phase 2)
+- [x] **Two-Party Acceptance** (Phase 2)
+- [/] **Payment Integration** (Phase 3) - *Stripe Checkout & Webhooks implemented; release logic basic.*
+- [/] **Payment Release** (Phase 3) - *Basic release implemented; conditional logic pending.*
+- [/] **Disputes** (Phase 5) - *Basic dispute triggering implemented; evidence/admin flow pending.*
+- [/] **Reviews** (Phase 6) - *Basic rating/commenting implemented; moderation basic.*
+- [ ] **Deliverable Workspace** (Phase 4) - *Major Gap: Backend lacks submission/tracking logic.*
+- [ ] **Amendments** (Phase 5) - *Gap: No specific flow for funded/active contracts.*
+- [ ] **Completion & Reputation** (Phase 6) - *Gap: Closure validation and mutual review timing pending.*
+
+---
+
 ## Product direction
 
 Chat remains the negotiation space. The accepted contract becomes the source of truth for the collaboration. The deal workspace then turns every contractual obligation into a trackable deliverable, ties payment decisions to those deliverables, and preserves an activity record for support and disputes.
@@ -169,29 +187,29 @@ Role-specific next actions:
 
 ## Delivery phases
 
-### Phase 1 — Domain model and state machine
+### Phase 1 — Domain model and state machine [x]
 
 Define and validate `Deal`, `Contract`, `ContractVersion`, `ContractAmendment`, `Deliverable`, `Submission`, `PaymentIntent`, `PaymentHold`, `PaymentRelease`, `Dispute`, `Review`, and `ActivityEvent`.
 
 Document valid transitions, permissions, idempotency rules, notification triggers, and cancellation behavior before building screens.
 
-### Phase 2 — Drafting, revisions, and acceptance
+### Phase 2 — Drafting, revisions, and acceptance [x]
 
 Build the contract form, draft autosave, version comparison, section comments, change requests, notifications, two-party acceptance, immutable accepted snapshot, contract download, and activity timeline.
 
-### Phase 3 — Payment integration
+### Phase 3 — Payment integration [/]
 
 Integrate provider authorization, holds, milestone/full/advance payments, server-side webhook verification, idempotency, release, refunds, failure states, receipts, and dispute freezes. Keep payout onboarding clearly marked as pending or mocked if it is not supported in the MVP.
 
-### Phase 4 — Deliverable operations
+### Phase 4 — Deliverable operations [ ]
 
 Build the contract-generated checklist, submission flow, file/link evidence, review actions, revision flow, due dates, review windows, reminders, overdue escalation, and payment linkage.
 
-### Phase 5 — Amendments and disputes
+### Phase 5 — Amendments and disputes [/]
 
 Build amendment proposals, field-level diffs, acceptance, scope warnings, dispute intake, evidence collection, payment freeze, admin review outcome, and resolution notifications.
 
-### Phase 6 — Completion and reputation
+### Phase 6 — Completion and reputation [/]
 
 Build closure validation, completion summary, downloadable records, mutual review timing, moderation/reporting, review responses, and reputation signals.
 

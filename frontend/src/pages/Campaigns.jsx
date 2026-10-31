@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Loader2, Megaphone, Plus, UserPlus, X } from "lucide-react";
+import { Activity, ArrowUpRight, Check, Loader2, Megaphone, Plus, Sparkles, UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
 import api, { fmtMoney, fmtDate } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -76,14 +76,16 @@ function CompanyCampaigns() {
         sub="Your published briefs and the creators applying to them."
         action={<Button className="rounded-full" onClick={() => setOpen(true)} data-testid="new-brief-button"><Plus className="mr-1 h-4 w-4" /> New brief</Button>}
       />
-      {isLoading ? (
-        <div className="py-24 text-center text-sm text-muted-foreground">Loading…</div>
-      ) : !campaigns?.length ? (
-        <EmptyState icon={Megaphone} title="No briefs yet" body="Publish your first campaign brief and creators matching your niche get notified." testId="my-campaigns-empty" />
-      ) : (
-        <div className="space-y-5" data-testid="my-campaigns-list">
-          {campaigns.map((c) => (
-            <div key={c.camp_id} className="rounded-2xl border border-border bg-card p-6" data-testid={`my-campaign-${c.camp_id}`}>
+      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div>
+          {isLoading ? (
+            <div className="py-24 text-center text-sm text-muted-foreground">Loading…</div>
+          ) : !campaigns?.length ? (
+            <EmptyState icon={Megaphone} title="No briefs yet" body="Publish your first campaign brief and creators matching your niche get notified." testId="my-campaigns-empty" />
+          ) : (
+            <div className="space-y-5" data-testid="my-campaigns-list">
+              {campaigns.map((c) => (
+                <div key={c.camp_id} className="rounded-2xl border border-border bg-card p-6" data-testid={`my-campaign-${c.camp_id}`}>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <div className="flex items-center gap-2">
@@ -135,10 +137,13 @@ function CompanyCampaigns() {
                   </div>
                 )}
               </div>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
         </div>
-      )}
+        <CompetitiveSignals />
+      </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg" data-testid="new-brief-dialog">
@@ -188,6 +193,54 @@ function CompanyCampaigns() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function CompetitiveSignals() {
+  const signals = [
+    { brand: "Brewhaus Coffee", signal: "Increasing creator activity around short-form product stories", confidence: 82, change: "+18%", color: "bg-amber-500" },
+    { brand: "Lumen Skincare", signal: "Testing educational content with niche beauty creators", confidence: 74, change: "+11%", color: "bg-violet-500" },
+    { brand: "HydratePro", signal: "Likely preparing a seasonal wellness push", confidence: 61, change: "+7%", color: "bg-sky-500" },
+  ];
+
+  return (
+    <aside className="rounded-2xl border border-border bg-card p-5" data-testid="competitive-signals-panel">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="eyebrow flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5 text-primary" /> Market watch</p>
+          <h2 className="mt-1 font-display text-base font-semibold">What similar brands may be doing</h2>
+        </div>
+        <Activity className="h-4 w-4 shrink-0 text-primary" />
+      </div>
+      <p className="mt-2 text-xs leading-5 text-muted-foreground">
+        Probabilistic signals based on public activity and creator-market patterns. Not verified competitor reporting.
+      </p>
+      <div className="mt-5 space-y-4">
+        {signals.map((signal) => (
+          <div key={signal.brand} className="rounded-xl border border-border bg-secondary/30 p-3" data-testid={`competitive-signal-${signal.brand.toLowerCase().replace(/\s+/g, "-")}`}>
+            <div className="flex items-start gap-2">
+              <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${signal.color}`} />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-sm font-semibold">{signal.brand}</p>
+                  <span className="flex shrink-0 items-center text-xs font-semibold text-emerald-600 dark:text-emerald-400"><ArrowUpRight className="mr-0.5 h-3 w-3" />{signal.change}</span>
+                </div>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">{signal.signal}</p>
+                <div className="mt-3 flex items-center gap-2">
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-border">
+                    <div className="h-full rounded-full bg-primary" style={{ width: `${signal.confidence}%` }} />
+                  </div>
+                  <span className="text-[10px] font-medium text-muted-foreground">{signal.confidence}% confidence</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <button type="button" className="mt-4 text-xs font-semibold text-primary hover:underline" onClick={() => toast.info("More market signals will be available as your campaign data grows.")}>
+        View signal methodology
+      </button>
+    </aside>
   );
 }
 

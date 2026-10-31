@@ -2,7 +2,7 @@ from fastapi import FastAPI, APIRouter, HTTPException, Request, Response
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from pymongo.errors import DuplicateKeyError
 from typing import Optional, List
 import os
@@ -2259,6 +2259,8 @@ async def overview(request: Request):
 # ---------------------------------------------------------------- payments (escrow)
 class PayOriginIn(BaseModel):
     origin_url: str
+    escrow_percent: float = Field(default=100, ge=10, le=100)
+    escrow_amount: Optional[float] = Field(default=None, gt=0)
 
 
 async def settle_escrow(session_id: str):
@@ -2267,7 +2269,13 @@ async def settle_escrow(session_id: str):
         return
     result = await db.contracts.update_one(
         {"deal_id": tx["deal_id"], "funding_status": {"$ne": "funded"}},
-        {"$set": {"funding_status": "funded", "funded_at": now(), "stripe_session_id": session_id}})
+        {"$set": {
+            "funding_status": "funded",
+            "funded_at": now(),
+            "funded_amount": tx.get("amount", 0),
+            "funding_percent": tx.get("escrow_percent", 100),
+            "stripe_session_id": session_id,
+        }})
     if result.modified_count:
         c = await db.contracts.find_one({"deal_id": tx["deal_id"]}, {"_id": 0})
         for pid in (c["company_id"], c["creator_id"]):
@@ -2290,11 +2298,24 @@ async def create_deal_checkout(deal_id: str, payload: PayOriginIn, request: Requ
         raise HTTPException(400, "Funds already released")
     if float(c.get("compensation", 0)) <= 0:
         raise HTTPException(400, "Deal has no compensation to fund")
+    total_compensation = round(float(c["compensation"]), 2)
+    minimum_escrow = round(total_compensation * 0.1, 2)
+    escrow_amount = round(
+        payload.escrow_amount
+        if payload.escrow_amount is not None
+        else total_compensation * payload.escrow_percent / 100,
+        2,
+    )
+    if escrow_amount < minimum_escrow:
+        raise HTTPException(400, "Escrow amount must be at least 10% of the deal")
+    if escrow_amount > total_compensation:
+        raise HTTPException(400, "Escrow amount cannot exceed the deal compensation")
+    escrow_percent = round(escrow_amount / total_compensation * 100, 2)
     host_url = str(request.base_url)
     sc = StripeCheckout(api_key=os.environ["STRIPE_API_KEY"],
                         webhook_url=f"{host_url}api/webhook/stripe")
     sess_req = CheckoutSessionRequest(
-        amount=float(c["compensation"]), currency="usd",
+        amount=escrow_amount, currency="usd",
         success_url=f"{payload.origin_url}/payment/success?session_id={{CHECKOUT_SESSION_ID}}&deal_id={deal_id}",
         cancel_url=f"{payload.origin_url}/payment/cancel?deal_id={deal_id}",
         metadata={"deal_id": deal_id, "company_id": c["company_id"], "creator_id": c["creator_id"]},
@@ -2303,7 +2324,8 @@ async def create_deal_checkout(deal_id: str, payload: PayOriginIn, request: Requ
     await db.payment_transactions.insert_one({
         "tx_id": uid("tx"), "session_id": session.session_id, "deal_id": deal_id,
         "title": c["title"], "company_id": c["company_id"], "creator_id": c["creator_id"],
-        "amount": float(c["compensation"]), "currency": "usd",
+        "amount": escrow_amount, "currency": "usd",
+        "escrow_percent": escrow_percent,
         "status": "initiated", "payment_status": "pending",
         "created_at": now(), "updated_at": now(),
     })
