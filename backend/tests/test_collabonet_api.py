@@ -60,6 +60,67 @@ def test_company_creator_search_and_seed_connections(client):
     assert any(c["other"]["display_name"] == "Maya Chen" for c in connections.json())
 
 
+def test_creator_collaborator_requests_saved_creators_and_privacy(client):
+    user = login(client, "creator")
+    creators = client.get(f"{BASE_URL}/api/creators", timeout=20)
+    assert creators.status_code == 200
+    available = creators.json()
+    assert all(creator["user_id"] != user["user_id"] for creator in available)
+    assert available
+    target_id = available[0]["user_id"]
+
+    profile = client.get(f"{BASE_URL}/api/users/{target_id}", timeout=20)
+    assert profile.status_code == 200
+    assert "email" not in profile.json()
+    assert "rates" not in profile.json().get("creator", {})
+
+    saved = client.post(
+        f"{BASE_URL}/api/saved-creators",
+        json={"creator_id": target_id},
+        timeout=20,
+    )
+    assert saved.status_code == 200
+    saved_rows = client.get(f"{BASE_URL}/api/saved-creators", timeout=20).json()
+    assert any(row["creator_id"] == target_id for row in saved_rows)
+    removed = client.delete(f"{BASE_URL}/api/saved-creators/{target_id}", timeout=20)
+    assert removed.status_code == 200
+
+    request = client.post(
+        f"{BASE_URL}/api/collaboration-requests",
+        json={
+            "to_id": target_id,
+            "title": "Joint creator project",
+            "collaboration_type": "Video collaboration",
+            "message": "Would you like to work together?",
+            "proposed_idea": "Create a joint short-form video.",
+            "platform": "Instagram",
+            "deliverables": ["One collaborative Reel"],
+        },
+        timeout=20,
+    )
+    assert request.status_code == 200, request.text
+    request_id = request.json()["request_id"]
+    assert request.json()["status"] == "pending"
+
+    duplicate = client.post(
+        f"{BASE_URL}/api/collaboration-requests",
+        json={"to_id": target_id, "title": "Duplicate request"},
+        timeout=20,
+    )
+    assert duplicate.status_code == 409
+    sent = client.get(
+        f"{BASE_URL}/api/collaboration-requests?direction=sent",
+        timeout=20,
+    )
+    assert any(row["request_id"] == request_id for row in sent.json())
+
+    withdrawn = client.post(
+        f"{BASE_URL}/api/collaboration-requests/{request_id}/withdraw",
+        timeout=20,
+    )
+    assert withdrawn.status_code == 200
+
+
 def test_ai_endpoints_return_expected_disabled_response(client):
     login(client, "creator")
     response = client.post(f"{BASE_URL}/api/ai/draft", json={"kind": "outreach"}, timeout=20)

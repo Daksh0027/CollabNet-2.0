@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import {
-  Check, Loader2, MessageSquare, Search, Sparkles, Users, SlidersHorizontal,
+  Bookmark, Check, Loader2, MessageSquare, Search, Sparkles, Users, SlidersHorizontal,
   X, RotateCcw, TrendingUp, Eye, Star, Layers, ShieldCheck, DollarSign,
   Building2, Video, CheckCircle2, ChevronDown, ExternalLink, Briefcase,
   Pin, FolderGit2, BookOpen, Hash, Tag
@@ -16,9 +16,10 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import CreatorFiltersDrawer from "./CreatorFiltersDrawer";
 
-const NICHES = [
+export const NICHES = [
   "Tech & Gadgets",
   "Beauty & Skincare",
   "Health & Fitness",
@@ -42,7 +43,7 @@ export const GENRE_COLORS = {
   "Wellness": "bg-lime-500",
 };
 
-const CONTENT_TYPES = [
+export const CONTENT_TYPES = [
   "Short-Form Video",
   "Dedicated Long-Form Video",
   "Integrated Segment",
@@ -52,18 +53,37 @@ const CONTENT_TYPES = [
   "UGC Ad Production"
 ];
 
-const PLATFORMS = ["YouTube", "Instagram", "TikTok", "Twitch"];
+export const PLATFORMS = ["YouTube", "Instagram", "TikTok", "Twitch"];
 
 const SORT_OPTIONS = [
   { value: "followers", label: "Top Followers" },
   { value: "views", label: "Highest Avg Views" },
   { value: "engagement", label: "Highest Engagement %" },
   { value: "connections", label: "Most Connections" },
-  { value: "rating", label: "Highest Rated" }
+  { value: "rating", label: "Highest Rated" },
 ];
+const CREATOR_PAGE_SIZE = 50;
 
 function threadIdFor(a, b) {
   return [a, b].sort().join("::");
+}
+
+function selectedFilterValues(value) {
+  return value === "all" ? [] : value.split(",").filter(Boolean);
+}
+
+function toggleFilterValue(current, value) {
+  const values = selectedFilterValues(current);
+  const next = values.includes(value)
+    ? values.filter((item) => item !== value)
+    : [...values, value];
+  return next.length ? next.join(",") : "all";
+}
+
+function filterSelectValue(value) {
+  const values = selectedFilterValues(value);
+  if (!values.length) return "all";
+  return values.length === 1 ? values[0] : "multiple";
 }
 
 export default function Explore() {
@@ -78,18 +98,20 @@ function CompanyExplore() {
   const qc = useQueryClient();
   const navigate = useNavigate();
 
-  // Search & Filter States
+  // Search & filter state
   const [search, setSearch] = useState("");
   const [niche, setNiche] = useState("all");
   const [platform, setPlatform] = useState("all");
   const [contentType, setContentType] = useState("all");
+  const [location, setLocation] = useState("");
+  const [tag, setTag] = useState("");
   const [sortBy, setSortBy] = useState("followers");
-
-  // Numeric Thresholds (Sliders)
   const [minF, setMinF] = useState(0);
   const [maxF, setMaxF] = useState(0);
   const [minViews, setMinViews] = useState(0);
+  const [maxViews, setMaxViews] = useState(0);
   const [minEngagement, setMinEngagement] = useState(0);
+  const [maxEngagement, setMaxEngagement] = useState(0);
   const [minConnections, setMinConnections] = useState(0);
 
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -98,65 +120,185 @@ function CompanyExplore() {
   const [modalProjectTagFilter, setModalProjectTagFilter] = useState("all");
   const [modalProjectSearch, setModalProjectSearch] = useState("");
 
-  // Count active filters
-  const activeFiltersCount = useMemo(() => {
-    let count = 0;
-    if (niche !== "all") count++;
-    if (platform !== "all") count++;
-    if (contentType !== "all") count++;
-    if (minF > 0) count++;
-    if (maxF > 0) count++;
-    if (minViews > 0) count++;
-    if (minEngagement > 0) count++;
-    if (minConnections > 0) count++;
-    return count;
-  }, [niche, platform, contentType, minF, maxF, minViews, minEngagement, minConnections]);
+  const filterState = useMemo(
+    () => ({
+      search,
+      niche,
+      platform,
+      contentType,
+      location,
+      tag,
+      minF,
+      maxF,
+      minViews,
+      maxViews,
+      minEngagement,
+      maxEngagement,
+      minConnections,
+      sortBy,
+    }),
+    [
+      search, niche, platform, contentType, location, tag, minF, maxF,
+      minViews, maxViews, minEngagement, maxEngagement, minConnections, sortBy,
+    ]
+  );
+  const [queryFilters, setQueryFilters] = useState(filterState);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => setQueryFilters(filterState), 300);
+    return () => clearTimeout(timeout);
+  }, [filterState]);
+
+  const activeFilterChips = useMemo(() => {
+    const chips = [];
+    const addRange = (key, label, min, max, suffix = "") => {
+      if (!min && !max) return;
+      const format = (value) => {
+        if (!value) return "Any";
+        return suffix === "%" ? `${value}%` : fmtNum(value);
+      };
+      chips.push({ key, label: `${label}: ${format(min)} – ${format(max)}` });
+    };
+
+    if (search.trim()) chips.push({ key: "search", label: `Search: ${search.trim()}` });
+    if (location.trim()) chips.push({ key: "location", label: `Location: ${location.trim()}` });
+    if (tag.trim()) chips.push({ key: "tag", label: `Project tag: ${tag.trim()}` });
+    selectedFilterValues(niche).forEach((value) => chips.push({ key: "niche", value, label: value }));
+    selectedFilterValues(platform).forEach((value) => chips.push({ key: "platform", value, label: value }));
+    selectedFilterValues(contentType).forEach((value) => chips.push({ key: "contentType", value, label: value }));
+    addRange("followers", "Followers", minF, maxF);
+    addRange("views", "Average views", minViews, maxViews);
+    addRange("engagement", "Engagement", minEngagement, maxEngagement, "%");
+    if (minConnections > 0) {
+      chips.push({ key: "connections", label: `Connections: ${fmtNum(minConnections)}+` });
+    }
+    return chips;
+  }, [
+    search, location, tag, niche, platform, contentType, minF, maxF, minViews,
+    maxViews, minEngagement, maxEngagement, minConnections,
+  ]);
+  const activeFiltersCount = activeFilterChips.length;
 
   const resetFilters = () => {
     setSearch("");
     setNiche("all");
     setPlatform("all");
     setContentType("all");
+    setLocation("");
+    setTag("");
     setMinF(0);
     setMaxF(0);
     setMinViews(0);
+    setMaxViews(0);
     setMinEngagement(0);
+    setMaxEngagement(0);
     setMinConnections(0);
     setSortBy("followers");
   };
 
-  const { data: creators, isLoading } = useQuery({
+  const {
+    data: creatorPages,
+    isLoading,
+    isFetching,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
     queryKey: [
       "creators",
-      search,
-      niche,
-      platform,
-      contentType,
-      minF ? String(minF) : "",
-      maxF ? String(maxF) : "",
-      minViews ? String(minViews) : "",
-      minEngagement ? String(minEngagement) : "",
-      minConnections ? String(minConnections) : "",
-      sortBy
+      queryFilters.search.trim(),
+      queryFilters.niche,
+      queryFilters.platform,
+      queryFilters.contentType,
+      queryFilters.minF ? String(queryFilters.minF) : "",
+      queryFilters.maxF ? String(queryFilters.maxF) : "",
+      queryFilters.minViews ? String(queryFilters.minViews) : "",
+      queryFilters.minEngagement ? String(queryFilters.minEngagement) : "",
+      queryFilters.minConnections ? String(queryFilters.minConnections) : "",
+      queryFilters.sortBy,
+      queryFilters.maxViews ? String(queryFilters.maxViews) : "",
+      queryFilters.maxEngagement ? String(queryFilters.maxEngagement) : "",
+      queryFilters.location.trim(),
+      queryFilters.tag.trim(),
     ],
-    queryFn: async () =>
+    initialPageParam: 0,
+    queryFn: async ({ signal, pageParam }) =>
       (
         await api.get("/creators", {
           params: {
-            search,
-            niche: niche === "all" ? "" : niche,
-            platform: platform === "all" ? "" : platform,
-            content_type: contentType === "all" ? "" : contentType,
-            min_followers: Number(minF) || 0,
-            max_followers: Number(maxF) || 0,
-            min_views: Number(minViews) || 0,
-            min_engagement: Number(minEngagement) || 0.0,
-            min_connections: Number(minConnections) || 0,
-            sort_by: sortBy,
+            search: queryFilters.search.trim(),
+            niche: queryFilters.niche === "all" ? "" : queryFilters.niche,
+            platform: queryFilters.platform === "all" ? "" : queryFilters.platform,
+            content_type: queryFilters.contentType === "all" ? "" : queryFilters.contentType,
+            location: queryFilters.location.trim(),
+            tag: queryFilters.tag.trim(),
+            min_followers: queryFilters.minF,
+            max_followers: queryFilters.maxF,
+            min_views: queryFilters.minViews,
+            max_views: queryFilters.maxViews,
+            min_engagement: queryFilters.minEngagement,
+            max_engagement: queryFilters.maxEngagement,
+            min_connections: queryFilters.minConnections,
+            sort_by: queryFilters.sortBy,
+            offset: pageParam,
+            limit: CREATOR_PAGE_SIZE,
           },
+          signal,
         })
       ).data,
+    getNextPageParam: (lastPage, pages) => (
+      lastPage.length === CREATOR_PAGE_SIZE
+        ? pages.length * CREATOR_PAGE_SIZE
+        : undefined
+    ),
   });
+  const creators = useMemo(
+    () => creatorPages?.pages.flatMap((page) => page) || [],
+    [creatorPages]
+  );
+
+  const updateFilterField = (field, value) => {
+    const setters = {
+      location: setLocation,
+      tag: setTag,
+      minF: setMinF,
+      maxF: setMaxF,
+      minViews: setMinViews,
+      maxViews: setMaxViews,
+      minEngagement: setMinEngagement,
+      maxEngagement: setMaxEngagement,
+      minConnections: setMinConnections,
+    };
+    setters[field]?.(value);
+  };
+
+  const toggleMultiFilter = (field, value) => {
+    const setters = {
+      niche: setNiche,
+      platform: setPlatform,
+      contentType: setContentType,
+    };
+    setters[field]?.((current) => toggleFilterValue(current, value));
+  };
+
+  const removeFilterChip = (chip) => {
+    if (chip.key === "search") setSearch("");
+    else if (chip.key === "location") setLocation("");
+    else if (chip.key === "tag") setTag("");
+    else if (chip.key === "niche") toggleMultiFilter("niche", chip.value);
+    else if (chip.key === "platform") toggleMultiFilter("platform", chip.value);
+    else if (chip.key === "contentType") toggleMultiFilter("contentType", chip.value);
+    else if (chip.key === "followers") {
+      setMinF(0);
+      setMaxF(0);
+    } else if (chip.key === "views") {
+      setMinViews(0);
+      setMaxViews(0);
+    } else if (chip.key === "engagement") {
+      setMinEngagement(0);
+      setMaxEngagement(0);
+    } else if (chip.key === "connections") setMinConnections(0);
+  };
 
   const { data: connections } = useQuery({
     queryKey: ["connections"],
@@ -214,7 +356,7 @@ function CompanyExplore() {
     <div data-testid="explore-creators-page">
       <PageHead
         title="Influencer Connect"
-        sub="Discover verified creators by genre presets, deliverable formats, audience sliders, and portfolio projects."
+        sub="Discover verified creators by niche, platform, performance, location, and portfolio signals."
       />
 
       {/* Main Filter Toolbar & Genre Presets */}
@@ -224,19 +366,25 @@ function CompanyExplore() {
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               className="pl-9"
-              placeholder="Search by name, niche, deliverables, or keywords…"
+              placeholder="Search creators, niches, locations, or project tags…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               data-testid="creator-search-input"
             />
           </div>
 
-          <Select value={niche} onValueChange={setNiche}>
+          <Select
+            value={filterSelectValue(niche)}
+            onValueChange={(value) => value !== "multiple" && setNiche(value)}
+          >
             <SelectTrigger className="w-44" data-testid="niche-filter-select">
               <SelectValue placeholder="All Niches" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Niches</SelectItem>
+              {selectedFilterValues(niche).length > 1 && (
+                <SelectItem value="multiple" disabled>Multiple selected</SelectItem>
+              )}
               {NICHES.map((n) => (
                 <SelectItem key={n} value={n}>
                   {n}
@@ -245,12 +393,38 @@ function CompanyExplore() {
             </SelectContent>
           </Select>
 
-          <Select value={platform} onValueChange={setPlatform}>
+          <Select
+            value={filterSelectValue(contentType)}
+            onValueChange={(value) => value !== "multiple" && setContentType(value)}
+          >
+            <SelectTrigger className="w-44" data-testid="content-type-filter-select">
+              <SelectValue placeholder="All Deliverables" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Deliverables</SelectItem>
+              {selectedFilterValues(contentType).length > 1 && (
+                <SelectItem value="multiple" disabled>Multiple selected</SelectItem>
+              )}
+              {CONTENT_TYPES.map((type) => (
+                <SelectItem key={type} value={type}>
+                  {type}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={filterSelectValue(platform)}
+            onValueChange={(value) => value !== "multiple" && setPlatform(value)}
+          >
             <SelectTrigger className="w-36" data-testid="platform-filter-select">
               <SelectValue placeholder="All Platforms" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Platforms</SelectItem>
+              {selectedFilterValues(platform).length > 1 && (
+                <SelectItem value="multiple" disabled>Multiple selected</SelectItem>
+              )}
               {PLATFORMS.map((p) => (
                 <SelectItem key={p} value={p}>
                   {p}
@@ -275,11 +449,11 @@ function CompanyExplore() {
           <Button
             variant={showAdvancedFilters || activeFiltersCount > 0 ? "default" : "outline"}
             className="gap-2 rounded-full text-xs font-semibold"
-            onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+            onClick={() => setShowAdvancedFilters(true)}
             data-testid="filter-toggle-button"
           >
             <SlidersHorizontal className="h-3.5 w-3.5" />
-            <span>Filters & Sliders</span>
+            <span>More filters</span>
             {activeFiltersCount > 0 && (
               <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary-foreground text-[10px] text-primary">
                 {activeFiltersCount}
@@ -318,9 +492,9 @@ function CompanyExplore() {
             <button
               key={n}
               type="button"
-              onClick={() => setNiche(niche === n ? "all" : n)}
+              onClick={() => toggleMultiFilter("niche", n)}
               className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-all ${
-                niche === n
+                selectedFilterValues(niche).includes(n)
                   ? "bg-primary text-primary-foreground font-semibold shadow-xs"
                   : "border border-border bg-background text-muted-foreground hover:border-primary/40"
               }`}
@@ -329,115 +503,59 @@ function CompanyExplore() {
             </button>
           ))}
         </div>
+      </div>
 
-        {/* Collapsible Advanced Filters & Sliders Drawer */}
-        {showAdvancedFilters && (
-          <div className="mt-3 border-t border-border pt-4 animate-in fade-in-50 duration-150 space-y-5">
-            {/* Deliverable Formats Presets */}
-            <div>
-              <span className="eyebrow block mb-1.5">Deliverable Formats Presets</span>
-              <div className="flex flex-wrap gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setContentType("all")}
-                  className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
-                    contentType === "all"
-                      ? "bg-secondary text-secondary-foreground font-semibold ring-1 ring-primary/40"
-                      : "border border-border bg-background text-muted-foreground hover:border-primary/40"
-                  }`}
-                >
-                  Any Format
-                </button>
-                {CONTENT_TYPES.map((ct) => (
-                  <button
-                    key={ct}
-                    type="button"
-                    onClick={() => setContentType(contentType === ct ? "all" : ct)}
-                    className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
-                      contentType === ct
-                        ? "bg-secondary text-secondary-foreground font-semibold ring-1 ring-primary/40"
-                        : "border border-border bg-background text-muted-foreground hover:border-primary/40"
-                    }`}
-                  >
-                    {ct}
-                  </button>
-                ))}
-              </div>
-            </div>
+      {activeFilterChips.length > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-2" data-testid="active-filter-chips">
+          {activeFilterChips.map((chip) => (
+            <button
+              key={`${chip.key}:${chip.value || ""}`}
+              type="button"
+              onClick={() => removeFilterChip(chip)}
+              aria-label={`Remove filter ${chip.label}`}
+              className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
+              data-testid="active-filter-chip"
+            >
+              <span className="truncate">{chip.label}</span>
+              <X className="h-3 w-3 shrink-0" />
+            </button>
+          ))}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={resetFilters}
+            className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+            data-testid="clear-all-filters-button"
+          >
+            Clear all
+          </Button>
+        </div>
+      )}
 
-            {/* Precision Numeric Sliders Grid */}
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {/* Followers Range Slider */}
-              <div className="space-y-2 rounded-xl border border-border/80 bg-background/50 p-3">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="eyebrow">Min Followers</span>
-                  <span className="font-num font-bold text-foreground">
-                    {minF > 0 ? fmtNum(minF) : "Any"}
-                  </span>
-                </div>
-                <Slider
-                  min={0}
-                  max={1500000}
-                  step={25000}
-                  value={[minF]}
-                  onValueChange={([val]) => setMinF(val)}
-                  data-testid="min-followers-slider"
-                />
-                <div className="flex justify-between text-[10px] text-muted-foreground font-num">
-                  <span>0</span>
-                  <span>500K</span>
-                  <span>1.5M+</span>
-                </div>
-              </div>
+      <CreatorFiltersDrawer
+        isOpen={showAdvancedFilters}
+        onOpenChange={setShowAdvancedFilters}
+        filters={filterState}
+        options={{
+          niches: NICHES,
+          platforms: PLATFORMS,
+          contentTypes: CONTENT_TYPES,
+        }}
+        onFieldChange={updateFilterField}
+        onMultiToggle={toggleMultiFilter}
+        onReset={resetFilters}
+      />
 
-              {/* Min Avg Views Slider */}
-              <div className="space-y-2 rounded-xl border border-border/80 bg-background/50 p-3">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="eyebrow">Min Avg Views</span>
-                  <span className="font-num font-bold text-foreground">
-                    {minViews > 0 ? fmtNum(minViews) : "Any"}
-                  </span>
-                </div>
-                <Slider
-                  min={0}
-                  max={500000}
-                  step={10000}
-                  value={[minViews]}
-                  onValueChange={([val]) => setMinViews(val)}
-                  data-testid="min-views-slider"
-                />
-                <div className="flex justify-between text-[10px] text-muted-foreground font-num">
-                  <span>0</span>
-                  <span>250K</span>
-                  <span>500K+</span>
-                </div>
-              </div>
-
-              {/* Min Engagement % Slider */}
-              <div className="space-y-2 rounded-xl border border-border/80 bg-background/50 p-3">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="eyebrow">Min Engagement</span>
-                  <span className="font-num font-bold text-foreground">
-                    {minEngagement > 0 ? `${minEngagement}%` : "Any"}
-                  </span>
-                </div>
-                <Slider
-                  min={0}
-                  max={10}
-                  step={0.5}
-                  value={[minEngagement]}
-                  onValueChange={([val]) => setMinEngagement(val)}
-                  data-testid="min-engagement-slider"
-                />
-                <div className="flex justify-between text-[10px] text-muted-foreground font-num">
-                  <span>0%</span>
-                  <span>5%</span>
-                  <span>10%</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+      <div className="mt-5 flex items-center justify-between text-xs text-muted-foreground" aria-live="polite">
+        <span data-testid="creator-results-count">
+          {creators?.length || 0} matching creator{creators?.length === 1 ? "" : "s"} shown
+        </span>
+        <span className="flex items-center gap-3">
+          {isFetching && <span role="status">Updating results…</span>}
+          {activeFiltersCount > 0 && (
+            <span>{activeFiltersCount} active filter{activeFiltersCount === 1 ? "" : "s"}</span>
+          )}
+        </span>
       </div>
 
       {/* Results Section */}
@@ -450,7 +568,7 @@ function CompanyExplore() {
           <EmptyState
             icon={Users}
             title="No creators match your criteria"
-            body="Try adjusting your sliders, lowering minimum follower/view thresholds, or selecting All Genres."
+            body="Try widening a numeric range, lowering a minimum threshold, or selecting All Genres."
             testId="creators-empty"
           />
         </div>
@@ -659,6 +777,18 @@ function CompanyExplore() {
               </div>
             );
           })}
+        </div>
+      )}
+      {hasNextPage && (
+        <div className="mt-6 flex justify-center">
+          <Button
+            variant="outline"
+            onClick={() => fetchNextPage()}
+            disabled={isFetchingNextPage}
+            data-testid="load-more-creators-button"
+          >
+            {isFetchingNextPage ? "Loading creators…" : "Load more creators"}
+          </Button>
         </div>
       )}
 
@@ -1077,18 +1207,20 @@ function CompanyExplore() {
 
 function CreatorExplore() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
 
-  // Filters for Campaigns
   const [search, setSearch] = useState("");
   const [niche, setNiche] = useState("all");
   const [deliverable, setDeliverable] = useState("all");
-
+  const [opportunityTab, setOpportunityTab] = useState("all");
   const [applyFor, setApplyFor] = useState(null);
+  const [detailFor, setDetailFor] = useState(null);
   const [message, setMessage] = useState("");
+  const [reviewApplication, setReviewApplication] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const { data: campaigns, isLoading } = useQuery({
-    queryKey: ["campaigns", search, niche, deliverable],
+  const { data: campaigns, isLoading, isError } = useQuery({
+    queryKey: ["campaigns", search, niche, deliverable, opportunityTab],
     queryFn: async () =>
       (
         await api.get("/campaigns", {
@@ -1096,6 +1228,8 @@ function CreatorExplore() {
             search,
             niche: niche === "all" ? "" : niche,
             content_type: deliverable === "all" ? "" : deliverable,
+            recommended: opportunityTab === "recommended" ? 1 : 0,
+            limit: 200,
           },
         })
       ).data,
@@ -1105,10 +1239,28 @@ function CreatorExplore() {
     queryKey: ["applications"],
     queryFn: async () => (await api.get("/applications")).data,
   });
+  const { data: savedOpportunities = [] } = useQuery({
+    queryKey: ["saved-opportunities"],
+    queryFn: async () => (await api.get("/saved-opportunities")).data,
+  });
 
   const appliedCampIds = useMemo(
-    () => new Set((apps || []).filter((a) => a.type === "application" && a.status !== "declined").map((a) => a.camp_id)),
+    () => new Set((apps || []).filter((a) => a.type === "application" && ["pending", "accepted"].includes(a.status)).map((a) => a.camp_id)),
     [apps]
+  );
+  const applicationByCampaign = useMemo(
+    () => new Map((apps || []).filter((application) => application.type === "application").map((application) => [application.camp_id, application])),
+    [apps]
+  );
+  const savedIds = useMemo(
+    () => new Set(savedOpportunities.map((opportunity) => opportunity.camp_id)),
+    [savedOpportunities]
+  );
+  const visibleCampaigns = useMemo(
+    () => opportunityTab === "saved"
+      ? (campaigns || []).filter((campaign) => savedIds.has(campaign.camp_id))
+      : campaigns || [],
+    [campaigns, opportunityTab, savedIds]
   );
 
   const apply = async () => {
@@ -1119,6 +1271,7 @@ function CreatorExplore() {
       toast.success("Application sent");
       setApplyFor(null);
       setMessage("");
+      setReviewApplication(false);
       qc.invalidateQueries({ queryKey: ["applications"] });
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Could not apply");
@@ -1133,14 +1286,38 @@ function CreatorExplore() {
     setDeliverable("all");
   };
 
+  const toggleSaved = async (campaign) => {
+    try {
+      if (savedIds.has(campaign.camp_id)) {
+        await api.delete(`/saved-opportunities/${campaign.camp_id}`);
+        toast.success("Opportunity removed from saved");
+      } else {
+        await api.post("/saved-opportunities", { camp_id: campaign.camp_id });
+        toast.success("Opportunity saved");
+      }
+      await qc.invalidateQueries({ queryKey: ["saved-opportunities"] });
+    } catch (error) {
+      toast.error(error?.response?.data?.detail || "Could not update saved opportunities");
+    }
+  };
+  const filterChips = [
+    ...(search.trim() ? [{ key: "search", label: `Search: ${search.trim()}` }] : []),
+    ...(niche !== "all" ? [{ key: "niche", label: niche }] : []),
+    ...(deliverable !== "all" ? [{ key: "deliverable", label: deliverable }] : []),
+  ];
+
   return (
     <div data-testid="explore-campaigns-page">
       <PageHead
-        title="Open Campaigns"
-        sub="Browse briefs published by verified sponsors. Discover opportunities by niche and deliverable formats."
+        title="Explore"
+        sub="Discover sponsorship opportunities from verified brands that match your audience."
+        action={
+          <Button type="button" variant="outline" onClick={() => navigate("/app/campaigns")} data-testid="my-applications-shortcut">
+            My applications
+          </Button>
+        }
       />
 
-      {/* Campaign Search and Filter Bar */}
       <div className="mb-6 space-y-3 rounded-2xl border border-border bg-card p-4 shadow-xs" data-testid="campaign-filters">
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative min-w-56 flex-1">
@@ -1193,22 +1370,58 @@ function CreatorExplore() {
             </Button>
           )}
         </div>
+        {filterChips.length ? (
+          <div className="flex flex-wrap gap-2" data-testid="campaign-filter-chips">
+            {filterChips.map((chip) => (
+              <button
+                type="button"
+                key={chip.key}
+                onClick={() => {
+                  if (chip.key === "search") setSearch("");
+                  if (chip.key === "niche") setNiche("all");
+                  if (chip.key === "deliverable") setDeliverable("all");
+                }}
+                aria-label={`Remove ${chip.label} filter`}
+                className="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground"
+              >
+                {chip.label}<X className="h-3 w-3" />
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
+
+      <Tabs value={opportunityTab} onValueChange={setOpportunityTab} className="mb-5">
+        <TabsList className="flex h-auto flex-wrap justify-start gap-1 rounded-2xl p-1" data-testid="opportunity-tabs">
+          <TabsTrigger value="all" data-testid="opportunities-all-tab">All opportunities</TabsTrigger>
+          <TabsTrigger value="recommended" data-testid="opportunities-recommended-tab">For you</TabsTrigger>
+          <TabsTrigger value="saved" data-testid="opportunities-saved-tab">Saved</TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       {isLoading ? (
         <div className="py-24 text-center text-sm text-muted-foreground" data-testid="campaigns-loading">
           Loading campaigns…
         </div>
-      ) : !campaigns?.length ? (
+      ) : isError ? (
         <EmptyState
           icon={Search}
-          title="No open campaigns match your search"
-          body="Try selecting All Niches or clearing your search to see more briefs."
+          title="Could not load opportunities"
+          body="Please retry or adjust your search."
+          testId="campaigns-error"
+        />
+      ) : !visibleCampaigns.length ? (
+        <EmptyState
+          icon={Search}
+          title={opportunityTab === "saved" ? "No saved opportunities match" : "No open opportunities match"}
+          body={opportunityTab === "recommended"
+            ? "No currently open opportunities match your profile niche. Try All opportunities or adjust your filters."
+            : "Try clearing a filter or broadening your search."}
           testId="campaigns-empty"
         />
       ) : (
         <div className="grid gap-4" data-testid="campaigns-feed">
-          {campaigns.map((c) => (
+          {visibleCampaigns.map((c) => (
             <div
               key={c.camp_id}
               className="rounded-2xl border border-border bg-card p-6 shadow-xs transition-colors hover:border-primary/40"
@@ -1222,11 +1435,9 @@ function CreatorExplore() {
                     <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
                       <span className="font-medium text-foreground">{c.company?.display_name}</span>
                       {c.company?.industry && <span>· {c.company.industry}</span>}
-                      {c.company?.employees ? <span>· {c.company.employees} employees</span> : null}
                       <span>· apply by {fmtDate(c.deadline)}</span>
                     </div>
 
-                    {/* Company Reliability Metric Strip */}
                     <div className="mt-1.5 flex items-center gap-3 text-[11px] text-muted-foreground">
                       <span className="inline-flex items-center gap-1 font-medium text-foreground">
                         <Users className="h-3 w-3 text-primary" />
@@ -1236,17 +1447,29 @@ function CreatorExplore() {
                   </div>
                 </div>
 
-                <div className="text-right">
-                  <span className="inline-flex items-center rounded-full bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                    Paid Campaign · Negotiable
+                <div className="flex items-start gap-2">
+                  <span className="inline-flex items-center rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-semibold text-primary">
+                    Sponsorship opportunity
                   </span>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    aria-label={savedIds.has(c.camp_id) ? `Unsave ${c.title}` : `Save ${c.title}`}
+                    onClick={() => toggleSaved(c)}
+                    data-testid={`save-opportunity-${c.camp_id}`}
+                  >
+                    <Bookmark className={`h-4 w-4 ${savedIds.has(c.camp_id) ? "fill-current text-primary" : ""}`} />
+                  </Button>
+                </div>
+                <div className="text-right">
                   <div className="mt-1 flex justify-end">
-                    {appliedCampIds.has(c.camp_id) ? <StatusPill status="pending" /> : null}
+                    {appliedCampIds.has(c.camp_id) ? <StatusPill status={applicationByCampaign.get(c.camp_id)?.status} /> : null}
                   </div>
                 </div>
               </div>
 
-              <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{c.brief}</p>
+              <p className="mt-4 line-clamp-3 text-sm leading-relaxed text-muted-foreground">{c.brief}</p>
 
               {/* Deliverables and Niches */}
               <div className="mt-4 flex flex-wrap gap-1.5">
@@ -1271,15 +1494,20 @@ function CreatorExplore() {
 
               <div className="mt-5 flex items-center justify-between border-t border-border/50 pt-4">
                 <span className="text-xs text-muted-foreground">Deadline: {fmtDate(c.deadline)}</span>
-                {appliedCampIds.has(c.camp_id) ? (
-                  <Button variant="secondary" size="sm" className="rounded-full" disabled data-testid={`applied-button-${c.camp_id}`}>
-                    <Check className="mr-1 h-3.5 w-3.5" /> Applied
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={() => setDetailFor(c)} data-testid={`details-button-${c.camp_id}`}>
+                    View details
                   </Button>
-                ) : (
-                  <Button size="sm" className="rounded-full px-5" onClick={() => setApplyFor(c)} data-testid={`apply-button-${c.camp_id}`}>
-                    Apply for Brief
-                  </Button>
-                )}
+                  {appliedCampIds.has(c.camp_id) ? (
+                    <Button variant="secondary" size="sm" className="rounded-full" disabled data-testid={`applied-button-${c.camp_id}`}>
+                      <Check className="mr-1 h-3.5 w-3.5" /> Applied
+                    </Button>
+                  ) : (
+                    <Button size="sm" className="rounded-full px-5" onClick={() => { setApplyFor(c); setReviewApplication(false); }} data-testid={`apply-button-${c.camp_id}`}>
+                      Apply
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           ))}
@@ -1290,24 +1518,71 @@ function CreatorExplore() {
       <Dialog open={!!applyFor} onOpenChange={(o) => !o && setApplyFor(null)}>
         <DialogContent data-testid="apply-dialog">
           <DialogHeader>
-            <DialogTitle>Apply — {applyFor?.title}</DialogTitle>
+            <DialogTitle>{reviewApplication ? "Review your application" : `Apply — ${applyFor?.title}`}</DialogTitle>
           </DialogHeader>
-          <Textarea
-            placeholder="Why are you a fit for this campaign? Mention relevant past deliverables and metrics…"
-            rows={4}
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            data-testid="apply-message-input"
-          />
+          {reviewApplication ? (
+            <div className="space-y-3 rounded-xl border border-border bg-secondary/30 p-4 text-sm">
+              <p><span className="font-semibold">Campaign:</span> {applyFor?.title}</p>
+              <p><span className="font-semibold">Brand:</span> {applyFor?.company?.display_name}</p>
+              <p className="whitespace-pre-wrap text-muted-foreground">{message || "No application message added."}</p>
+              <p className="text-xs text-muted-foreground">Compensation details are shared directly during the campaign process.</p>
+            </div>
+          ) : (
+            <Textarea
+              placeholder="Why are you a fit for this campaign? Mention relevant past work and platform metrics…"
+              rows={4}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              data-testid="apply-message-input"
+            />
+          )}
           <DialogFooter>
-            <Button
-              className="rounded-full"
-              onClick={apply}
-              disabled={busy}
-              data-testid="apply-submit-button"
-            >
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send Application"}
-            </Button>
+            {reviewApplication ? (
+              <>
+                <Button type="button" variant="outline" onClick={() => setReviewApplication(false)}>Back</Button>
+                <Button className="rounded-full" onClick={apply} disabled={busy} data-testid="apply-submit-button">
+                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Submit application"}
+                </Button>
+              </>
+            ) : (
+              <Button type="button" className="rounded-full" onClick={() => setReviewApplication(true)} data-testid="review-application-button">
+                Review application
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(detailFor)} onOpenChange={(open) => !open && setDetailFor(null)}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl" data-testid="opportunity-details-dialog">
+          <DialogHeader><DialogTitle>{detailFor?.title}</DialogTitle></DialogHeader>
+          {detailFor ? (
+            <div className="space-y-5">
+              <div className="flex items-center gap-3">
+                <UserAvatar user={detailFor.company} className="h-12 w-12 rounded-xl" />
+                <div>
+                  <p className="font-semibold">{detailFor.company?.display_name}</p>
+                  <p className="text-xs text-muted-foreground">{detailFor.company?.industry || "Brand"} · Apply by {fmtDate(detailFor.deadline)}</p>
+                </div>
+              </div>
+              <p className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{detailFor.brief}</p>
+              <div>
+                <h3 className="mb-2 text-sm font-semibold">Deliverables</h3>
+                <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
+                  {(detailFor.deliverables || []).map((deliverable, index) => <li key={`${deliverable}-${index}`}>{deliverable}</li>)}
+                </ul>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {(detailFor.niches || []).map((value) => <span key={value} className="rounded-full bg-primary/10 px-2.5 py-1 text-xs text-primary">{value}</span>)}
+              </div>
+              <p className="text-xs text-muted-foreground">Compensation details are handled directly with the brand.</p>
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setDetailFor(null)}>Close</Button>
+            {detailFor && !appliedCampIds.has(detailFor.camp_id) ? (
+              <Button type="button" onClick={() => { setApplyFor(detailFor); setDetailFor(null); setReviewApplication(false); }}>Apply</Button>
+            ) : null}
           </DialogFooter>
         </DialogContent>
       </Dialog>

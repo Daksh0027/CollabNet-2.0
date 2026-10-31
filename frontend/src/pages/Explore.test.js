@@ -108,7 +108,6 @@ describe("Explore Page Serious Filters and Stats System", () => {
         completed_deals_count: 8,
         on_time_delivery_rate: 98.5,
         rating_avg: 4.9,
-        rate_from: 800,
         content_types: ["Dedicated Long-Form Video", "Short-Form Video"],
         commercial_terms: ["100% Escrow Upfront", "1-Round Revision Guarantee"],
         platforms: [
@@ -131,8 +130,8 @@ describe("Explore Page Serious Filters and Stats System", () => {
 
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     qc.setQueryData(
-      ["creators", "", "all", "all", "all", "", "", "", "", "", "followers"],
-      mockCreators
+      ["creators", "", "all", "all", "all", "", "", "", "", "", "followers", "", "", "", ""],
+      { pages: [mockCreators], pageParams: [0] }
     );
     qc.setQueryData(["connections"], []);
 
@@ -148,9 +147,10 @@ describe("Explore Page Serious Filters and Stats System", () => {
     expect(container.querySelector('[data-testid="explore-creators-page"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="creator-search-input"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="niche-filter-select"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="content-type-filter-select"]').textContent).toContain("All Deliverables");
     expect(container.querySelector('[data-testid="platform-filter-select"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="sort-by-select"]')).not.toBeNull();
-    expect(container.querySelector('[data-testid="filter-toggle-button"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="filter-toggle-button"]').textContent).toContain("More filters");
 
     // Check creator card
     expect(container.querySelector('[data-testid="creator-card-cr_maya"]')).not.toBeNull();
@@ -164,12 +164,73 @@ describe("Explore Page Serious Filters and Stats System", () => {
     expect(container.textContent).toContain("#Smart Home");
   });
 
+  it("loads additional creator results in bounded pages", async () => {
+    mockUser = { user_id: "usr_elena", role: "company" };
+    const firstPage = Array.from({ length: 50 }, (_, index) => ({
+      user_id: `creator-${index}`,
+      name: `Creator ${index}`,
+      display_name: `Creator ${index}`,
+      niche: "Gaming",
+      verified: true,
+      platforms: [],
+      projects: [],
+    }));
+    const nextCreator = {
+      user_id: "creator-next-page",
+      name: "Creator on next page",
+      display_name: "Creator on next page",
+      niche: "Gaming",
+      verified: true,
+      platforms: [],
+      projects: [],
+    };
+    mockApiGet.mockImplementation((path, config = {}) => Promise.resolve({
+      data: path === "/creators"
+        ? (config.params.offset === 50 ? [nextCreator] : firstPage)
+        : [],
+    }));
+
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+    });
+    const creatorsKey = [
+      "creators", "", "all", "all", "all", "", "", "", "", "",
+      "followers", "", "", "", "",
+    ];
+    qc.setQueryData(creatorsKey, { pages: [firstPage], pageParams: [0] });
+    qc.setQueryData(["connections"], []);
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={qc}>
+          <Explore />
+        </QueryClientProvider>
+      );
+    });
+
+    const loadMore = container.querySelector('[data-testid="load-more-creators-button"]');
+    expect(loadMore).not.toBeNull();
+    await act(async () => {
+      loadMore.click();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(mockApiGet).toHaveBeenCalledWith(
+      "/creators",
+      expect.objectContaining({
+        params: expect.objectContaining({ offset: 50, limit: 50 }),
+      })
+    );
+    expect(container.querySelector('[data-testid="creator-card-creator-next-page"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="load-more-creators-button"]')).toBeNull();
+  });
+
   it("toggles advanced filters drawer when clicking the Filters button", async () => {
     mockUser = { user_id: "usr_elena", role: "company" };
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     qc.setQueryData(
-      ["creators", "", "all", "all", "all", "", "", "", "", "", "followers"],
-      []
+      ["creators", "", "all", "all", "all", "", "", "", "", "", "followers", "", "", "", ""],
+      { pages: [[]], pageParams: [0] }
     );
     qc.setQueryData(["connections"], []);
 
@@ -182,21 +243,69 @@ describe("Explore Page Serious Filters and Stats System", () => {
     });
 
     const filterBtn = container.querySelector('[data-testid="filter-toggle-button"]');
-    expect(container.querySelector('[data-testid="min-views-slider"]')).toBeNull();
+    expect(document.querySelector('[data-testid="creator-views-range-min"]')).toBeNull();
 
     // Click to open
     await act(async () => {
       filterBtn.click();
     });
 
-    expect(container.querySelector('[data-testid="min-followers-slider"]')).not.toBeNull();
-    expect(container.querySelector('[data-testid="min-views-slider"]')).not.toBeNull();
-    expect(container.querySelector('[data-testid="min-engagement-slider"]')).not.toBeNull();
-    // Public rate slider is cleanly removed
-    expect(container.querySelector('[data-testid="max-rate-slider"]')).toBeNull();
+    expect(document.querySelector('[data-testid="creator-followers-range-min"]')).not.toBeNull();
+    expect(document.querySelector('[data-testid="creator-followers-range-max"]')).not.toBeNull();
+    expect(document.querySelector('[data-testid="creator-views-range-min"]')).not.toBeNull();
+    expect(document.querySelector('[data-testid="creator-engagement-range-max"]')).not.toBeNull();
+    expect(document.querySelector('[data-testid="creator-niche-options"]')).not.toBeNull();
+
+    const selectAllNiches = document.querySelector(
+      '[data-testid="creator-niche-options-select-all"]'
+    );
+    expect(selectAllNiches.textContent).toContain("Select all");
+
+    await act(async () => {
+      selectAllNiches.click();
+    });
+    expect(document.querySelectorAll('[data-testid="active-filter-chip"]')).toHaveLength(9);
+
+    await act(async () => {
+      selectAllNiches.click();
+    });
+    expect(document.querySelectorAll('[data-testid="active-filter-chip"]')).toHaveLength(0);
   });
 
-  it("renders creator view with campaign filters and sponsor reliability metrics", async () => {
+  it("shows removable chips for selected creator filters", async () => {
+    mockUser = { user_id: "usr_elena", role: "company" };
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    qc.setQueryData(
+      ["creators", "", "all", "all", "all", "", "", "", "", "", "followers", "", "", "", ""],
+      { pages: [[]], pageParams: [0] }
+    );
+    qc.setQueryData(["connections"], []);
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={qc}>
+          <Explore />
+        </QueryClientProvider>
+      );
+    });
+
+    const gamingPreset = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent.trim() === "Gaming"
+    );
+    await act(async () => {
+      gamingPreset.click();
+    });
+
+    expect(container.querySelector('[data-testid="active-filter-chips"]')).not.toBeNull();
+    expect(container.querySelector('[aria-label="Remove filter Gaming"]')).not.toBeNull();
+
+    await act(async () => {
+      container.querySelector('[aria-label="Remove filter Gaming"]').click();
+    });
+    expect(container.querySelector('[data-testid="active-filter-chips"]')).toBeNull();
+  });
+
+  it("renders creator opportunity discovery without exposing campaign budgets", async () => {
     mockUser = {
       user_id: "cr_maya",
       name: "Maya Chen",
@@ -227,8 +336,9 @@ describe("Explore Page Serious Filters and Stats System", () => {
     ];
 
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    qc.setQueryData(["campaigns", "", "all", "all"], mockCampaigns);
+    qc.setQueryData(["campaigns", "", "all", "all", "all"], mockCampaigns);
     qc.setQueryData(["applications"], []);
+    qc.setQueryData(["saved-opportunities"], []);
 
     await act(async () => {
       root.render(
@@ -241,10 +351,13 @@ describe("Explore Page Serious Filters and Stats System", () => {
     expect(container.querySelector('[data-testid="explore-campaigns-page"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="campaign-search-input"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="campaign-niche-select"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="opportunities-recommended-tab"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="my-applications-shortcut"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="campaign-card-cmp_1"]')).not.toBeNull();
     expect(container.textContent).toContain("Nova Athletics");
     expect(container.textContent).toContain("15 connections");
-    expect(container.textContent).toContain("Paid Campaign · Negotiable");
+    expect(container.textContent).toContain("Sponsorship opportunity");
+    expect(container.textContent).not.toContain("12,000");
     // Public budget inputs are cleanly removed
     expect(container.querySelector('[data-testid="campaign-min-budget-input"]')).toBeNull();
     expect(container.querySelector('[data-testid="campaign-max-budget-input"]')).toBeNull();

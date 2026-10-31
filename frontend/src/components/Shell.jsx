@@ -3,7 +3,7 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { motion, useReducedMotion } from "motion/react";
 import {
-  LayoutDashboard, Compass, Bell, MessagesSquare, Megaphone, Columns3,
+  LayoutDashboard, Compass, Bell, MessagesSquare, Megaphone, Columns3, Users,
   FileSignature, CalendarDays, CircleUserRound, LogOut, Menu,
 } from "lucide-react";
 import api from "@/lib/api";
@@ -24,6 +24,7 @@ const LazySettingsModal = lazy(() =>
 const NAV = [
   { to: "/app/overview", label: "Overview", icon: LayoutDashboard },
   { to: "/app/explore", label: "Explore", icon: Compass },
+  { to: "/app/collaborators", label: "Collaborators", icon: Users, creatorOnly: true },
   { to: "/app/notifications", label: "Notifications", icon: Bell, badgeType: "notifications" },
   { to: "/app/messages", label: "Messages", icon: MessagesSquare, badgeType: "messages" },
   { to: "/app/campaigns", label: "Campaigns & Events", icon: Megaphone },
@@ -42,6 +43,15 @@ export default function Shell() {
   const accountMenuTriggerRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const visibleNav = NAV
+    .filter((item) => !item.creatorOnly || user?.role === "creator")
+    .map((item) => {
+      if (user?.role !== "creator") return item;
+      if (item.to === "/app/overview") return { ...item, label: "Dashboard" };
+      if (item.to === "/app/campaigns") return { ...item, label: "My Applications" };
+      if (item.to === "/app/account") return { ...item, label: "My Profile" };
+      return item;
+    });
   const isFullBleed = location.pathname.startsWith("/app/messages");
   const isProjectBoard = location.pathname === "/app/project-board";
   const { data: notif } = useQuery({
@@ -56,10 +66,10 @@ export default function Shell() {
   });
 
   const unreadChatsCount = threads?.filter((t) => (t.unread || 0) > 0).length || 0;
-  const activeNav = NAV.find(({ to }) => (
+  const activeNav = visibleNav.find(({ to }) => (
     location.pathname === to || location.pathname.startsWith(`${to}/`)
   ));
-  const sidebarItems = NAV.map(({ to, label, icon: Icon, badgeType }) => {
+  const sidebarItems = visibleNav.map(({ to, label, icon: Icon, badgeType }) => {
     const badge = badgeType === "notifications"
       ? notif?.unread
       : badgeType === "messages"
@@ -140,7 +150,7 @@ export default function Shell() {
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56" data-testid="mobile-menu-content">
-              {NAV.map(({ to, label, icon: Icon }) => (
+              {visibleNav.map(({ to, label, icon: Icon }) => (
                 <DropdownMenuItem key={to} onClick={() => navigate(to)} data-testid={`mobile-menu-${label.toLowerCase().replace(/[^a-z]+/g, "-")}`}>
                   <Icon className="mr-2 h-4 w-4" /> {label}
                 </DropdownMenuItem>

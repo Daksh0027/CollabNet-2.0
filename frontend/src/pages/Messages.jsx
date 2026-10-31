@@ -1070,12 +1070,6 @@ function CounterpartyCard({ user, summarySlot }) {
                 ))}
               </div>
             )}
-            {c.rates?.video ? (
-              <div className="flex justify-between items-center rounded-xl border border-border/80 bg-background/60 px-3 py-2">
-                <span className="text-muted-foreground font-medium">Video rate</span>
-                <span className="font-num text-primary font-bold">${c.rates.video}</span>
-              </div>
-            ) : null}
           </>
         ) : (
           <>

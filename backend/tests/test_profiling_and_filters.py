@@ -2,6 +2,8 @@
 import os
 import pytest
 import requests
+from pymongo import MongoClient
+from uuid import uuid4
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "http://localhost:8000").rstrip("/")
 
@@ -96,16 +98,32 @@ def test_creator_filters_numeric_metrics(client):
     assert all(c["connections_count"] >= 2 for c in conn_creators)
 
 
-def test_creator_filters_commercial_terms_and_sorting(client):
-    """Verify commercial terms filtering and sorting options."""
+def test_creator_filters_upper_metric_bounds_and_location(client):
+    """Upper bounds and location filters return matching, known creator data."""
     login(client, "company")
-
-    # Commercial term
-    res = client.get(f"{BASE_URL}/api/creators", params={"commercial_term": "Organic Posting Only"}, timeout=20)
+    res = client.get(
+        f"{BASE_URL}/api/creators",
+        params={
+            "location": "Austin",
+            "max_followers": 900000,
+            "max_views": 250000,
+            "max_engagement": 5.2,
+        },
+        timeout=20,
+    )
     assert res.status_code == 200
-    organic_creators = res.json()
-    assert len(organic_creators) >= 1
-    assert any(c["display_name"] == "Dario Velez" for c in organic_creators)
+    creators = res.json()
+    maya = next((creator for creator in creators if creator["display_name"] == "Maya Chen"), None)
+    assert maya is not None
+    assert all("austin" in creator["location"].lower() for creator in creators)
+    assert all(creator["top_followers"] <= 900000 for creator in creators)
+    assert all(creator["avg_views"] <= 250000 for creator in creators)
+    assert all(creator["engagement_rate"] <= 5.2 for creator in creators)
+
+
+def test_creator_filters_sorting(client):
+    """Verify supported creator sort options."""
+    login(client, "company")
 
     # Sort by views
     res = client.get(f"{BASE_URL}/api/creators", params={"sort_by": "views"}, timeout=20)
@@ -120,6 +138,108 @@ def test_creator_filters_commercial_terms_and_sorting(client):
     sorted_eng = res.json()
     for i in range(len(sorted_eng) - 1):
         assert sorted_eng[i]["engagement_rate"] >= sorted_eng[i+1]["engagement_rate"]
+
+
+def test_creator_discovery_pages_beyond_legacy_limit_and_aggregates_uncapped_stats(client):
+    mongo_url = os.environ.get("MONGO_URL")
+    database_name = os.environ.get("DB_NAME")
+    if not mongo_url or not database_name:
+        pytest.skip("This integration test requires the backend MongoDB configuration.")
+
+    login(client, "company")
+    test_run_id = uuid4().hex
+    creator_ids = [f"discovery_perf_{test_run_id}_{index:03d}" for index in range(505)]
+    users = [
+        {
+            "user_id": creator_id,
+            "name": creator_id,
+            "role": "creator",
+            "verified": True,
+            "creator": {
+                "niche": "Discovery performance fixture",
+                "sub_niches": [],
+                "content_types": [],
+                "platforms": [{
+                    "platform": "YouTube",
+                    "followers": 2_000_000 + index,
+                    "avg_views": 200_000,
+                    "engagement_rate": 4.2,
+                }],
+                "projects": [],
+            },
+        }
+        for index, creator_id in enumerate(creator_ids)
+    ]
+    client_db = MongoClient(mongo_url)[database_name]
+    try:
+        client_db.users.insert_many(users)
+        target_creator_id = creator_ids[0]
+        client_db.connections.insert_many([
+            {
+                "discovery_test_id": test_run_id,
+                "status": "accepted",
+                "from_id": target_creator_id,
+                "to_id": f"external_{index}",
+            }
+            for index in range(10_005)
+        ])
+        client_db.contracts.insert_many([
+            {
+                "discovery_test_id": test_run_id,
+                "status": "completed",
+                "creator_id": target_creator_id,
+            }
+            for _ in range(5_005)
+        ])
+        client_db.reviews.insert_many([
+            {
+                "discovery_test_id": test_run_id,
+                "status": "approved",
+                "reviewee_id": target_creator_id,
+                "rating": 4.2,
+            }
+            for _ in range(5_005)
+        ])
+
+        first_page = client.get(
+            f"{BASE_URL}/api/creators",
+            params={
+                "niche": "Discovery performance fixture",
+                "limit": 500,
+            },
+            timeout=60,
+        )
+        assert first_page.status_code == 200, first_page.text
+        assert len(first_page.json()) == 100
+
+        last_page = client.get(
+            f"{BASE_URL}/api/creators",
+            params={
+                "niche": "Discovery performance fixture",
+                "offset": 500,
+                "limit": 500,
+            },
+            timeout=60,
+        )
+        assert last_page.status_code == 200, last_page.text
+        results = last_page.json()
+        assert len(results) == 5
+        assert [creator["user_id"] for creator in results] == list(reversed(creator_ids[:5]))
+
+        tail_creator = next(
+            creator for creator in results
+            if creator["user_id"] == target_creator_id
+        )
+        assert tail_creator["connections_count"] == 10_005
+        assert tail_creator["completed_deals_count"] == 5_005
+        assert tail_creator["review_count"] == 5_005
+        assert tail_creator["rating_avg"] == 4.2
+    finally:
+        client_db.users.delete_many({"user_id": {"$in": creator_ids}})
+        client_db.connections.delete_many({"discovery_test_id": test_run_id})
+        client_db.contracts.delete_many({"discovery_test_id": test_run_id})
+        client_db.reviews.delete_many({"discovery_test_id": test_run_id})
+        client_db.client.close()
 
 
 def test_public_user_profile_detail_stats(client):
@@ -137,8 +257,25 @@ def test_public_user_profile_detail_stats(client):
     assert profile["user_id"] == first_id
 
 
-def test_campaigns_search_and_filters_with_company_stats(client):
-    """Verify GET /api/campaigns returns enriched company stats and supports filters."""
+def test_creator_rates_are_private_in_discovery_and_public_profiles(client):
+    """Private baseline rates stay visible to their owner only."""
+    login(client, "company")
+    creators = client.get(f"{BASE_URL}/api/creators", timeout=20).json()
+    maya = next(creator for creator in creators if creator["display_name"] == "Maya Chen")
+    assert "rates" not in maya
+    assert "rate_from" not in maya
+    assert "rates" not in maya["creator"]
+
+    public_profile = client.get(f"{BASE_URL}/api/users/{maya['user_id']}", timeout=20).json()
+    assert "rates" not in public_profile["creator"]
+
+    login(client, "creator")
+    owner_profile = client.get(f"{BASE_URL}/api/auth/me", timeout=20).json()
+    assert owner_profile["creator"]["rates"]
+
+
+def test_campaigns_search_filters_and_public_budget_privacy(client):
+    """Campaign search uses supported profile data and does not expose private budgets."""
     login(client, "creator")
 
     # Basic listing
@@ -148,8 +285,10 @@ def test_campaigns_search_and_filters_with_company_stats(client):
     assert len(camps) >= 3
     first_co = camps[0]["company"]
     assert "industry" in first_co
-    assert "total_spend" in first_co
-    assert "commercial_terms" in first_co
+    assert "total_spend" not in first_co
+    assert "commercial_terms" not in first_co
+    assert "budget_min" not in camps[0]
+    assert "budget_max" not in camps[0]
 
     # Filter campaigns by niche
     res = client.get(f"{BASE_URL}/api/campaigns", params={"niche": "Fitness"}, timeout=20)
@@ -158,12 +297,12 @@ def test_campaigns_search_and_filters_with_company_stats(client):
     assert len(fit_camps) >= 1
     assert all(any("Fitness" in n for n in c["niches"]) for c in fit_camps)
 
-    # Filter campaigns by budget
-    res = client.get(f"{BASE_URL}/api/campaigns", params={"min_budget": 5000}, timeout=20)
+    # Recommendations are constrained to the creator's actual niche.
+    res = client.get(f"{BASE_URL}/api/campaigns", params={"recommended": 1}, timeout=20)
     assert res.status_code == 200
-    budget_camps = res.json()
-    assert len(budget_camps) >= 1
-    assert all(c["budget_max"] >= 5000 for c in budget_camps)
+    recommended = res.json()
+    assert len(recommended) >= 1
+    assert all("Tech & Gadgets" in campaign["niches"] for campaign in recommended)
 
 
 def test_creator_projects_github_fields_and_tag_search(client):

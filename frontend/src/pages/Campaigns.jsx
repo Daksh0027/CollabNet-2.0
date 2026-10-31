@@ -203,7 +203,7 @@ function CreatorCampaigns() {
 
   return (
     <div data-testid="creator-campaigns-page">
-      <PageHead title="Campaigns & Events" sub="Your applications and sponsor invitations." />
+      <PageHead title="My Applications" sub="Track your sponsorship applications and invitations." />
       <Tabs defaultValue="applications">
         <TabsList className="rounded-full" data-testid="creator-campaigns-tabs">
           <TabsTrigger value="applications" className="rounded-full" data-testid="tab-applications">My applications</TabsTrigger>
@@ -232,6 +232,10 @@ function CreatorCampaigns() {
                           <Button size="sm" className="rounded-full" onClick={() => act(() => api.post(`/applications/${a.app_id}/accept`))} data-testid={`invitation-accept-${a.app_id}`}>Accept</Button>
                           <Button size="sm" variant="secondary" className="rounded-full" onClick={() => act(() => api.post(`/applications/${a.app_id}/decline`))} data-testid={`invitation-decline-${a.app_id}`}>Decline</Button>
                         </div>
+                      ) : a.type === "application" && a.status === "pending" ? (
+                        <Button size="sm" variant="secondary" className="rounded-full" onClick={() => act(() => api.post(`/applications/${a.app_id}/withdraw`))} data-testid={`application-withdraw-${a.app_id}`}>
+                          Withdraw
+                        </Button>
                       ) : (
                         <StatusPill status={a.status} />
                       )}

@@ -12,6 +12,7 @@ import PaymentSuccess from "@/pages/PaymentSuccess";
 import PaymentCancel from "@/pages/PaymentCancel";
 import Overview from "@/pages/Overview";
 import Explore from "@/pages/Explore";
+import Collaborators from "@/pages/Collaborators";
 import Campaigns from "@/pages/Campaigns";
 import Messages from "@/pages/Messages";
 import Contracts from "@/pages/Contracts";
@@ -65,6 +66,7 @@ function AppRouter() {
         <Route index element={<Navigate to="/app/overview" replace />} />
         <Route path="overview" element={<Overview />} />
         <Route path="explore" element={<Explore />} />
+        <Route path="collaborators" element={<Collaborators />} />
         <Route path="campaigns" element={<Campaigns />} />
         <Route path="messages" element={<Messages />} />
         <Route path="contracts" element={<Contracts />} />

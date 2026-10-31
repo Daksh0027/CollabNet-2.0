@@ -3,12 +3,14 @@ from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel
+from pymongo.errors import DuplicateKeyError
 from typing import Optional, List
 import os
 import re
 import uuid
 import json
 import hashlib
+import heapq
 import math
 import httpx
 import logging
@@ -92,7 +94,11 @@ def display_name(u: dict) -> str:
     return u.get("name") or u.get("email", "").split("@")[0]
 
 
-def pub_user(u: Optional[dict], full: bool = False) -> Optional[dict]:
+def pub_user(
+    u: Optional[dict],
+    full: bool = False,
+    include_private_rates: bool = False,
+) -> Optional[dict]:
     if not u:
         return None
     base = {
@@ -115,7 +121,6 @@ def pub_user(u: Optional[dict], full: bool = False) -> Optional[dict]:
             "commercial_terms": c.get("commercial_terms", []),
             "platforms": c.get("platforms", []),
             "projects": c.get("projects", []),
-            "rates": c.get("rates", {}),
             "stats": c.get("stats", {}),
             "connections_count": c.get("connections_count", 0),
             "completed_deals_count": c.get("completed_deals_count", 0),
@@ -140,7 +145,10 @@ def pub_user(u: Optional[dict], full: bool = False) -> Optional[dict]:
         if u.get("company"):
             base["company"] = u.get("company", {})
         if u.get("creator"):
-            base["creator"] = u.get("creator", {})
+            creator = u.get("creator", {})
+            base["creator"] = creator if include_private_rates else {
+                key: value for key, value in creator.items() if key != "rates"
+            }
         base["created_at"] = u.get("created_at")
     return base
 
@@ -281,7 +289,7 @@ async def auth_session(payload: SessionIn, response: Response):
             await db.users.update_one({"user_id": user["user_id"]}, {"$set": upd})
             user.update(upd)
     await start_session(response, user, data["session_token"])
-    return pub_user(user, full=True)
+    return pub_user(user, full=True, include_private_rates=True)
 
 
 @api_router.post("/auth/demo")
@@ -295,7 +303,7 @@ async def auth_demo(payload: DemoIn, response: Response):
     if not user:
         raise HTTPException(404, "No demo account seeded")
     await start_session(response, user, f"demo_{uuid.uuid4().hex}")
-    return pub_user(user, full=True)
+    return pub_user(user, full=True, include_private_rates=True)
 
 
 @api_router.post("/auth/role")
@@ -311,7 +319,7 @@ async def auth_role(payload: RoleIn, request: Request):
 @api_router.get("/auth/me")
 async def auth_me(request: Request):
     user = await get_user(request)
-    return pub_user(user, full=True)
+    return pub_user(user, full=True, include_private_rates=True)
 
 
 @api_router.post("/auth/logout")
@@ -392,7 +400,7 @@ async def update_profile(payload: ProfileIn, request: Request):
     if upd:
         await db.users.update_one({"user_id": user["user_id"]}, {"$set": upd})
     fresh = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0})
-    return pub_user(fresh, full=True)
+    return pub_user(fresh, full=True, include_private_rates=True)
 
 
 @api_router.get("/creators")
@@ -402,57 +410,112 @@ async def list_creators(
     niche: str = "",
     content_type: str = "",
     platform: str = "",
+    location: str = "",
     min_followers: int = 0,
     max_followers: int = 0,
     min_views: int = 0,
+    max_views: int = 0,
     min_engagement: float = 0.0,
+    max_engagement: float = 0.0,
     min_connections: int = 0,
-    min_rate: int = 0,
-    max_rate: int = 0,
-    commercial_term: str = "",
     tag: str = "",
     sort_by: str = "followers",
+    offset: int = 0,
+    limit: int = 50,
 ):
-    await get_user(request)
-    docs = await db.users.find({"role": "creator", "verified": True}, {"_id": 0}).to_list(500)
+    user = await get_user(request)
+    offset = max(0, offset)
+    limit = min(100, max(1, limit))
+    pipeline = [
+        {"$match": {"role": "creator", "verified": True}},
+        {"$project": {
+            "_id": 0,
+            "user_id": 1,
+            "name": 1,
+            "display_name": 1,
+            "email": 1,
+            "picture": 1,
+            "role": 1,
+            "verified": 1,
+            "creator.niche": 1,
+            "creator.sub_niches": 1,
+            "creator.bio": 1,
+            "creator.pitch": 1,
+            "creator.location": 1,
+            "creator.content_types": 1,
+            "creator.commercial_terms": 1,
+            "creator.platforms": 1,
+            "creator.projects": 1,
+            "creator.stats": 1,
+            "creator.connections_count": 1,
+            "creator.completed_deals_count": 1,
+            "creator.on_time_delivery_rate": 1,
+        }},
+        {"$lookup": {
+            "from": "connections",
+            "let": {"creator_id": "$user_id"},
+            "pipeline": [
+                {"$match": {"status": "accepted"}},
+                {"$match": {"$expr": {"$or": [
+                    {"$eq": ["$from_id", "$$creator_id"]},
+                    {"$eq": ["$to_id", "$$creator_id"]},
+                ]}}},
+                {"$group": {"_id": None, "count": {"$sum": {"$add": [
+                    {"$cond": [{"$eq": ["$from_id", "$$creator_id"]}, 1, 0]},
+                    {"$cond": [{"$eq": ["$to_id", "$$creator_id"]}, 1, 0]},
+                ]}}}},
+            ],
+            "as": "_connection_stats",
+        }},
+        {"$lookup": {
+            "from": "contracts",
+            "let": {"creator_id": "$user_id"},
+            "pipeline": [
+                {"$match": {"status": "completed"}},
+                {"$match": {"$expr": {"$eq": ["$creator_id", "$$creator_id"]}}},
+                {"$count": "count"},
+            ],
+            "as": "_deal_stats",
+        }},
+        {"$lookup": {
+            "from": "reviews",
+            "let": {"creator_id": "$user_id"},
+            "pipeline": [
+                {"$match": {"status": "approved"}},
+                {"$match": {"$expr": {"$eq": ["$reviewee_id", "$$creator_id"]}}},
+                {"$group": {
+                    "_id": None,
+                    "rating_sum": {"$sum": {"$ifNull": ["$rating", 5]}},
+                    "review_count": {"$sum": 1},
+                }},
+            ],
+            "as": "_review_stats",
+        }},
+    ]
 
-    # 1. Pre-aggregate connection counts
-    conn_docs = await db.connections.find({"status": "accepted"}, {"from_id": 1, "to_id": 1, "_id": 0}).to_list(10000)
-    conn_counts = {}
-    for cd in conn_docs:
-        f, t = cd.get("from_id"), cd.get("to_id")
-        if f: conn_counts[f] = conn_counts.get(f, 0) + 1
-        if t: conn_counts[t] = conn_counts.get(t, 0) + 1
-
-    # 2. Pre-aggregate completed deals count
-    deal_docs = await db.contracts.find({"status": "completed"}, {"creator_id": 1, "_id": 0}).to_list(5000)
-    deal_counts = {}
-    for dd in deal_docs:
-        cid = dd.get("creator_id")
-        if cid: deal_counts[cid] = deal_counts.get(cid, 0) + 1
-
-    # 3. Pre-aggregate review ratings
-    review_docs = await db.reviews.find({"status": "approved"}, {"reviewee_id": 1, "rating": 1, "_id": 0}).to_list(5000)
-    ratings_map = {}
-    for rd in review_docs:
-        rid = rd.get("reviewee_id")
-        if rid:
-            ratings_map.setdefault(rid, []).append(rd.get("rating", 5))
-
-    out = []
+    keep_count = offset + limit
+    best_creators = []
+    creator_sequence = 0
 
     # Parse multi-value filters
     niche_filters = [n.strip().lower() for n in niche.split(",") if n.strip() and n.strip().lower() != "all"]
     ct_filters = [ct.strip().lower() for ct in content_type.split(",") if ct.strip() and ct.strip().lower() != "all"]
     plat_filters = [p.strip().lower() for p in platform.split(",") if p.strip() and p.strip().lower() != "all"]
-    term_filters = [t.strip().lower() for t in commercial_term.split(",") if t.strip() and t.strip().lower() != "all"]
     tag_filters = [t.strip().lower() for t in tag.split(",") if t.strip() and t.strip().lower() != "all"]
 
-    for u in docs:
+    cursor = db.users.aggregate(pipeline, batchSize=100)
+    async for u in cursor:
+        sequence = creator_sequence
+        creator_sequence += 1
         uid = u["user_id"]
+        if user.get("role") == "creator" and uid == user["user_id"]:
+            continue
         c = u.get("creator", {})
         plats = c.get("platforms", [])
         projects = c.get("projects", [])
+        connection_stats = u.pop("_connection_stats", [])
+        deal_stats = u.pop("_deal_stats", [])
+        review_stats = u.pop("_review_stats", [])
 
         # Followers metrics
         followers_list = [p.get("followers", 0) for p in plats]
@@ -460,27 +523,44 @@ async def list_creators(
         total_reach = sum(followers_list)
 
         # Views metrics
-        views_list = [p.get("avg_views", 0) for p in plats]
-        if c.get("stats", {}).get("avg_views"):
-            views_list.append(c["stats"]["avg_views"])
+        views_list = [
+            p["avg_views"]
+            for p in plats
+            if isinstance(p.get("avg_views"), (int, float))
+        ]
+        stats_views = c.get("stats", {}).get("avg_views")
+        if isinstance(stats_views, (int, float)):
+            views_list.append(stats_views)
         top_avg_views = max(views_list, default=0)
 
         # Engagement metrics
-        eng_list = [p.get("engagement_rate", 0) for p in plats]
-        if c.get("stats", {}).get("engagement"):
-            eng_list.append(c["stats"]["engagement"])
+        eng_list = [
+            p["engagement_rate"]
+            for p in plats
+            if isinstance(p.get("engagement_rate"), (int, float))
+        ]
+        stats_engagement = c.get("stats", {}).get("engagement")
+        if isinstance(stats_engagement, (int, float)):
+            eng_list.append(stats_engagement)
         top_engagement = max(eng_list, default=0.0)
 
-        # Rates
-        rates = c.get("rates", {})
-        rates_values = [v for v in rates.values() if isinstance(v, (int, float)) and v > 0]
-        rate_from = min(rates_values, default=0)
-
         # User stats
-        user_conns = conn_counts.get(uid, c.get("connections_count", 0))
-        user_deals = deal_counts.get(uid, c.get("completed_deals_count", 0))
-        user_reviews = ratings_map.get(uid, [])
-        avg_rating = round(sum(user_reviews) / len(user_reviews), 1) if user_reviews else None
+        user_conns = (
+            connection_stats[0]["count"]
+            if connection_stats
+            else c.get("connections_count", 0)
+        )
+        user_deals = (
+            deal_stats[0]["count"]
+            if deal_stats
+            else c.get("completed_deals_count", 0)
+        )
+        review_count = review_stats[0]["review_count"] if review_stats else 0
+        avg_rating = (
+            round(review_stats[0]["rating_sum"] / review_count, 1)
+            if review_count
+            else None
+        )
 
         # Niches & content types
         creator_niche = c.get("niche", "")
@@ -491,7 +571,6 @@ async def list_creators(
         creator_ct_lower = [ct.lower() for ct in creator_content_types]
 
         creator_terms = c.get("commercial_terms", [])
-        creator_terms_lower = [t.lower() for t in creator_terms]
 
         # Extract all project tags & searchable project text
         project_tags = []
@@ -523,6 +602,9 @@ async def list_creators(
             if search.lower() not in searchable:
                 continue
 
+        if location and location.strip().lower() not in str(c.get("location", "")).lower():
+            continue
+
         # 1b. Project tags filter
         if tag_filters:
             if not any(tf in all_tags_lower for tf in tag_filters):
@@ -550,41 +632,46 @@ async def list_creators(
             effective_followers = max([p.get("followers", 0) for p in matching_plats], default=0)
             effective_views = max([p.get("avg_views", 0) for p in matching_plats], default=0)
             effective_engagement = max([p.get("engagement_rate", 0) for p in matching_plats], default=0.0)
+            has_follower_data = any(isinstance(p.get("followers"), (int, float)) for p in matching_plats)
+            has_views_data = any(isinstance(p.get("avg_views"), (int, float)) for p in matching_plats)
+            has_engagement_data = any(isinstance(p.get("engagement_rate"), (int, float)) for p in matching_plats)
         else:
             effective_followers = top_followers
             effective_views = top_avg_views
             effective_engagement = top_engagement
+            has_follower_data = any(isinstance(p.get("followers"), (int, float)) for p in plats)
+            has_views_data = bool(views_list)
+            has_engagement_data = bool(eng_list)
 
         # 5. Follower range filter
+        if (min_followers > 0 or max_followers > 0) and not has_follower_data:
+            continue
         if min_followers > 0 and effective_followers < min_followers:
             continue
         if max_followers > 0 and effective_followers > max_followers:
             continue
 
-        # 6. Min views threshold
+        # 6. Average view range
+        if (min_views > 0 or max_views > 0) and not has_views_data:
+            continue
         if min_views > 0 and effective_views < min_views:
             continue
+        if max_views > 0 and effective_views > max_views:
+            continue
 
-        # 7. Min engagement rate threshold
+        # 7. Engagement range
+        if (min_engagement > 0.0 or max_engagement > 0.0) and not has_engagement_data:
+            continue
         if min_engagement > 0.0 and effective_engagement < min_engagement:
+            continue
+        if max_engagement > 0.0 and effective_engagement > max_engagement:
             continue
 
         # 8. Min connections filter
         if min_connections > 0 and user_conns < min_connections:
             continue
 
-        # 9. Rate filter
-        if min_rate > 0 and rate_from < min_rate:
-            continue
-        if max_rate > 0 and rate_from > max_rate:
-            continue
-
-        # 10. Commercial terms filter
-        if term_filters:
-            if not any(tf in creator_terms_lower for tf in term_filters):
-                continue
-
-        out.append({
+        creator_result = {
             **pub_user(u),
             "niche": creator_niche,
             "sub_niches": creator_sub_niches,
@@ -595,9 +682,7 @@ async def list_creators(
             "commercial_terms": creator_terms,
             "platforms": plats,
             "projects": c.get("projects", []),
-            "rates": rates,
             "stats": c.get("stats", {}),
-            "rate_from": rate_from,
             "top_followers": top_followers,
             "total_reach": total_reach,
             "avg_views": top_avg_views,
@@ -606,26 +691,29 @@ async def list_creators(
             "completed_deals_count": user_deals,
             "on_time_delivery_rate": c.get("on_time_delivery_rate", 98.0),
             "rating_avg": avg_rating,
-            "review_count": len(user_reviews),
-        })
+            "review_count": review_count,
+        }
 
-    # Sort
-    if sort_by == "views":
-        out.sort(key=lambda x: x["avg_views"], reverse=True)
-    elif sort_by == "engagement":
-        out.sort(key=lambda x: x["engagement_rate"], reverse=True)
-    elif sort_by == "connections":
-        out.sort(key=lambda x: x["connections_count"], reverse=True)
-    elif sort_by == "rate_asc":
-        out.sort(key=lambda x: x["rate_from"])
-    elif sort_by == "rate_desc":
-        out.sort(key=lambda x: x["rate_from"], reverse=True)
-    elif sort_by == "rating":
-        out.sort(key=lambda x: (x["rating_avg"] or 0), reverse=True)
-    else:  # "followers"
-        out.sort(key=lambda x: x["top_followers"], reverse=True)
+        if sort_by == "views":
+            sort_value = creator_result["avg_views"]
+        elif sort_by == "engagement":
+            sort_value = creator_result["engagement_rate"]
+        elif sort_by == "connections":
+            sort_value = creator_result["connections_count"]
+        elif sort_by == "rating":
+            sort_value = creator_result["rating_avg"] or 0
+        else:
+            sort_value = creator_result["top_followers"]
 
-    return out
+        if keep_count:
+            heap_item = (sort_value, -sequence, creator_result)
+            if len(best_creators) < keep_count:
+                heapq.heappush(best_creators, heap_item)
+            elif heap_item[:2] > best_creators[0][:2]:
+                heapq.heapreplace(best_creators, heap_item)
+
+    best_creators.sort(key=lambda item: (item[0], item[1]), reverse=True)
+    return [item[2] for item in best_creators[offset:offset + limit]]
 
 
 @api_router.get("/users/{user_id}")
@@ -644,8 +732,10 @@ async def get_public_user(user_id: str, request: Request):
         "$or": [{"creator_id": user_id}, {"company_id": user_id}],
         "status": "completed"
     })
+    profile = pub_user(u, full=True)
+    profile.pop("email", None)
     return {
-        **pub_user(u, full=True),
+        **profile,
         "reviews": reviews,
         "rating_avg": avg,
         "review_count": len(reviews),
@@ -673,6 +763,381 @@ async def list_connections(request: Request, status: str = ""):
         out.append({**c, "other": await enrich_user(other_id),
                     "direction": "outgoing" if c["from_id"] == user["user_id"] else "incoming"})
     return out
+
+
+class CollaborationRequestIn(BaseModel):
+    to_id: str
+    title: str
+    collaboration_type: str = ""
+    message: str = ""
+    proposed_idea: str = ""
+    platform: str = ""
+    deliverables: List[str] = []
+    preferred_dates: str = ""
+    location: str = ""
+    budget: Optional[float] = None
+
+
+@api_router.get("/collaboration-requests")
+async def list_collaboration_requests(
+    request: Request,
+    direction: str = "all",
+    status: str = "",
+    offset: int = 0,
+    limit: int = 50,
+):
+    user = await get_user(request)
+    await require_role(user, "creator")
+    user_id = user["user_id"]
+    query = {}
+    if direction == "received":
+        query["receiver_creator_id"] = user_id
+    elif direction == "sent":
+        query["sender_creator_id"] = user_id
+    else:
+        query["$or"] = [
+            {"sender_creator_id": user_id},
+            {"receiver_creator_id": user_id},
+        ]
+    if status:
+        query["status"] = status
+    offset = max(0, offset)
+    limit = min(100, max(1, limit))
+    docs = await db.collaboration_requests.find(query, {"_id": 0}).sort(
+        "created_at", -1
+    ).skip(offset).to_list(limit)
+    results = []
+    for doc in docs:
+        results.append({
+            **doc,
+            "sender": await enrich_user(doc["sender_creator_id"]),
+            "receiver": await enrich_user(doc["receiver_creator_id"]),
+        })
+    return results
+
+
+@api_router.post("/collaboration-requests")
+async def create_collaboration_request(payload: CollaborationRequestIn, request: Request):
+    user = await get_user(request)
+    await require_role(user, "creator")
+    target_id = payload.to_id.strip()
+    if target_id == user["user_id"]:
+        raise HTTPException(400, "Cannot send a collaboration request to yourself")
+    if not payload.title.strip():
+        raise HTTPException(422, "Request title is required")
+    target = await db.users.find_one(
+        {"user_id": target_id, "role": "creator", "verified": True},
+        {"_id": 0},
+    )
+    if not target:
+        raise HTTPException(404, "Creator not found")
+    existing = await db.collaboration_requests.find_one({
+        "sender_creator_id": user["user_id"],
+        "receiver_creator_id": target_id,
+        "status": "pending",
+    }, {"_id": 0})
+    if existing:
+        raise HTTPException(409, "A pending request already exists for this creator")
+
+    doc = {
+        "request_id": uid("colreq"),
+        "sender_creator_id": user["user_id"],
+        "receiver_creator_id": target_id,
+        "title": payload.title.strip(),
+        "collaboration_type": payload.collaboration_type.strip(),
+        "message": payload.message.strip(),
+        "proposed_idea": payload.proposed_idea.strip(),
+        "platform": payload.platform.strip(),
+        "deliverables": [value.strip() for value in payload.deliverables if value.strip()],
+        "preferred_dates": payload.preferred_dates.strip(),
+        "location": payload.location.strip(),
+        "budget": payload.budget,
+        "status": "pending",
+        "created_at": now(),
+        "updated_at": now(),
+    }
+    try:
+        await db.collaboration_requests.insert_one(doc)
+    except DuplicateKeyError:
+        raise HTTPException(409, "A pending request already exists for this creator")
+    doc.pop("_id", None)
+    await notify(
+        target_id,
+        "collaboration_request",
+        f"{display_name(user)} sent you a collaboration request",
+        doc["title"],
+        "/app/collaborators?tab=received",
+        origin="creator",
+        actor_id=user["user_id"],
+    )
+    return {
+        **doc,
+        "sender": pub_user(user),
+        "receiver": pub_user(target),
+    }
+
+
+@api_router.post("/collaboration-requests/{request_id}/accept")
+async def accept_collaboration_request(request_id: str, request: Request):
+    user = await get_user(request)
+    await require_role(user, "creator")
+    collab_request = await db.collaboration_requests.find_one({
+        "request_id": request_id,
+        "receiver_creator_id": user["user_id"],
+        "status": "pending",
+    }, {"_id": 0})
+    if not collab_request:
+        raise HTTPException(404, "Pending collaboration request not found")
+    result = await db.collaboration_requests.update_one(
+        {"request_id": request_id, "status": "pending"},
+        {"$set": {"status": "accepted", "updated_at": now()}},
+    )
+    if not result.modified_count:
+        raise HTTPException(409, "Collaboration request is no longer pending")
+
+    sender_id = collab_request["sender_creator_id"]
+    connection = await db.connections.find_one({
+        "$or": [
+            {"from_id": sender_id, "to_id": user["user_id"]},
+            {"from_id": user["user_id"], "to_id": sender_id},
+        ],
+    }, {"_id": 0})
+    if connection:
+        await db.connections.update_one(
+            {"conn_id": connection["conn_id"]},
+            {"$set": {"status": "accepted", "updated_at": now()}},
+        )
+    else:
+        await db.connections.insert_one({
+            "conn_id": uid("con"),
+            "from_id": sender_id,
+            "to_id": user["user_id"],
+            "from_role": "creator",
+            "to_role": "creator",
+            "status": "accepted",
+            "message": collab_request["title"],
+            "created_at": now(),
+            "updated_at": now(),
+        })
+    await ensure_thread(sender_id, user["user_id"])
+    collaboration = {
+        "collaboration_id": uid("collab"),
+        "request_id": request_id,
+        "title": collab_request["title"],
+        "participants": [sender_id, user["user_id"]],
+        "collaboration_type": collab_request.get("collaboration_type", ""),
+        "platform": collab_request.get("platform", ""),
+        "deliverables": collab_request.get("deliverables", []),
+        "preferred_dates": collab_request.get("preferred_dates", ""),
+        "status": "active",
+        "created_at": now(),
+        "updated_at": now(),
+    }
+    await db.collaborations.insert_one(collaboration)
+    await notify(
+        sender_id,
+        "collaboration_request",
+        f"{display_name(user)} accepted your collaboration request",
+        collab_request["title"],
+        "/app/collaborators?tab=connections",
+        origin="creator",
+        actor_id=user["user_id"],
+    )
+    return {"ok": True, "collaboration_id": collaboration["collaboration_id"]}
+
+
+@api_router.post("/collaboration-requests/{request_id}/reject")
+async def reject_collaboration_request(request_id: str, request: Request):
+    user = await get_user(request)
+    await require_role(user, "creator")
+    collab_request = await db.collaboration_requests.find_one({
+        "request_id": request_id,
+        "receiver_creator_id": user["user_id"],
+        "status": "pending",
+    }, {"_id": 0})
+    if not collab_request:
+        raise HTTPException(404, "Pending collaboration request not found")
+    await db.collaboration_requests.update_one(
+        {"request_id": request_id, "status": "pending"},
+        {"$set": {"status": "rejected", "updated_at": now()}},
+    )
+    await notify(
+        collab_request["sender_creator_id"],
+        "collaboration_request",
+        f"{display_name(user)} declined your collaboration request",
+        collab_request["title"],
+        "/app/collaborators?tab=sent",
+        origin="creator",
+        actor_id=user["user_id"],
+    )
+    return {"ok": True}
+
+
+@api_router.post("/collaboration-requests/{request_id}/withdraw")
+async def withdraw_collaboration_request(request_id: str, request: Request):
+    user = await get_user(request)
+    await require_role(user, "creator")
+    result = await db.collaboration_requests.update_one(
+        {
+            "request_id": request_id,
+            "sender_creator_id": user["user_id"],
+            "status": "pending",
+        },
+        {"$set": {"status": "withdrawn", "updated_at": now()}},
+    )
+    if not result.modified_count:
+        raise HTTPException(404, "Pending collaboration request not found")
+    return {"ok": True}
+
+
+@api_router.get("/my-connections")
+async def list_creator_connections(request: Request):
+    user = await get_user(request)
+    await require_role(user, "creator")
+    docs = await db.connections.find({
+        "$or": [
+            {"from_id": user["user_id"], "to_role": "creator"},
+            {"to_id": user["user_id"], "from_role": "creator"},
+        ],
+        "status": "accepted",
+    }, {"_id": 0}).sort("updated_at", -1).to_list(200)
+    results = []
+    for doc in docs:
+        other_id = doc["to_id"] if doc["from_id"] == user["user_id"] else doc["from_id"]
+        results.append({**doc, "other": await enrich_user(other_id)})
+    return results
+
+
+@api_router.get("/collaborations")
+async def list_collaborations(request: Request, status: str = "active"):
+    user = await get_user(request)
+    await require_role(user, "creator")
+    query = {"participants": user["user_id"]}
+    if status:
+        query["status"] = status
+    docs = await db.collaborations.find(query, {"_id": 0}).sort(
+        "updated_at", -1
+    ).to_list(200)
+    results = []
+    for doc in docs:
+        other_id = next(
+            (participant for participant in doc["participants"] if participant != user["user_id"]),
+            "",
+        )
+        results.append({**doc, "other": await enrich_user(other_id)})
+    return results
+
+
+class SaveCreatorIn(BaseModel):
+    creator_id: str
+
+
+@api_router.get("/saved-creators")
+async def list_saved_creators(request: Request):
+    user = await get_user(request)
+    await require_role(user, "creator")
+    docs = await db.saved_creators.find(
+        {"user_id": user["user_id"]}, {"_id": 0}
+    ).sort("created_at", -1).to_list(500)
+    return [
+        {**doc, "creator": await enrich_user(doc["creator_id"])}
+        for doc in docs
+    ]
+
+
+@api_router.post("/saved-creators")
+async def save_creator(payload: SaveCreatorIn, request: Request):
+    user = await get_user(request)
+    await require_role(user, "creator")
+    creator_id = payload.creator_id.strip()
+    if creator_id == user["user_id"]:
+        raise HTTPException(400, "Cannot save your own profile")
+    creator = await db.users.find_one(
+        {"user_id": creator_id, "role": "creator", "verified": True},
+        {"_id": 0, "user_id": 1},
+    )
+    if not creator:
+        raise HTTPException(404, "Creator not found")
+    try:
+        await db.saved_creators.update_one(
+            {"user_id": user["user_id"], "creator_id": creator_id},
+            {"$setOnInsert": {
+                "user_id": user["user_id"],
+                "creator_id": creator_id,
+                "created_at": now(),
+            }},
+            upsert=True,
+        )
+    except DuplicateKeyError:
+        pass
+    return {"ok": True}
+
+
+@api_router.delete("/saved-creators/{creator_id}")
+async def unsave_creator(creator_id: str, request: Request):
+    user = await get_user(request)
+    await require_role(user, "creator")
+    await db.saved_creators.delete_one({
+        "user_id": user["user_id"],
+        "creator_id": creator_id,
+    })
+    return {"ok": True}
+
+
+class SaveOpportunityIn(BaseModel):
+    camp_id: str
+
+
+@api_router.get("/saved-opportunities")
+async def list_saved_opportunities(request: Request):
+    user = await get_user(request)
+    await require_role(user, "creator")
+    docs = await db.saved_opportunities.find(
+        {"creator_id": user["user_id"]}, {"_id": 0}
+    ).sort("created_at", -1).to_list(500)
+    open_campaign_ids = {
+        campaign["camp_id"]
+        for campaign in await db.campaigns.find(
+            {"camp_id": {"$in": [doc["camp_id"] for doc in docs]}, "status": "open"},
+            {"_id": 0, "camp_id": 1},
+        ).to_list(len(docs) or 1)
+    }
+    return [doc for doc in docs if doc["camp_id"] in open_campaign_ids]
+
+
+@api_router.post("/saved-opportunities")
+async def save_opportunity(payload: SaveOpportunityIn, request: Request):
+    user = await get_user(request)
+    await require_role(user, "creator")
+    campaign = await db.campaigns.find_one(
+        {"camp_id": payload.camp_id, "status": "open"}, {"_id": 0}
+    )
+    if not campaign:
+        raise HTTPException(404, "Open opportunity not found")
+    try:
+        await db.saved_opportunities.update_one(
+            {"creator_id": user["user_id"], "camp_id": payload.camp_id},
+            {"$setOnInsert": {
+                "creator_id": user["user_id"],
+                "camp_id": payload.camp_id,
+                "created_at": now(),
+            }},
+            upsert=True,
+        )
+    except DuplicateKeyError:
+        pass
+    return {"ok": True}
+
+
+@api_router.delete("/saved-opportunities/{camp_id}")
+async def unsave_opportunity(camp_id: str, request: Request):
+    user = await get_user(request)
+    await require_role(user, "creator")
+    await db.saved_opportunities.delete_one({
+        "creator_id": user["user_id"],
+        "camp_id": camp_id,
+    })
+    return {"ok": True}
 
 
 @api_router.post("/connections")
@@ -757,17 +1222,30 @@ async def list_campaigns(
     search: str = "",
     niche: str = "",
     content_type: str = "",
-    min_budget: int = 0,
-    max_budget: int = 0,
-    commercial_term: str = "",
+    recommended: int = 0,
+    offset: int = 0,
+    limit: int = 200,
 ):
     user = await get_user(request)
     q = {}
     if mine:
+        await require_role(user, "company")
         q["company_id"] = user["user_id"]
     else:
+        await require_role(user, "creator")
         q["status"] = "open"
-    docs = await db.campaigns.find(q, {"_id": 0}).sort("created_at", -1).to_list(200)
+    offset = max(0, offset)
+    limit = min(200, max(1, limit))
+    docs = await db.campaigns.find(q, {"_id": 0}).sort("created_at", -1).skip(offset).to_list(limit)
+
+    creator_niches = []
+    if recommended:
+        creator_niche_data = user.get("creator", {})
+        creator_niches = [
+            str(value).strip().lower()
+            for value in [creator_niche_data.get("niche", "")] + creator_niche_data.get("sub_niches", [])
+            if str(value).strip()
+        ]
 
     # Pre-fetch all companies
     comp_ids = list(set(c["company_id"] for c in docs if c.get("company_id")))
@@ -787,12 +1265,20 @@ async def list_campaigns(
     out = []
     niche_filters = [n.strip().lower() for n in niche.split(",") if n.strip() and n.strip().lower() != "all"]
     ct_filters = [ct.strip().lower() for ct in content_type.split(",") if ct.strip() and ct.strip().lower() != "all"]
-    term_filters = [t.strip().lower() for t in commercial_term.split(",") if t.strip() and t.strip().lower() != "all"]
 
     for c in docs:
+        if not mine and c.get("deadline"):
+            try:
+                deadline = datetime.fromisoformat(str(c["deadline"])[:10]).date()
+                if deadline < datetime.now(timezone.utc).date():
+                    continue
+            except ValueError:
+                pass
         cu = comp_map.get(c["company_id"], {})
         co = cu.get("company", {})
         comp_conns = conn_counts.get(c["company_id"], 0)
+        if not mine and not cu.get("verified", False):
+            continue
 
         # 1. Search
         if search:
@@ -812,6 +1298,10 @@ async def list_campaigns(
             camp_niches = [cn.lower() for cn in c.get("niches", [])]
             if not any(nf in camp_niches for nf in niche_filters):
                 continue
+        if recommended:
+            campaign_niches = [value.lower() for value in c.get("niches", [])]
+            if not creator_niches or not any(value in campaign_niches for value in creator_niches):
+                continue
 
         # 3. Content type filter
         if ct_filters:
@@ -819,32 +1309,27 @@ async def list_campaigns(
             if not any(ct in deliv_text for ct in ct_filters):
                 continue
 
-        # 4. Budget filter
-        b_min = c.get("budget_min", 0)
-        b_max = c.get("budget_max", 0)
-        if min_budget > 0 and b_max < min_budget:
-            continue
-        if max_budget > 0 and b_min > max_budget:
-            continue
-
-        # 5. Commercial terms filter
-        if term_filters:
-            co_terms = [t.lower() for t in co.get("commercial_terms", [])]
-            if not any(tf in co_terms for tf in term_filters):
-                continue
-
+        public_company = pub_user(cu)
+        if public_company and public_company.get("company"):
+            public_company["company"] = {
+                key: value
+                for key, value in public_company["company"].items()
+                if key not in {"commercial_terms", "total_spend"}
+            }
         enr_comp = {
-            **pub_user(cu),
+            **public_company,
             "industry": co.get("industry", ""),
             "employees": co.get("employees", 0),
             "website": co.get("website", ""),
             "about": co.get("about", ""),
-            "commercial_terms": co.get("commercial_terms", []),
-            "total_spend": co.get("total_spend", 0),
             "completed_campaigns_count": co.get("completed_campaigns_count", 0),
             "connections_count": comp_conns,
         }
-        out.append({**c, "company": enr_comp})
+        public_campaign = {
+            key: value for key, value in c.items()
+            if key not in {"budget_min", "budget_max"}
+        }
+        out.append({**public_campaign, "company": enr_comp})
 
     return out
 
@@ -893,8 +1378,24 @@ async def apply_campaign(camp_id: str, payload: ApplyIn, request: Request):
     camp = await db.campaigns.find_one({"camp_id": camp_id}, {"_id": 0})
     if not camp:
         raise HTTPException(404, "Campaign not found")
+    if camp.get("status") != "open":
+        raise HTTPException(400, "This campaign is no longer accepting applications")
+    if camp.get("deadline"):
+        try:
+            deadline = datetime.fromisoformat(str(camp["deadline"])[:10]).date()
+            if deadline < datetime.now(timezone.utc).date():
+                raise HTTPException(400, "The application deadline has passed")
+        except ValueError:
+            pass
     existing = await db.applications.find_one(
-        {"camp_id": camp_id, "creator_id": user["user_id"], "status": "pending"}, {"_id": 0})
+        {
+            "camp_id": camp_id,
+            "creator_id": user["user_id"],
+            "type": "application",
+            "status": {"$in": ["pending", "accepted"]},
+        },
+        {"_id": 0},
+    )
     if existing:
         raise HTTPException(400, "You already applied to this campaign")
     doc = {
@@ -953,8 +1454,14 @@ async def list_applications(request: Request):
 async def accept_application(app_id: str, request: Request):
     user = await get_user(request)
     app_ = await db.applications.find_one({"app_id": app_id}, {"_id": 0})
-    if not app_ or user["user_id"] not in (app_["creator_id"], app_["company_id"]):
+    if not app_:
         raise HTTPException(404, "Application not found")
+    expected_role = "company" if app_.get("type") == "application" else "creator"
+    expected_user_id = app_.get("company_id") if expected_role == "company" else app_.get("creator_id")
+    if user["user_id"] != expected_user_id or user.get("role") != expected_role:
+        raise HTTPException(404, "Application not found")
+    if app_.get("status") != "pending":
+        raise HTTPException(409, "Application is no longer pending")
     await db.applications.update_one({"app_id": app_id}, {"$set": {"status": "accepted", "updated_at": now()}})
     existing = await db.connections.find_one({
         "$or": [{"from_id": app_["creator_id"], "to_id": app_["company_id"]},
@@ -981,9 +1488,53 @@ async def accept_application(app_id: str, request: Request):
 async def decline_application(app_id: str, request: Request):
     user = await get_user(request)
     app_ = await db.applications.find_one({"app_id": app_id}, {"_id": 0})
-    if not app_ or user["user_id"] not in (app_["creator_id"], app_["company_id"]):
+    if not app_:
         raise HTTPException(404, "Application not found")
+    expected_role = "company" if app_.get("type") == "application" else "creator"
+    expected_user_id = app_.get("company_id") if expected_role == "company" else app_.get("creator_id")
+    if user["user_id"] != expected_user_id or user.get("role") != expected_role:
+        raise HTTPException(404, "Application not found")
+    if app_.get("status") != "pending":
+        raise HTTPException(409, "Application is no longer pending")
     await db.applications.update_one({"app_id": app_id}, {"$set": {"status": "declined", "updated_at": now()}})
+    counterpart_id = app_["creator_id"] if expected_role == "company" else app_["company_id"]
+    await notify(
+        counterpart_id,
+        "application",
+        f"Application update — {app_['campaign_title']}",
+        f"Your application was declined by {display_name(user)}." if expected_role == "company" else "The invitation was declined.",
+        "/app/campaigns",
+        origin=user.get("role", ""),
+        actor_id=user["user_id"],
+    )
+    return {"ok": True}
+
+
+@api_router.post("/applications/{app_id}/withdraw")
+async def withdraw_application(app_id: str, request: Request):
+    user = await get_user(request)
+    await require_role(user, "creator")
+    app_ = await db.applications.find_one({
+        "app_id": app_id,
+        "creator_id": user["user_id"],
+        "type": "application",
+        "status": "pending",
+    }, {"_id": 0})
+    if not app_:
+        raise HTTPException(404, "Pending application not found")
+    await db.applications.update_one(
+        {"app_id": app_id, "status": "pending"},
+        {"$set": {"status": "withdrawn", "updated_at": now()}},
+    )
+    await notify(
+        app_["company_id"],
+        "application",
+        f"{display_name(user)} withdrew an application",
+        app_["campaign_title"],
+        "/app/campaigns",
+        origin="creator",
+        actor_id=user["user_id"],
+    )
     return {"ok": True}
 
 
@@ -2052,6 +2603,42 @@ async def seed():
 @app.on_event("startup")
 async def startup():
     try:
+        await db.users.create_index(
+            [("role", 1), ("verified", 1)],
+            name="creator_discovery_role_verified",
+        )
+        await db.connections.create_index(
+            [("status", 1), ("from_id", 1)],
+            name="creator_discovery_connections_from",
+        )
+        await db.connections.create_index(
+            [("status", 1), ("to_id", 1)],
+            name="creator_discovery_connections_to",
+        )
+        await db.contracts.create_index(
+            [("status", 1), ("creator_id", 1)],
+            name="creator_discovery_contracts",
+        )
+        await db.reviews.create_index(
+            [("status", 1), ("reviewee_id", 1)],
+            name="creator_discovery_reviews",
+        )
+        await db.collaboration_requests.create_index(
+            [("sender_creator_id", 1), ("receiver_creator_id", 1)],
+            unique=True,
+            partialFilterExpression={"status": "pending"},
+            name="unique_pending_creator_collaboration_request",
+        )
+        await db.saved_creators.create_index(
+            [("user_id", 1), ("creator_id", 1)],
+            unique=True,
+            name="unique_saved_creator_per_user",
+        )
+        await db.saved_opportunities.create_index(
+            [("creator_id", 1), ("camp_id", 1)],
+            unique=True,
+            name="unique_saved_opportunity_per_creator",
+        )
         await seed()
 
         # Backfill origin for notifications if missing

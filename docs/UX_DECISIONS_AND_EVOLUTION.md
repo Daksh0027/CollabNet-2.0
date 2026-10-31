@@ -33,13 +33,22 @@ Professional influencer and creator partnerships resemble B2B talent procurement
 
 ---
 
-### Decision 3: Precision Range Sliders over Freeform Numeric Inputs
+### Decision 3: Precise Numeric Ranges with Debounced Filtering
 * **Previous Approach**: Raw, unconstrained text boxes for minimum and maximum follower/view inputs.
 * **The UX Problem**: Required typing arbitrary numbers without knowing the active dataset distribution, leading to frequent zero-result queries.
-* **The Decision**: Implemented Radix UI precision sliders with predefined step intervals and min/max boundaries.
+* **The Decision**: Keep numeric bounds explicit and constrain discovery to metrics that exist in creator profiles.
 * **New UX**:
-  * Responsive sliders for **Followers Range** (`0` to `2.5M+`), **Min Average Views** (`0` to `500K+`), and **Min Engagement Rate** (`0%` to `10%+`).
-  * Real-time counter feedback and visual track scrubbing without page reloads.
+  * Separate minimum and maximum inputs for **Followers**, **Average Views**, and **Engagement Rate**, plus a minimum connection count.
+  * Search and filter changes are debounced; results are requested from the creator API rather than filtered only in the browser.
+  * A metric range excludes creators with unavailable measurements instead of treating missing analytics as zero.
+
+---
+
+### Decision 3A: Separate Sponsorship Discovery from Creator Networking
+* **Decision**: Creator Explore discovers active opportunities from verified brands. Creator-to-creator discovery, saved creators, connections, and collaboration requests live on a separate Collaborators page.
+* **Implementation**: Both experiences use database-backed filters and the existing profile, campaign, messaging, and notification data.
+* **Privacy**: Campaign budgets and private creator rates remain hidden on public discovery surfaces. Undisclosed financial information is not treated as zero or used as a public filter.
+* **Data quality**: Recommendations only match a creator's saved niche to open campaigns. Unsupported sponsorship types, audience analytics, and collaboration preferences are not fabricated.
 
 ---
 
@@ -64,6 +73,7 @@ Professional influencer and creator partnerships resemble B2B talent procurement
 * **The UX Problem**: Commercial terms in brand partnerships are inherently bespoke. Factors such as exclusivity duration, whitelisting ad spend rights, licensing territory, revision cycles, and milestone payouts vary per deal. Attempting to generalize them into high-level search filters caused false negatives and didn't reflect industry negotiation norms.
 * **The Decision**: Cleanly removed the commercial terms dropdown and filter chips from discovery.
 * **New UX**: Commercial terms are defined and negotiated directly within the bilateral contract drafting and proposal workflow, where customized clauses belong.
+* **Current Discovery Behavior**: Contract clauses and previous campaign terms are not used as proxies for a creator's paid, barter, affiliate, or event preferences. Those preferences are not modeled separately yet.
 
 ---
 
@@ -74,9 +84,10 @@ Professional influencer and creator partnerships resemble B2B talent procurement
   * Sponsors dislike broadcasting fixed public budget ceilings because it prevents competitive bidding and distorts market rates.
 * **The Decision**: Cleanly removed all public cost sliders, dollar rate tags, and budget input filters.
 * **New UX**:
-  * Campaign cards display a professional status pill: **`Paid Campaign · Negotiable`**.
-  * Creator cards display **`Custom Deal Proposal`** and direct sponsors to request a tailored quote via the Media Kit.
+  * Opportunity cards omit campaign budget amounts and direct creators to discuss compensation with the brand.
+  * Creator cards do not expose baseline rates.
   * In Account settings, baseline rates are preserved as **private defaults** for drafting proposals, never exposed on public discovery surfaces.
+* **Current Discovery Behavior**: Private rates are not exposed or used as public creator search filters.
 
 ---
 
@@ -99,10 +110,11 @@ Professional influencer and creator partnerships resemble B2B talent procurement
 | :--- | :--- | :--- | :--- |
 | **Trust & Verification** | Gamified badges & points ranks | Audited stats matrix (Reach, Avg Views, Engagement %, Connections) | B2B decision-makers need quantitative evidence, not arcade badges. |
 | **Niche Classification** | Freeform text fields | 9 standardized preset genres with color dots (`GENRE_COLORS`) | Eliminates spelling discrepancies and standardizes search indexing. |
-| **Numeric Filtering** | Unbounded text boxes (`min`/`max`) | Responsive Radix UI sliders with dynamic bounds and step ticks | Eliminates zero-result guesses; gives instant tactile feedback. |
+| **Creator Discovery Filters** | Genre chips with less-visible format filtering | Separate brand opportunity filters in Explore and creator profile filters in Collaborators | Keeps sponsorship search distinct from creator networking while reusing the BoardUI filter drawer. |
+| **Numeric Filtering** | Unbounded text boxes (`min`/`max`) | BoardUI filter drawer with exact min/max fields and debounced API requests | Supports precise ranges without repeated requests or treating missing analytics as zero. |
 | **Portfolio Showcase** | Plain bio text | GitHub-style repositories with title, bio, topic tags, brand, and pinned status | Enables sponsors to inspect real case studies and production caliber. |
 | **Commercial Terms** | "All Terms" dropdown with canned chips | Bespoke bilateral contract terms during proposal & negotiation | Partnership terms are deal-specific; canned presets caused false filters. |
-| **Pricing & Budgets** | Public dollar tags (`from $800`, `$4k-$12k`) | `Paid Campaign · Negotiable` & `Custom Deal Proposal` | Protects creator pricing power and sponsor budget confidentiality. |
+| **Pricing & Budgets** | Public dollar tags (`from $800`, `$4k-$12k`) | Private during discovery; discuss compensation directly | Protects creator pricing power and sponsor budget confidentiality. |
 | **Templates Management** | Disconnected "Templates" card on Account page | Native in-context creation (Campaign wizard, Chat, Contract pad) | Removes out-of-context clutter from profile settings. |
 
 ---
@@ -112,9 +124,11 @@ Professional influencer and creator partnerships resemble B2B talent procurement
 ```mermaid
 flowchart TD
     subgraph Discovery ["1. High-Signal Discovery"]
-        A["Sponsor / Creator explores platform"] --> B["Filter by Standardized Genres & Content Types"]
-        B --> C["Filter by Numeric Sliders: Reach, Avg Views, Engagement %"]
-        C --> D["View Cards with Verified Stats & Pinned Featured Projects"]
+        A["Creator explores sponsorship opportunities"] --> B["Filter campaigns by brand, niche, and deliverable"]
+        B --> C["Review active verified-brand briefs and apply"]
+        C --> D["Track application status in My Applications"]
+        A --> E["Creator opens Collaborators"] --> F["Discover and filter creator profiles"]
+        F --> G["Send collaboration requests and manage connections"]
     end
 
     subgraph Evaluation ["2. Case Study Evaluation"]
