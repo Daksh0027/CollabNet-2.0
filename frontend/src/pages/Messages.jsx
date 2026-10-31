@@ -585,7 +585,7 @@ export default function Messages() {
             {/* In-Chat Message Search Bar (WhatsApp style) */}
             {showChatSearch && (
               <div
-                className="z-10 flex items-center gap-2 border-b border-border/80 bg-card/95 px-4 py-2 backdrop-blur-md animate-in slide-in-from-top-2 duration-150"
+                className="z-10 flex items-center gap-2 border-b border-border/80 bg-card px-4 py-2 animate-in slide-in-from-top-2 duration-150"
                 data-testid="chat-search-bar"
               >
                 <Search className="h-4 w-4 text-muted-foreground shrink-0 ml-1" />

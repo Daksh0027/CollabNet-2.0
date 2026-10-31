@@ -42,7 +42,7 @@ export default function Onboarding() {
   };
 
   return (
-    <div className="grain flex min-h-screen flex-col items-center justify-center px-6">
+    <div className="flex min-h-screen flex-col items-center justify-center px-6">
       <p className="eyebrow">Step 1 of 2 — account type</p>
       <h1 className="font-display mt-4 text-center text-3xl font-bold tracking-tight sm:text-4xl" data-testid="onboarding-title">
         Welcome, {user?.name?.split(" ")[0] || "there"}. Who are you on CollaboNet?

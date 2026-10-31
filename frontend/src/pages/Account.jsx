@@ -52,15 +52,16 @@ const CONTENT_TYPES = [
 ];
 
 export const GENRE_COLORS = {
-  "Tech & Gadgets": "bg-blue-500",
-  "Beauty & Skincare": "bg-pink-500",
-  "Health & Fitness": "bg-emerald-500",
-  "Food & Cooking": "bg-amber-500",
-  "Gaming": "bg-purple-500",
-  "Travel": "bg-cyan-500",
-  "Finance & Business": "bg-teal-500",
-  "Lifestyle": "bg-rose-500",
-  "Wellness": "bg-lime-500",
+  // Monochrome + accent identifiers; the genre name is always shown as text too.
+  "Tech & Gadgets": "bg-primary",
+  "Beauty & Skincare": "bg-foreground",
+  "Health & Fitness": "bg-muted-foreground",
+  "Food & Cooking": "bg-primary/60",
+  "Gaming": "bg-foreground/70",
+  "Travel": "bg-muted-foreground/60",
+  "Finance & Business": "bg-primary/35",
+  "Lifestyle": "bg-foreground/45",
+  "Wellness": "bg-muted-foreground/35",
 };
 
 const SOCIAL_PLATFORMS = ["YouTube", "Instagram", "TikTok", "Twitch", "X (Twitter)", "LinkedIn"];
@@ -740,7 +741,7 @@ export default function Account() {
                           <Video className="h-6 w-6" />
                         </div>
                       )}
-                      <span className="absolute bottom-2 left-2 rounded-md bg-background/90 px-2 py-0.5 text-[10px] font-semibold text-foreground backdrop-blur">
+                      <span className="absolute bottom-2 left-2 rounded-md bg-background px-2 py-0.5 text-[10px] font-semibold text-foreground">
                         {prj.deliverable_type?.split(" ")[0] || "Video"}
                       </span>
                       <div className="absolute right-2 top-2 flex items-center gap-1">
@@ -748,7 +749,7 @@ export default function Account() {
                           type="button"
                           onClick={() => handleTogglePinProject(prj.project_id)}
                           className={cn(
-                            "rounded-md border border-border/60 bg-background/90 p-1.5 backdrop-blur transition-colors",
+                            "rounded-md border border-border/60 bg-background p-1.5 transition-colors",
                             isPinned ? "text-primary" : "text-muted-foreground hover:text-foreground"
                           )}
                           title={isPinned ? "Unpin project" : "Pin project"}
@@ -759,7 +760,7 @@ export default function Account() {
                         <button
                           type="button"
                           onClick={() => handleRemoveProject(prj.project_id)}
-                          className="rounded-md border border-border/60 bg-background/90 p-1.5 text-muted-foreground backdrop-blur transition-colors hover:text-destructive"
+                          className="rounded-md border border-border/60 bg-background p-1.5 text-muted-foreground transition-colors hover:text-destructive"
                           title="Delete project"
                           aria-label="Delete project"
                         >

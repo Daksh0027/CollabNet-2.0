@@ -1,11 +1,18 @@
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { lazy, Suspense } from "react";
+import {
+  BrowserRouter,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+} from "react-router-dom";
 import { Toaster } from "sonner";
 import { Loader2 } from "lucide-react";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { ThemeProvider } from "@/lib/theme";
 import AuthCallback from "@/components/AuthCallback";
 import Shell from "@/components/Shell";
-import Landing from "@/pages/Landing";
+
 import Onboarding from "@/pages/Onboarding";
 import Verification from "@/pages/Verification";
 import PaymentSuccess from "@/pages/PaymentSuccess";
@@ -21,8 +28,13 @@ import Account from "@/pages/Account";
 import Notifications from "@/pages/Notifications";
 import ProjectBoard from "@/pages/ProjectBoard";
 
+const Landing = lazy(() => import("@/pages/Landing"));
+
 export const FullLoader = () => (
-  <div className="flex min-h-screen items-center justify-center" data-testid="full-loader">
+  <div
+    className="flex min-h-screen items-center justify-center"
+    data-testid="full-loader"
+  >
     <Loader2 className="h-8 w-8 animate-spin text-primary" />
   </div>
 );
@@ -50,9 +62,30 @@ function AppRouter() {
   if (location.hash?.includes("session_id=")) return <AuthCallback />;
   return (
     <Routes>
-      <Route path="/" element={<Landing />} />
-      <Route path="/onboarding" element={<RequireUser><Onboarding /></RequireUser>} />
-      <Route path="/verify" element={<RequireUser><Verification /></RequireUser>} />
+      <Route
+        path="/"
+        element={
+          <Suspense fallback={<FullLoader />}>
+            <Landing />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/onboarding"
+        element={
+          <RequireUser>
+            <Onboarding />
+          </RequireUser>
+        }
+      />
+      <Route
+        path="/verify"
+        element={
+          <RequireUser>
+            <Verification />
+          </RequireUser>
+        }
+      />
       <Route path="/payment/success" element={<PaymentSuccess />} />
       <Route path="/payment/cancel" element={<PaymentCancel />} />
       <Route

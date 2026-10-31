@@ -44,9 +44,9 @@ const styles = sortCx({
   },
   color: {
     neutral: "bg-avatar-neutral-background text-text-secondary",
-    blue: "bg-blue-300 text-blue-900",
-    lime: "bg-lime-200 text-lime-700",
-    pink: "bg-pink-200 text-pink-500",
+    blue: "bg-foreground text-background",
+    lime: "bg-accent text-foreground",
+    pink: "bg-primary text-black",
   },
 });
 

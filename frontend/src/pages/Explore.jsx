@@ -32,15 +32,16 @@ export const NICHES = [
 ];
 
 export const GENRE_COLORS = {
-  "Tech & Gadgets": "bg-blue-500",
-  "Beauty & Skincare": "bg-pink-500",
-  "Health & Fitness": "bg-emerald-500",
-  "Food & Cooking": "bg-amber-500",
-  "Gaming": "bg-purple-500",
-  "Travel": "bg-cyan-500",
-  "Finance & Business": "bg-teal-500",
-  "Lifestyle": "bg-rose-500",
-  "Wellness": "bg-lime-500",
+  // Monochrome + accent identifiers; the genre name is always shown as text too.
+  "Tech & Gadgets": "bg-primary",
+  "Beauty & Skincare": "bg-foreground",
+  "Health & Fitness": "bg-muted-foreground",
+  "Food & Cooking": "bg-primary/60",
+  "Gaming": "bg-foreground/70",
+  "Travel": "bg-muted-foreground/60",
+  "Finance & Business": "bg-primary/35",
+  "Lifestyle": "bg-foreground/45",
+  "Wellness": "bg-muted-foreground/35",
 };
 
 export const CONTENT_TYPES = [
