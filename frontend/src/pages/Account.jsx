@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BadgeCheck, FileText, Loader2, LogOut, Plus, ShieldCheck, Trash2,
   ExternalLink, Video, Image as ImageIcon, Briefcase, Globe,
-  Check, X, Sparkles, Building2, User
+  Check, X, Sparkles, Building2, User, Pin, FolderGit2, Hash, BookOpen
 } from "lucide-react";
 import { toast } from "sonner";
 import api, { fmtMoney, fmtNum, fmtDate } from "@/lib/api";
@@ -60,6 +60,18 @@ const COMMERCIAL_TERMS = [
   "Retainer / Ambassador Available"
 ];
 
+export const GENRE_COLORS = {
+  "Tech & Gadgets": "bg-blue-500",
+  "Beauty & Skincare": "bg-pink-500",
+  "Health & Fitness": "bg-emerald-500",
+  "Food & Cooking": "bg-amber-500",
+  "Gaming": "bg-purple-500",
+  "Travel": "bg-cyan-500",
+  "Finance & Business": "bg-teal-500",
+  "Lifestyle": "bg-rose-500",
+  "Wellness": "bg-lime-500",
+};
+
 const SOCIAL_PLATFORMS = ["YouTube", "Instagram", "TikTok", "Twitch", "X (Twitter)", "LinkedIn"];
 
 export default function Account() {
@@ -84,6 +96,9 @@ export default function Account() {
   const [addProjectOpen, setAddProjectOpen] = useState(false);
   const [newProject, setNewProject] = useState({
     title: "",
+    bio: "",
+    genre: "Tech & Gadgets",
+    tags: [],
     brand: "",
     deliverable_type: "Dedicated Long-Form Video",
     media_type: "video",
@@ -91,8 +106,9 @@ export default function Account() {
     embed_url: "",
     metrics: "",
     link: "",
-    description: "",
+    pinned: true,
   });
+  const [projectTagInput, setProjectTagInput] = useState("");
 
   const [customSubNicheInput, setCustomSubNicheInput] = useState("");
 
@@ -179,14 +195,23 @@ export default function Account() {
   };
 
   const handleAddProject = () => {
-    if (!newProject.title.trim() || !newProject.brand.trim()) {
-      toast.error("Project title and brand are required");
+    if (!newProject.title.trim()) {
+      toast.error("Project title is required");
+      return;
+    }
+    const bioText = (newProject.bio || newProject.description || "").trim();
+    if (!bioText) {
+      toast.error("Project bio/summary is required");
       return;
     }
     const item = {
       project_id: `prj_${Date.now()}`,
-      title: newProject.title,
-      brand: newProject.brand,
+      title: newProject.title.trim(),
+      bio: bioText,
+      description: bioText,
+      genre: newProject.genre || form.niche || "Tech & Gadgets",
+      tags: newProject.tags || [],
+      brand: newProject.brand?.trim() || "Independent Project",
       deliverable_type: newProject.deliverable_type,
       media_type: newProject.media_type,
       media_url:
@@ -195,12 +220,15 @@ export default function Account() {
       embed_url: newProject.embed_url || "",
       metrics: newProject.metrics || "1.2M Views · 8.4% Engagement",
       link: newProject.link || "",
-      description: newProject.description,
+      pinned: newProject.pinned ?? true,
       date: new Date().toLocaleDateString(undefined, { month: "short", year: "numeric" }),
     };
     setProjectsList((prev) => [item, ...prev]);
     setNewProject({
       title: "",
+      bio: "",
+      genre: form.niche || "Tech & Gadgets",
+      tags: [],
       brand: "",
       deliverable_type: "Dedicated Long-Form Video",
       media_type: "video",
@@ -208,10 +236,39 @@ export default function Account() {
       embed_url: "",
       metrics: "",
       link: "",
-      description: "",
+      pinned: true,
     });
+    setProjectTagInput("");
     setAddProjectOpen(false);
-    toast.success("Project added to portfolio showcase");
+    toast.success("Project added to profile showcase");
+  };
+
+  const handleTogglePinProject = (projectId) => {
+    setProjectsList((prev) =>
+      prev.map((p) => (p.project_id === projectId ? { ...p, pinned: !p.pinned } : p))
+    );
+  };
+
+  const handleAddProjectTag = (tagToAdd) => {
+    const raw = tagToAdd || projectTagInput;
+    const clean = raw.trim().replace(/^#/, "");
+    if (!clean) return;
+    if (newProject.tags?.includes(clean)) {
+      toast.error("Tag already added");
+      return;
+    }
+    setNewProject((prev) => ({
+      ...prev,
+      tags: [...(prev.tags || []), clean],
+    }));
+    setProjectTagInput("");
+  };
+
+  const handleRemoveProjectTag = (tagToRemove) => {
+    setNewProject((prev) => ({
+      ...prev,
+      tags: (prev.tags || []).filter((t) => t !== tagToRemove),
+    }));
   };
 
   const handleRemoveProject = (projectId) => {
@@ -663,12 +720,17 @@ export default function Account() {
                 )}
               </div>
 
-              {/* Behance-Style Projects / Portfolio Showcase */}
+              {/* GitHub-Style Projects / Portfolio Repositories Showcase */}
               <div className="rounded-2xl border border-border bg-card p-6 shadow-xs" data-testid="portfolio-projects-panel">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h3 className="font-display text-base font-bold text-foreground">Portfolio & Featured Projects</h3>
-                    <p className="text-xs text-muted-foreground">Case studies and content samples sponsors review on your media kit.</p>
+                    <div className="flex items-center gap-2">
+                      <FolderGit2 className="h-4 w-4 text-primary" />
+                      <h3 className="font-display text-base font-bold text-foreground">Projects & Pinned Repositories</h3>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Showcase past deliverables with bio, genre, topics/tags, and achieved metrics.
+                    </p>
                   </div>
                   <Button
                     size="sm"
@@ -681,71 +743,134 @@ export default function Account() {
                 </div>
 
                 {!projectsList.length ? (
-                  <p className="text-xs text-muted-foreground">
-                    No portfolio projects added yet. Showcase your past sponsor collabs, videos, and stats here.
-                  </p>
+                  <div className="rounded-xl border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
+                    <FolderGit2 className="mx-auto h-8 w-8 text-muted-foreground/50 mb-2" />
+                    <p className="font-semibold text-foreground">No projects added yet</p>
+                    <p className="mt-1">Add your best sponsor collabs, videos, and case studies with topics/tags.</p>
+                  </div>
                 ) : (
                   <div className="space-y-3">
-                    {projectsList.map((prj) => (
-                      <div
-                        key={prj.project_id}
-                        className="group flex flex-col sm:flex-row gap-3.5 rounded-xl border border-border bg-background/50 p-3.5 text-xs transition-all hover:border-primary/40"
-                        data-testid={`project-item-${prj.project_id}`}
-                      >
-                        {/* Thumbnail */}
-                        <div className="relative h-24 w-full sm:w-36 shrink-0 overflow-hidden rounded-lg bg-muted">
-                          {prj.media_url ? (
-                            <img src={prj.media_url} alt={prj.title} className="h-full w-full object-cover" />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-                              <Video className="h-6 w-6" />
-                            </div>
-                          )}
-                          <span className="absolute bottom-1 right-1 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                            {prj.deliverable_type?.split(" ")[0] || "Video"}
-                          </span>
-                        </div>
-
-                        {/* Content */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-2">
-                            <div>
-                              <h4 className="font-bold text-sm text-foreground line-clamp-1">{prj.title}</h4>
-                              <p className="text-xs text-primary font-medium">{prj.brand}</p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveProject(prj.project_id)}
-                              className="text-muted-foreground hover:text-red-500 transition-colors p-1"
-                              title="Delete project"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
+                    {projectsList.map((prj) => {
+                      const genreColor = GENRE_COLORS[prj.genre] || "bg-primary";
+                      const isPinned = prj.pinned ?? true;
+                      return (
+                        <div
+                          key={prj.project_id}
+                          className="group relative flex flex-col sm:flex-row gap-3.5 rounded-xl border border-border bg-background/50 p-4 text-xs transition-all hover:border-primary/50 hover:shadow-xs"
+                          data-testid={`project-item-${prj.project_id}`}
+                        >
+                          {/* Thumbnail / Media Preview */}
+                          <div className="relative h-28 w-full sm:w-40 shrink-0 overflow-hidden rounded-lg bg-muted border border-border/60">
+                            {prj.media_url ? (
+                              <img src={prj.media_url} alt={prj.title} className="h-full w-full object-cover" />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                                <Video className="h-6 w-6" />
+                              </div>
+                            )}
+                            <span className="absolute bottom-1 right-1 rounded-md bg-black/75 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                              {prj.deliverable_type?.split(" ")[0] || "Video"}
+                            </span>
                           </div>
 
-                          {prj.metrics && (
-                            <div className="mt-1.5 inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
-                              <Sparkles className="h-3 w-3" /> {prj.metrics}
+                          {/* GitHub Repo Details Content */}
+                          <div className="flex-1 min-w-0 flex flex-col justify-between">
+                            <div>
+                              {/* Header: Title + Brand + Pinned + Actions */}
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <BookOpen className="h-3.5 w-3.5 text-primary shrink-0" />
+                                  <h4 className="font-bold text-sm text-foreground hover:text-primary transition-colors">
+                                    {prj.title}
+                                  </h4>
+                                  {prj.brand && (
+                                    <span className="rounded-full border border-border bg-card px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                      {prj.brand}
+                                    </span>
+                                  )}
+                                  {isPinned && (
+                                    <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-500 dark:text-amber-400">
+                                      <Pin className="h-2.5 w-2.5 fill-current" /> Pinned
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleTogglePinProject(prj.project_id)}
+                                    className={`p-1.5 rounded-lg transition-colors ${
+                                      isPinned
+                                        ? "text-amber-500 hover:bg-amber-500/10"
+                                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                                    }`}
+                                    title={isPinned ? "Unpin project" : "Pin to profile"}
+                                  >
+                                    <Pin className={`h-3.5 w-3.5 ${isPinned ? "fill-current" : ""}`} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveProject(prj.project_id)}
+                                    className="p-1.5 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                                    title="Delete project"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Project Bio / Description */}
+                              <p className="mt-1.5 text-muted-foreground text-[11px] leading-relaxed line-clamp-2">
+                                {prj.bio || prj.description}
+                              </p>
+
+                              {/* Topics / Tags Chips (GitHub Style) */}
+                              {prj.tags?.length > 0 && (
+                                <div className="mt-2 flex flex-wrap gap-1">
+                                  {prj.tags.map((t) => (
+                                    <span
+                                      key={t}
+                                      className="inline-flex items-center rounded-full bg-secondary/80 px-2 py-0.5 text-[10px] font-medium text-secondary-foreground"
+                                    >
+                                      #{t}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
                             </div>
-                          )}
 
-                          <p className="mt-1.5 line-clamp-2 text-muted-foreground text-[11px] leading-relaxed">
-                            {prj.description}
-                          </p>
+                            {/* Footer: Genre indicator dot + Metrics + Live Link */}
+                            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border/50 pt-2 text-[11px]">
+                              <div className="flex items-center gap-3">
+                                {/* Genre with Language dot */}
+                                <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
+                                  <span className={`h-2.5 w-2.5 rounded-full ${genreColor}`} />
+                                  {prj.genre || "General"}
+                                </span>
 
-                          {prj.link && (
-                            <a
-                              href={prj.link}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline"
-                            >
-                              View Project <ExternalLink className="h-3 w-3" />
-                            </a>
-                          )}
+                                {prj.metrics && (
+                                  <span className="inline-flex items-center gap-1 font-semibold text-primary">
+                                    <Sparkles className="h-3 w-3" />
+                                    {prj.metrics}
+                                  </span>
+                                )}
+                              </div>
+
+                              {prj.link && (
+                                <a
+                                  href={prj.link}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
+                                >
+                                  Live Collab <ExternalLink className="h-3 w-3" />
+                                </a>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -844,33 +969,81 @@ export default function Account() {
         </DialogContent>
       </Dialog>
 
-      {/* Add Portfolio Project Dialog */}
+      {/* Add GitHub-Style Portfolio Project Dialog */}
       <Dialog open={addProjectOpen} onOpenChange={setAddProjectOpen}>
-        <DialogContent className="max-w-lg" data-testid="add-project-dialog">
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto" data-testid="add-project-dialog">
           <DialogHeader>
-            <DialogTitle>Add Portfolio Project / Case Study</DialogTitle>
+            <div className="flex items-center gap-2">
+              <FolderGit2 className="h-5 w-5 text-primary" />
+              <DialogTitle>Add Project to Profile & Showcase</DialogTitle>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Add your deliverable with required standard fields (bio, genre, multiple topics/tags) just like a GitHub repository.
+            </p>
           </DialogHeader>
-          <div className="grid gap-3 text-xs">
-            <div className="grid grid-cols-2 gap-2">
+
+          <div className="grid gap-4 text-xs mt-2">
+            {/* Core Required Fields: Title & Brand */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="eyebrow mb-1 block">Project Title</label>
+                <label className="eyebrow mb-1 block">Project Title *</label>
                 <Input
                   placeholder="e.g. Smart Desk Tour 2026"
                   value={newProject.title}
                   onChange={(e) => setNewProject({ ...newProject, title: e.target.value })}
+                  data-testid="project-title-input"
                 />
               </div>
               <div>
-                <label className="eyebrow mb-1 block">Client / Brand</label>
+                <label className="eyebrow mb-1 block">Client / Sponsor Brand</label>
                 <Input
-                  placeholder="e.g. Autonomous AI"
+                  placeholder="e.g. Autonomous AI or Personal"
                   value={newProject.brand}
                   onChange={(e) => setNewProject({ ...newProject, brand: e.target.value })}
+                  data-testid="project-brand-input"
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
+            {/* Standard Field: Project Bio / Description */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="eyebrow">Project Bio & Short Summary *</label>
+                <span className="text-[11px] text-muted-foreground">What was this project about?</span>
+              </div>
+              <Textarea
+                placeholder="Brief summary explaining the concept, creative angle, product featured, and campaign outcome…"
+                rows={2}
+                value={newProject.bio}
+                onChange={(e) => setNewProject({ ...newProject, bio: e.target.value })}
+                data-testid="project-bio-input"
+              />
+            </div>
+
+            {/* Standard Field: Primary Genre */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="eyebrow mb-1 block">Primary Genre / Category *</label>
+                <Select
+                  value={newProject.genre}
+                  onValueChange={(v) => setNewProject({ ...newProject, genre: v })}
+                >
+                  <SelectTrigger data-testid="project-genre-select">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {NICHES.map((n) => (
+                      <SelectItem key={n} value={n}>
+                        <span className="flex items-center gap-2">
+                          <span className={`h-2.5 w-2.5 rounded-full ${GENRE_COLORS[n] || "bg-primary"}`} />
+                          {n}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div>
                 <label className="eyebrow mb-1 block">Deliverable Format</label>
                 <Select
@@ -889,74 +1062,160 @@ export default function Account() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            {/* Standard Field: Topics / Tags (Multiple) */}
+            <div className="rounded-xl border border-border/80 bg-background/50 p-3 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <label className="eyebrow flex items-center gap-1.5">
+                  <Hash className="h-3 w-3 text-primary" /> Topics & Tags (Multiple)
+                </label>
+                <span className="text-[11px] text-muted-foreground">{newProject.tags?.length || 0} tags added</span>
+              </div>
+
+              {/* Tag Input Field */}
+              <div className="flex items-center gap-2">
+                <Input
+                  placeholder="Add a topic (e.g. smart-home, unboxing, hardware)"
+                  value={projectTagInput}
+                  onChange={(e) => setProjectTagInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAddProjectTag();
+                    }
+                  }}
+                  className="h-8 text-xs font-mono"
+                  data-testid="project-tag-input"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  className="h-8 shrink-0 rounded-lg text-xs font-semibold px-3"
+                  onClick={() => handleAddProjectTag()}
+                  data-testid="add-tag-button"
+                >
+                  + Tag
+                </Button>
+              </div>
+
+              {/* Quick Tag Suggestions for the selected genre */}
+              {PRESET_SUB_NICHES[newProject.genre]?.length > 0 && (
+                <div className="pt-1">
+                  <span className="text-[10px] text-muted-foreground block mb-1">Suggested for {newProject.genre}:</span>
+                  <div className="flex flex-wrap gap-1">
+                    {PRESET_SUB_NICHES[newProject.genre].slice(0, 5).map((sug) => {
+                      const already = newProject.tags?.includes(sug);
+                      return (
+                        <button
+                          key={sug}
+                          type="button"
+                          onClick={() => handleAddProjectTag(sug)}
+                          disabled={already}
+                          className={`rounded-full px-2 py-0.5 text-[10px] transition-all font-mono ${
+                            already
+                              ? "opacity-40 cursor-not-allowed bg-muted text-muted-foreground"
+                              : "border border-border bg-card text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                          }`}
+                        >
+                          +{sug}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Active Tags Pills List */}
+              {newProject.tags?.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 pt-1 border-t border-border/50">
+                  {newProject.tags.map((t) => (
+                    <span
+                      key={t}
+                      className="inline-flex items-center gap-1 rounded-full bg-primary/10 border border-primary/20 px-2.5 py-0.5 text-[11px] font-mono font-medium text-primary"
+                    >
+                      #{t}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveProjectTag(t)}
+                        className="hover:text-red-500 transition-colors ml-0.5"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Presentation Details: Metrics & Links */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="eyebrow mb-1 block">Key Metrics Achieved</label>
+                <Input
+                  placeholder="e.g. 1.4M Views · 9.2% CTR · $24k Sales"
+                  value={newProject.metrics}
+                  onChange={(e) => setNewProject({ ...newProject, metrics: e.target.value })}
+                />
+              </div>
 
               <div>
-                <label className="eyebrow mb-1 block">Media Type</label>
-                <Select
-                  value={newProject.media_type}
-                  onValueChange={(v) => setNewProject({ ...newProject, media_type: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="video">Video Embed</SelectItem>
-                    <SelectItem value="photo">Photo / Carousel</SelectItem>
-                    <SelectItem value="document">Case Study / Document</SelectItem>
-                  </SelectContent>
-                </Select>
+                <label className="eyebrow mb-1 block">Live Link / Video URL</label>
+                <Input
+                  placeholder="https://youtube.com/watch?v=..."
+                  value={newProject.link}
+                  onChange={(e) => setNewProject({ ...newProject, link: e.target.value })}
+                />
               </div>
             </div>
 
-            <div>
-              <label className="eyebrow mb-1 block">Thumbnail / Photo URL</label>
-              <Input
-                placeholder="https://images.unsplash.com/..."
-                value={newProject.media_url}
-                onChange={(e) => setNewProject({ ...newProject, media_url: e.target.value })}
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="eyebrow mb-1 block">Thumbnail URL</label>
+                <Input
+                  placeholder="https://images.unsplash.com/..."
+                  value={newProject.media_url}
+                  onChange={(e) => setNewProject({ ...newProject, media_url: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="eyebrow mb-1 block">Embed or Document Link (optional)</label>
+                <Input
+                  placeholder="https://youtube.com/embed/... or case study"
+                  value={newProject.embed_url}
+                  onChange={(e) => setNewProject({ ...newProject, embed_url: e.target.value })}
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="eyebrow mb-1 block">Video Embed or Document URL (optional)</label>
-              <Input
-                placeholder="https://youtube.com/embed/... or direct video link"
-                value={newProject.embed_url}
-                onChange={(e) => setNewProject({ ...newProject, embed_url: e.target.value })}
+            {/* Pinned to Profile Overview Checkbox */}
+            <div className="flex items-center gap-2 rounded-xl border border-border/70 bg-card p-3">
+              <input
+                type="checkbox"
+                id="pinProjectCheckbox"
+                checked={newProject.pinned}
+                onChange={(e) => setNewProject({ ...newProject, pinned: e.target.checked })}
+                className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
               />
-            </div>
-
-            <div>
-              <label className="eyebrow mb-1 block">Key Metrics Achieved</label>
-              <Input
-                placeholder="e.g. 1.4M Views · 9.2% CTR · $24k Sales"
-                value={newProject.metrics}
-                onChange={(e) => setNewProject({ ...newProject, metrics: e.target.value })}
-              />
-            </div>
-
-            <div>
-              <label className="eyebrow mb-1 block">External Link (Live Post / Video)</label>
-              <Input
-                placeholder="https://youtube.com/watch?v=..."
-                value={newProject.link}
-                onChange={(e) => setNewProject({ ...newProject, link: e.target.value })}
-              />
-            </div>
-
-            <div>
-              <label className="eyebrow mb-1 block">Project Summary</label>
-              <Textarea
-                placeholder="Explain the brief, creative angle, and campaign outcome…"
-                rows={3}
-                value={newProject.description}
-                onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
-              />
+              <label htmlFor="pinProjectCheckbox" className="text-xs cursor-pointer select-none">
+                <span className="font-semibold text-foreground flex items-center gap-1">
+                  <Pin className="h-3 w-3 text-amber-500 fill-current" /> Pin to profile overview
+                </span>
+                <span className="block text-[11px] text-muted-foreground">
+                  Pinned repositories are featured at the very top of your media kit for sponsors.
+                </span>
+              </label>
             </div>
           </div>
-          <DialogFooter>
-            <Button className="rounded-full" onClick={handleAddProject}>
-              Add to Showcase
+
+          <DialogFooter className="mt-2">
+            <Button variant="outline" className="rounded-full" onClick={() => setAddProjectOpen(false)}>
+              Cancel
+            </Button>
+            <Button className="rounded-full font-semibold" onClick={handleAddProject} data-testid="submit-project-button">
+              Add to Profile Showcase
             </Button>
           </DialogFooter>
         </DialogContent>

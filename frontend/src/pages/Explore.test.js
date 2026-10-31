@@ -115,6 +115,17 @@ describe("Explore Page Serious Filters and Stats System", () => {
           { platform: "YouTube", handle: "@mayabuilds", followers: 850000, posts_count: 312 },
           { platform: "Instagram", handle: "@maya.chen", followers: 120000, posts_count: 184 },
         ],
+        projects: [
+          {
+            project_id: "prj_maya_1",
+            title: "Smart Desk Tour 2026",
+            bio: "Dev workstation ergonomics with motorized desk.",
+            genre: "Tech & Gadgets",
+            tags: ["Smart Home", "Hardware", "Ergonomics"],
+            brand: "Autonomous AI",
+            pinned: true,
+          },
+        ],
       },
     ];
 
@@ -150,6 +161,8 @@ describe("Explore Page Serious Filters and Stats System", () => {
     expect(container.textContent).toContain("4.8%"); // Engagement
     expect(container.textContent).toContain("Dedicated Long-Form Video");
     expect(container.textContent).toContain("100% Escrow Upfront");
+    expect(container.textContent).toContain("Smart Desk Tour 2026");
+    expect(container.textContent).toContain("#Smart Home");
   });
 
   it("toggles advanced filters drawer when clicking the Filters button", async () => {

@@ -164,3 +164,34 @@ def test_campaigns_search_and_filters_with_company_stats(client):
     budget_camps = res.json()
     assert len(budget_camps) >= 1
     assert all(c["budget_max"] >= 5000 for c in budget_camps)
+
+
+def test_creator_projects_github_fields_and_tag_search(client):
+    """Verify projects contain GitHub-style fields: bio, genre, tags list, pinned, and search matches tags."""
+    login(client, "company")
+    res = client.get(f"{BASE_URL}/api/creators", timeout=20)
+    assert res.status_code == 200
+    creators = res.json()
+
+    maya = next((c for c in creators if c["display_name"] == "Maya Chen"), None)
+    assert maya is not None
+    assert len(maya["projects"]) >= 2
+    p1 = maya["projects"][0]
+    assert "title" in p1
+    assert "bio" in p1
+    assert "genre" in p1
+    assert "tags" in p1
+    assert isinstance(p1["tags"], list)
+    assert len(p1["tags"]) >= 3
+    assert "Smart Home" in p1["tags"]
+    assert p1.get("pinned") is True
+
+    # Search by tag
+    res_tag = client.get(f"{BASE_URL}/api/creators", params={"tag": "Ergonomics"}, timeout=20)
+    assert res_tag.status_code == 200
+    assert any(c["display_name"] == "Maya Chen" for c in res_tag.json())
+
+    # Search keyword matching project tag
+    res_search = client.get(f"{BASE_URL}/api/creators", params={"search": "Keyboards"}, timeout=20)
+    assert res_search.status_code == 200
+    assert any(c["display_name"] == "Maya Chen" for c in res_search.json())

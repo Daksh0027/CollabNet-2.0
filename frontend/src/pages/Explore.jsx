@@ -4,7 +4,8 @@ import { useNavigate } from "react-router-dom";
 import {
   Check, Loader2, MessageSquare, Search, Sparkles, Users, SlidersHorizontal,
   X, RotateCcw, TrendingUp, Eye, Star, Layers, ShieldCheck, DollarSign,
-  Building2, Video, CheckCircle2, ChevronDown, ExternalLink, Briefcase
+  Building2, Video, CheckCircle2, ChevronDown, ExternalLink, Briefcase,
+  Pin, FolderGit2, BookOpen, Hash, Tag
 } from "lucide-react";
 import { toast } from "sonner";
 import api, { fmtMoney, fmtNum, fmtDate } from "@/lib/api";
@@ -28,6 +29,18 @@ const NICHES = [
   "Lifestyle",
   "Wellness"
 ];
+
+export const GENRE_COLORS = {
+  "Tech & Gadgets": "bg-blue-500",
+  "Beauty & Skincare": "bg-pink-500",
+  "Health & Fitness": "bg-emerald-500",
+  "Food & Cooking": "bg-amber-500",
+  "Gaming": "bg-purple-500",
+  "Travel": "bg-cyan-500",
+  "Finance & Business": "bg-teal-500",
+  "Lifestyle": "bg-rose-500",
+  "Wellness": "bg-lime-500",
+};
 
 const CONTENT_TYPES = [
   "Short-Form Video",
@@ -96,6 +109,8 @@ function CompanyExplore() {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [connecting, setConnecting] = useState("");
   const [detailId, setDetailId] = useState(null);
+  const [modalProjectTagFilter, setModalProjectTagFilter] = useState("all");
+  const [modalProjectSearch, setModalProjectSearch] = useState("");
 
   // Count active filters
   const activeFiltersCount = useMemo(() => {
@@ -648,11 +663,49 @@ function CompanyExplore() {
                     </div>
                   )}
 
-                  {/* Portfolio Projects Highlights Pill */}
+                  {/* GitHub-Style Featured Projects Snippet */}
                   {c.projects?.length > 0 && (
-                    <div className="mt-2.5 flex items-center gap-1.5 text-[11px] text-primary font-medium">
-                      <Briefcase className="h-3 w-3" />
-                      <span>{c.projects.length} featured project{c.projects.length > 1 ? "s" : ""} on portfolio</span>
+                    <div className="mt-2.5 rounded-xl border border-border/70 bg-background/50 p-2.5 text-xs">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="inline-flex items-center gap-1.5 font-semibold text-foreground">
+                          <FolderGit2 className="h-3.5 w-3.5 text-primary" />
+                          {c.projects.filter((p) => p.pinned).length || c.projects.length} featured project{c.projects.length > 1 ? "s" : ""}
+                        </span>
+                        {c.projects.some((p) => p.pinned) && (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] text-amber-500 font-medium">
+                            <Pin className="h-2.5 w-2.5 fill-current" /> Pinned
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Top Pinned Project Title & Tags */}
+                      {c.projects[0] && (
+                        <div className="mt-1.5 pt-1.5 border-t border-border/40">
+                          <p className="line-clamp-1 text-[11px]">
+                            <span className="font-semibold text-foreground hover:text-primary transition-colors cursor-pointer" onClick={() => setDetailId(c.user_id)}>
+                              {c.projects[0].title}
+                            </span>
+                            <span className="text-muted-foreground"> · {c.projects[0].bio || c.projects[0].description}</span>
+                          </p>
+                          {c.projects[0].tags?.length > 0 && (
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {c.projects[0].tags.slice(0, 3).map((tag) => (
+                                <span
+                                  key={tag}
+                                  className="font-mono text-[9px] text-primary bg-primary/10 px-1.5 py-0.5 rounded-full"
+                                >
+                                  #{tag}
+                                </span>
+                              ))}
+                              {c.projects[0].tags.length > 3 && (
+                                <span className="text-[9px] text-muted-foreground self-center">
+                                  +{c.projects[0].tags.length - 3}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -793,60 +846,193 @@ function CompanyExplore() {
                   </div>
                 </div>
 
-                {/* Behance-Style Featured Projects Showcase */}
-                {detail.creator?.projects?.length > 0 && (
-                  <div>
-                    <h4 className="eyebrow mb-2.5 flex items-center gap-1.5">
-                      <Briefcase className="h-3.5 w-3.5 text-primary" />
-                      Featured Portfolio Projects & Case Studies
-                    </h4>
-                    <div className="grid gap-3.5 sm:grid-cols-2">
-                      {detail.creator.projects.map((p) => (
-                        <div
-                          key={p.project_id}
-                          className="flex flex-col justify-between rounded-xl border border-border bg-card p-3.5 text-xs shadow-xs transition-colors hover:border-primary/40"
-                        >
-                          <div>
-                            <div className="relative h-32 w-full overflow-hidden rounded-lg bg-muted mb-2.5">
-                              {p.media_url ? (
-                                <img src={p.media_url} alt={p.title} className="h-full w-full object-cover" />
-                              ) : (
-                                <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-                                  <Video className="h-8 w-8" />
-                                </div>
-                              )}
-                              <span className="absolute bottom-1.5 right-1.5 rounded-md bg-black/75 px-2 py-0.5 text-[10px] font-semibold text-white">
-                                {p.deliverable_type?.split(" ")[0]}
-                              </span>
-                            </div>
+                {/* GitHub-Style Featured Projects & Pinned Showcases */}
+                {detail.creator?.projects?.length > 0 && (() => {
+                  const projects = detail.creator.projects;
+                  const availableTags = Array.from(new Set(projects.flatMap((p) => p.tags || [])));
+                  const filteredProjects = projects.filter((p) => {
+                    if (modalProjectTagFilter !== "all" && !(p.tags || []).includes(modalProjectTagFilter)) {
+                      return false;
+                    }
+                    if (modalProjectSearch.trim()) {
+                      const q = modalProjectSearch.toLowerCase();
+                      const matchText = (
+                        p.title +
+                        " " +
+                        (p.bio || p.description || "") +
+                        " " +
+                        (p.genre || "") +
+                        " " +
+                        (p.brand || "") +
+                        " " +
+                        (p.tags || []).join(" ")
+                      ).toLowerCase();
+                      if (!matchText.includes(q)) return false;
+                    }
+                    return true;
+                  });
 
-                            <h5 className="font-bold text-sm text-foreground line-clamp-1">{p.title}</h5>
-                            <p className="text-primary font-medium text-xs mt-0.5">{p.brand}</p>
-
-                            {p.metrics && (
-                              <div className="mt-2 inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
-                                <Sparkles className="h-3 w-3" /> {p.metrics}
-                              </div>
-                            )}
-
-                            <p className="mt-2 line-clamp-3 text-muted-foreground leading-relaxed">{p.description}</p>
-                          </div>
-
-                          {p.link && (
-                            <a
-                              href={p.link}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline pt-2 border-t border-border/50"
-                            >
-                              View Live Video / Collab <ExternalLink className="h-3 w-3" />
-                            </a>
-                          )}
+                  return (
+                    <div className="space-y-3" data-testid="modal-projects-section">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/60 pb-2">
+                        <div className="flex items-center gap-2">
+                          <FolderGit2 className="h-4 w-4 text-primary" />
+                          <h4 className="font-display text-sm font-bold text-foreground">
+                            Projects & Pinned Repositories ({projects.length})
+                          </h4>
                         </div>
-                      ))}
+                        {/* Modal Project Search */}
+                        <div className="relative w-full sm:w-48">
+                          <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
+                          <Input
+                            placeholder="Find a project…"
+                            value={modalProjectSearch}
+                            onChange={(e) => setModalProjectSearch(e.target.value)}
+                            className="h-7 pl-7 text-[11px] rounded-full"
+                            data-testid="modal-project-search"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Topic Tags Bar inside Modal */}
+                      {availableTags.length > 0 && (
+                        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-[11px]">
+                          <span className="eyebrow shrink-0 text-[10px] mr-1">Topics:</span>
+                          <button
+                            type="button"
+                            onClick={() => setModalProjectTagFilter("all")}
+                            className={`shrink-0 rounded-full px-2.5 py-0.5 font-medium transition-all ${
+                              modalProjectTagFilter === "all"
+                                ? "bg-primary text-primary-foreground font-semibold"
+                                : "border border-border bg-background text-muted-foreground hover:border-primary/40"
+                            }`}
+                          >
+                            All ({projects.length})
+                          </button>
+                          {availableTags.map((tag) => {
+                            const count = projects.filter((p) => (p.tags || []).includes(tag)).length;
+                            return (
+                              <button
+                                key={tag}
+                                type="button"
+                                onClick={() => setModalProjectTagFilter(modalProjectTagFilter === tag ? "all" : tag)}
+                                className={`shrink-0 rounded-full px-2.5 py-0.5 font-mono text-[10px] transition-all ${
+                                  modalProjectTagFilter === tag
+                                    ? "bg-secondary text-secondary-foreground font-semibold ring-1 ring-primary/50"
+                                    : "border border-border bg-background text-muted-foreground hover:border-primary/40"
+                                }`}
+                              >
+                                #{tag} ({count})
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* GitHub Pinned Repository Cards Grid */}
+                      {!filteredProjects.length ? (
+                        <p className="text-xs text-muted-foreground py-4 text-center">
+                          No projects match topic "#{modalProjectTagFilter}"
+                        </p>
+                      ) : (
+                        <div className="grid gap-3.5 sm:grid-cols-2">
+                          {filteredProjects.map((p) => {
+                            const genreColor = GENRE_COLORS[p.genre] || "bg-primary";
+                            const isPinned = p.pinned ?? true;
+                            return (
+                              <div
+                                key={p.project_id}
+                                className="flex flex-col justify-between rounded-xl border border-border bg-card p-3.5 text-xs shadow-xs transition-colors hover:border-primary/50"
+                                data-testid={`modal-project-card-${p.project_id}`}
+                              >
+                                <div>
+                                  {/* Media Thumbnail */}
+                                  <div className="relative h-32 w-full overflow-hidden rounded-lg bg-muted mb-2.5 border border-border/60">
+                                    {p.media_url ? (
+                                      <img src={p.media_url} alt={p.title} className="h-full w-full object-cover" />
+                                    ) : (
+                                      <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                                        <Video className="h-8 w-8" />
+                                      </div>
+                                    )}
+                                    <span className="absolute bottom-1.5 right-1.5 rounded-md bg-black/75 px-2 py-0.5 text-[10px] font-semibold text-white">
+                                      {p.deliverable_type?.split(" ")[0]}
+                                    </span>
+                                  </div>
+
+                                  {/* Title & Brand */}
+                                  <div className="flex items-start justify-between gap-1.5">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <BookOpen className="h-3.5 w-3.5 text-primary shrink-0" />
+                                      <h5 className="font-bold text-sm text-foreground hover:text-primary transition-colors">
+                                        {p.title}
+                                      </h5>
+                                    </div>
+                                    {isPinned && (
+                                      <span className="shrink-0 inline-flex items-center gap-0.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-500 dark:text-amber-400">
+                                        <Pin className="h-2.5 w-2.5 fill-current" /> Pinned
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {p.brand && (
+                                    <p className="text-primary font-medium text-xs mt-0.5">{p.brand}</p>
+                                  )}
+
+                                  {/* Bio / Description */}
+                                  <p className="mt-2 line-clamp-2 text-muted-foreground text-[11px] leading-relaxed">
+                                    {p.bio || p.description}
+                                  </p>
+
+                                  {/* Topics / Tags */}
+                                  {p.tags?.length > 0 && (
+                                    <div className="mt-2 flex flex-wrap gap-1">
+                                      {p.tags.map((t) => (
+                                        <span
+                                          key={t}
+                                          className="rounded-full bg-secondary/80 px-2 py-0.5 text-[10px] font-mono text-secondary-foreground"
+                                        >
+                                          #{t}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Footer: Genre Dot + Metrics + Live Link */}
+                                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border/50 pt-2 text-[11px]">
+                                  <div className="flex items-center gap-2.5">
+                                    <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
+                                      <span className={`h-2.5 w-2.5 rounded-full ${genreColor}`} />
+                                      {p.genre || "General"}
+                                    </span>
+                                    {p.metrics && (
+                                      <span className="inline-flex items-center gap-1 font-semibold text-primary">
+                                        <Sparkles className="h-3 w-3" />
+                                        {p.metrics}
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {p.link && (
+                                    <a
+                                      href={p.link}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
+                                    >
+                                      Live Collab <ExternalLink className="h-3 w-3" />
+                                    </a>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* Social Channels Deep Dive */}
                 {detail.creator?.platforms?.length > 0 && (

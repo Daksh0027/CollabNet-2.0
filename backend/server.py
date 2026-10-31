@@ -419,6 +419,7 @@ async def list_creators(
     min_rate: int = 0,
     max_rate: int = 0,
     commercial_term: str = "",
+    tag: str = "",
     sort_by: str = "followers",
 ):
     await get_user(request)
@@ -454,11 +455,13 @@ async def list_creators(
     ct_filters = [ct.strip().lower() for ct in content_type.split(",") if ct.strip() and ct.strip().lower() != "all"]
     plat_filters = [p.strip().lower() for p in platform.split(",") if p.strip() and p.strip().lower() != "all"]
     term_filters = [t.strip().lower() for t in commercial_term.split(",") if t.strip() and t.strip().lower() != "all"]
+    tag_filters = [t.strip().lower() for t in tag.split(",") if t.strip() and t.strip().lower() != "all"]
 
     for u in docs:
         uid = u["user_id"]
         c = u.get("creator", {})
         plats = c.get("platforms", [])
+        projects = c.get("projects", [])
 
         # Followers metrics
         followers_list = [p.get("followers", 0) for p in plats]
@@ -499,6 +502,20 @@ async def list_creators(
         creator_terms = c.get("commercial_terms", [])
         creator_terms_lower = [t.lower() for t in creator_terms]
 
+        # Extract all project tags & searchable project text
+        project_tags = []
+        project_text_parts = []
+        for prj in projects:
+            p_title = prj.get("title", "")
+            p_bio = prj.get("bio", "") or prj.get("description", "")
+            p_genre = prj.get("genre", "")
+            p_brand = prj.get("brand", "")
+            p_tags = prj.get("tags", [])
+            project_tags.extend(p_tags)
+            project_text_parts.extend([p_title, p_bio, p_genre, p_brand] + p_tags)
+
+        all_tags_lower = [t.lower() for t in creator_sub_niches + project_tags]
+
         # 1. Search filter
         if search:
             searchable = (
@@ -509,9 +526,15 @@ async def list_creators(
                 c.get("bio", "") + " " +
                 c.get("location", "") + " " +
                 c.get("pitch", "") + " " +
-                " ".join(creator_content_types)
+                " ".join(creator_content_types) + " " +
+                " ".join(project_text_parts)
             ).lower()
             if search.lower() not in searchable:
+                continue
+
+        # 1b. Project tags filter
+        if tag_filters:
+            if not any(tf in all_tags_lower for tf in tag_filters):
                 continue
 
         # 2. Niches filter
@@ -2118,6 +2141,10 @@ async def startup():
                     {
                         "project_id": "prj_maya_1",
                         "title": "Smart Home Desk Setup & Ergonomics 2026",
+                        "bio": "Showcasing desk automation, cable management, and high-productivity dev workstation ergonomics.",
+                        "description": "Showcasing desk automation, cable management, and high-productivity dev workstation ergonomics.",
+                        "genre": "Tech & Gadgets",
+                        "tags": ["Smart Home", "Desk Setup", "Ergonomics", "Autonomous AI", "Hardware"],
                         "brand": "Autonomous AI",
                         "deliverable_type": "Dedicated Long-Form Video",
                         "media_type": "video",
@@ -2125,12 +2152,16 @@ async def startup():
                         "embed_url": "https://www.youtube.com/embed/dQw4w9WgXcQ",
                         "metrics": "1.4M Views · 9.2% CTR · $24k GMV",
                         "link": "https://youtube.com/@mayabuilds",
-                        "description": "Showcasing desk automation, cable management, and high-productivity dev workstation ergonomics.",
+                        "pinned": True,
                         "date": "Jan 2026"
                     },
                     {
                         "project_id": "prj_maya_2",
                         "title": "Keychron Q3 Pro Custom Build & Sound Test",
+                        "bio": "High-velocity ASMR switch review and programming layout walkthrough.",
+                        "description": "High-velocity ASMR switch review and programming layout walkthrough.",
+                        "genre": "Tech & Gadgets",
+                        "tags": ["Keyboards", "Mechanical Keyboards", "ASMR", "Tech Review", "Keychron"],
                         "brand": "Keychron Tech",
                         "deliverable_type": "Short-Form Video",
                         "media_type": "video",
@@ -2138,7 +2169,7 @@ async def startup():
                         "embed_url": "https://www.youtube.com/embed/dQw4w9WgXcQ",
                         "metrics": "680K Views · 45K Saves · 12% Engagement",
                         "link": "https://instagram.com/maya.chen",
-                        "description": "High-velocity ASMR switch review and programming layout walkthrough.",
+                        "pinned": True,
                         "date": "Feb 2026"
                     }
                 ]
@@ -2157,13 +2188,17 @@ async def startup():
                     {
                         "project_id": "prj_dario_1",
                         "title": "Azores Atlantic Archipelago Expedition",
+                        "bio": "Cinematic documentary travelogue putting waterproof technical packs through cliffside storms.",
+                        "description": "Cinematic documentary travelogue putting waterproof technical packs through cliffside storms.",
+                        "genre": "Travel",
+                        "tags": ["Adventure Travel", "Azores", "Cinematic Vlog", "Hiking Gear", "Documentary"],
                         "brand": "Wanderer Gear",
                         "deliverable_type": "Dedicated Long-Form Video",
                         "media_type": "video",
                         "media_url": "https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&auto=format&fit=crop&q=80",
                         "metrics": "820K Views · 14.2 min Avg Watch Time",
                         "link": "https://youtube.com/@darioabroad",
-                        "description": "Cinematic documentary travelogue putting waterproof technical packs through cliffside storms.",
+                        "pinned": True,
                         "date": "Mar 2026"
                     }
                 ]
@@ -2182,13 +2217,17 @@ async def startup():
                     {
                         "project_id": "prj_priya_1",
                         "title": "Ceramides & Peptides: Skin Barrier Breakdown",
+                        "bio": "Scientific ingredient breakdown highlighting formulation purity and morning routine steps.",
+                        "description": "Scientific ingredient breakdown highlighting formulation purity and morning routine steps.",
+                        "genre": "Beauty & Skincare",
+                        "tags": ["Clean Beauty", "Dermatology", "Skincare Routine", "Formulation", "K-Beauty"],
                         "brand": "Lumen Skincare",
                         "deliverable_type": "Short-Form Video",
                         "media_type": "video",
                         "media_url": "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
                         "metrics": "1.1M Views · 18% Share Rate · #1 Trending Skincare Reel",
                         "link": "https://instagram.com/priyaglow",
-                        "description": "Scientific ingredient breakdown highlighting formulation purity and morning routine steps.",
+                        "pinned": True,
                         "date": "Feb 2026"
                     }
                 ]
@@ -2207,13 +2246,17 @@ async def startup():
                     {
                         "project_id": "prj_jonas_1",
                         "title": "Sub-3 Marathon Prep & Electrolyte Protocol",
+                        "bio": "Full race nutrition breakdown and heart rate recovery analysis.",
+                        "description": "Full race nutrition breakdown and heart rate recovery analysis.",
+                        "genre": "Health & Fitness",
+                        "tags": ["Marathon", "Running", "Electrolytes", "Nutrition", "Endurance"],
                         "brand": "HydratePro",
                         "deliverable_type": "Dedicated Long-Form Video",
                         "media_type": "video",
                         "media_url": "https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=800&auto=format&fit=crop&q=80",
                         "metrics": "450K Views · 8.2% CTR",
                         "link": "https://youtube.com/@jonaslifts",
-                        "description": "Full race nutrition breakdown and heart rate recovery analysis.",
+                        "pinned": True,
                         "date": "Jan 2026"
                     }
                 ]
@@ -2232,13 +2275,17 @@ async def startup():
                     {
                         "project_id": "prj_sofia_1",
                         "title": "Cold Brew Espresso Tonic & Coffee Cocktails",
+                        "bio": "Fast-paced summer drink series featuring canned cold brew.",
+                        "description": "Fast-paced summer drink series featuring canned cold brew.",
+                        "genre": "Food & Cooking",
+                        "tags": ["Cold Brew", "Coffee Cocktails", "Recipes", "Summer Drinks", "TikTok Food"],
                         "brand": "Brewhaus Coffee",
                         "deliverable_type": "Short-Form Video",
                         "media_type": "video",
                         "media_url": "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=800&auto=format&fit=crop&q=80",
                         "metrics": "920K TikTok Views · 14.5% Engagement",
                         "link": "https://tiktok.com/@sofiacooks",
-                        "description": "Fast-paced summer drink series featuring canned cold brew.",
+                        "pinned": True,
                         "date": "Feb 2026"
                     }
                 ]
@@ -2257,13 +2304,17 @@ async def startup():
                     {
                         "project_id": "prj_leo_1",
                         "title": "360Hz OLED Esports Monitor 8-Hour Tournament Stream",
+                        "bio": "Live hardware stress test and low-latency benchmark stream.",
+                        "description": "Live hardware stress test and low-latency benchmark stream.",
+                        "genre": "Gaming",
+                        "tags": ["Esports", "OLED Monitor", "Twitch Stream", "Gaming Hardware", "Setup"],
                         "brand": "Apex Displays",
                         "deliverable_type": "Live Stream Placement",
                         "media_type": "video",
                         "media_url": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=800&auto=format&fit=crop&q=80",
                         "metrics": "24K Peak CCV · 110K Total Stream Viewers",
                         "link": "https://twitch.tv/leoplays",
-                        "description": "Live hardware stress test and low-latency benchmark stream.",
+                        "pinned": True,
                         "date": "Jan 2026"
                     }
                 ]
@@ -2280,8 +2331,7 @@ async def startup():
                         if not any("posts_count" in p for p in existing_plats):
                             upd["creator.platforms"] = v
                     elif k == "projects":
-                        if not c.get("projects"):
-                            upd["creator.projects"] = v
+                        upd["creator.projects"] = v
                     elif k not in c or not c.get(k):
                         upd[f"creator.{k}"] = v
                 if upd:
