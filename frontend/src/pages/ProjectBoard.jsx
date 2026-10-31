@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowDownWideNarrow, CalendarDays, ChevronRight, Filter,
+  ArrowDown, ArrowDownWideNarrow, ArrowLeft, ArrowRight, ArrowUp, CalendarDays, ChevronRight, Filter,
   MessageSquare, MoreHorizontal, Plus, Search, SlidersHorizontal,
   Tag, X,
 } from "lucide-react";
@@ -15,7 +15,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 
-const STORAGE_KEY = "collabonet-project-board-v1";
+const STORAGE_KEY = "collabonet-project-board-v2";
+const COLUMN_ORDER_STORAGE_KEY = "collabonet-project-board-column-order-v1";
 
 const COLUMNS = [
   { id: "todo", name: "To do", limit: 8, dot: "bg-primary" },
@@ -40,21 +41,8 @@ const AVATAR_STYLES = [
   "bg-muted text-muted-foreground",
 ];
 
-const INITIAL_TICKETS = [
-  { id: "FE-86", project: "Project board", title: "Add saved views for each project team", priority: "Low", tag: "firstview", status: "todo", createdAt: "2026-09-13", assignees: ["MC"], comments: 2 },
-  { id: "BE-23", project: "Activity API", title: "Record an audit trail for agent actions", priority: "Medium", tag: "vibl", status: "todo", createdAt: "2026-09-12", assignees: ["JL"], comments: 4 },
-  { id: "DS-38", project: "Agent handoff", title: "Explore approval cards for agent handoffs", priority: "Low", tag: "vibl", status: "todo", createdAt: "2026-09-14", assignees: ["AK", "MC"], comments: 1 },
-  { id: "DS-34", project: "Foundations", title: "Define semantic tokens for elevated surfaces", priority: "High", tag: "BoardUI", status: "todo", createdAt: "2026-09-12", assignees: ["TR"], comments: 3 },
-  { id: "FE-82", project: "Composer", title: "Add keyboard navigation to model picker", priority: "Low", tag: "firstview", status: "todo", createdAt: "2026-09-11", assignees: ["MC", "JL"], comments: 2 },
-  { id: "BE-19", project: "Usage API", title: "Return rolling limits with reset timestamps", priority: "Low", tag: "vibl", status: "todo", createdAt: "2026-09-10", assignees: ["AK"], comments: 0 },
-  { id: "FE-79", project: "Agent progress", title: "Animate nested task groups as they stream", priority: "Medium", tag: "firstview", status: "progress", createdAt: "2026-09-09", assignees: ["MC", "TR"], comments: 5 },
-  { id: "DS-31", project: "Dark mode", title: "Tune chart contrast on dark dashboard cards", priority: "Urgent", tag: "BoardUI", status: "progress", createdAt: "2026-09-08", assignees: ["JL"], comments: 3 },
-  { id: "FE-76", project: "Questionnaire", title: "Polish the transition between plan questions", priority: "Low", tag: "vibl", status: "review", createdAt: "2026-09-07", assignees: ["TR"], comments: 1 },
-  { id: "DS-27", project: "Stat cards", title: "Ship overview cards with responsive layouts", priority: "Low", tag: "BoardUI", status: "done", createdAt: "2026-09-06", assignees: ["MC"], comments: 2 },
-  { id: "FE-71", project: "Agent limits", title: "Keep remaining quota visible while scrolling", priority: "Medium", tag: "firstview", status: "done", createdAt: "2026-09-05", assignees: ["AK", "JL"], comments: 2 },
-  { id: "BE-16", project: "Usage API", title: "Cache organization usage for faster loading", priority: "Low", tag: "vibl", status: "done", createdAt: "2026-09-04", assignees: ["TR"], comments: 0 },
-  { id: "DS-24", project: "Foundations", title: "Document accessible color contrast pairings", priority: "Low", tag: "BoardUI", status: "done", createdAt: "2026-09-03", assignees: ["MC", "AK"], comments: 1 },
-];
+const INITIAL_TICKETS = [];
+const INITIAL_COLUMN_ORDER = COLUMNS.map((column) => column.id);
 
 const EMPTY_FORM = {
   title: "",
@@ -86,6 +74,26 @@ function loadTickets() {
   return INITIAL_TICKETS;
 }
 
+function loadColumnOrder() {
+  try {
+    const saved = window.localStorage.getItem(COLUMN_ORDER_STORAGE_KEY);
+    if (!saved) return INITIAL_COLUMN_ORDER;
+    const parsed = JSON.parse(saved);
+    if (
+      Array.isArray(parsed)
+      && parsed.length === COLUMNS.length
+      && parsed.every((columnId) => COLUMNS.some((column) => column.id === columnId))
+      && new Set(parsed).size === COLUMNS.length
+    ) {
+      return parsed;
+    }
+    console.error("Saved project board column order is invalid; using the default order.");
+  } catch (error) {
+    console.error("Could not load saved project board column order.", error);
+  }
+  return INITIAL_COLUMN_ORDER;
+}
+
 function formatSince(value) {
   if (!value) return "Added just now";
   const date = new Date(`${value}T00:00:00`);
@@ -114,62 +122,87 @@ function AssigneeAvatars({ assignees = [] }) {
   );
 }
 
-function TicketCard({ ticket, onOpen, onPointerDown, onClick }) {
+function TicketCard({ ticket, onPointerDown, onClick, onMove, canMoveUp, canMoveDown }) {
   return (
-    <button
-      type="button"
-      onPointerDown={(event) => onPointerDown(event, ticket.id)}
-      onClick={(event) => onClick(event, ticket)}
-      className="group w-full rounded-xl border border-border bg-card p-3 text-left shadow-sm transition hover:border-primary/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      data-testid={`ticket-card-${ticket.id}`}
-      aria-label={`${ticket.id}: ${ticket.title}. Open ticket details or drag to move.`}
-    >
-      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-        <span className="font-semibold text-foreground">{ticket.id}</span>
-        <ChevronRight className="h-3 w-3 shrink-0" />
-        <span className="truncate">{ticket.project}</span>
-        <MoreHorizontal className="ml-auto h-4 w-4 shrink-0 opacity-0 transition group-hover:opacity-100" />
-      </div>
-      <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        <span className={`rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${PRIORITY_STYLES[ticket.priority] || PRIORITY_STYLES.Medium}`}>
-          {ticket.priority}
-        </span>
-        {ticket.tag ? (
-          <span className="inline-flex max-w-full items-center gap-1 truncate rounded-md border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
-            <Tag className="h-2.5 w-2.5 shrink-0" /> {ticket.tag}
+    <div>
+      <button
+        type="button"
+        onPointerDown={(event) => onPointerDown(event, ticket.id)}
+        onClick={(event) => onClick(event, ticket)}
+        className="group w-full rounded-xl border border-border bg-card p-3 text-left shadow-sm transition hover:border-primary/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        data-testid={`ticket-card-${ticket.id}`}
+        aria-label={`${ticket.id}: ${ticket.title}. Open ticket details or drag to move.`}
+      >
+        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <span className="font-semibold text-foreground">{ticket.id}</span>
+          <ChevronRight className="h-3 w-3 shrink-0" />
+          <span className="truncate">{ticket.project}</span>
+          <MoreHorizontal className="ml-auto h-4 w-4 shrink-0 opacity-0 transition group-hover:opacity-100" />
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <span className={`rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${PRIORITY_STYLES[ticket.priority] || PRIORITY_STYLES.Medium}`}>
+            {ticket.priority}
           </span>
-        ) : null}
-      </div>
-      <p className="mt-2.5 text-[13px] font-semibold leading-5 text-foreground">{ticket.title}</p>
-      {ticket.description ? (
-        <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{ticket.description}</p>
-      ) : null}
-      <p className="mt-2 text-[11px] text-muted-foreground">{formatSince(ticket.createdAt)}</p>
-      <div className="mt-3 flex items-center justify-between border-t border-border pt-2.5">
-        <AssigneeAvatars assignees={ticket.assignees} />
-        <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-          {ticket.dueDate ? (
-            <span className="inline-flex items-center gap-1">
-              <CalendarDays className="h-3.5 w-3.5" />
-              {new Date(`${ticket.dueDate}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-            </span>
-          ) : null}
-          {ticket.comments > 0 ? (
-            <span className="inline-flex items-center gap-1">
-              <MessageSquare className="h-3.5 w-3.5" /> {ticket.comments}
+          {ticket.tag ? (
+            <span className="inline-flex max-w-full items-center gap-1 truncate rounded-md border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
+              <Tag className="h-2.5 w-2.5 shrink-0" /> {ticket.tag}
             </span>
           ) : null}
         </div>
+        <p className="mt-2.5 text-[13px] font-semibold leading-5 text-foreground">{ticket.title}</p>
+        {ticket.description ? (
+          <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{ticket.description}</p>
+        ) : null}
+        <p className="mt-2 text-[11px] text-muted-foreground">{formatSince(ticket.createdAt)}</p>
+        <div className="mt-3 flex items-center justify-between border-t border-border pt-2.5">
+          <AssigneeAvatars assignees={ticket.assignees} />
+          <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+            {ticket.dueDate ? (
+              <span className="inline-flex items-center gap-1">
+                <CalendarDays className="h-3.5 w-3.5" />
+                {new Date(`${ticket.dueDate}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+              </span>
+            ) : null}
+            {ticket.comments > 0 ? (
+              <span className="inline-flex items-center gap-1">
+                <MessageSquare className="h-3.5 w-3.5" /> {ticket.comments}
+              </span>
+            ) : null}
+          </div>
+        </div>
+      </button>
+      <div className="flex justify-end gap-1 pt-1">
+        <button
+          type="button"
+          onClick={() => onMove(ticket.id, -1)}
+          disabled={!canMoveUp}
+          className="rounded-md p-1 text-muted-foreground transition hover:bg-card hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30"
+          aria-label={`Move ${ticket.id} up`}
+          data-testid={`move-ticket-up-${ticket.id}`}
+        >
+          <ArrowUp className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={() => onMove(ticket.id, 1)}
+          disabled={!canMoveDown}
+          className="rounded-md p-1 text-muted-foreground transition hover:bg-card hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30"
+          aria-label={`Move ${ticket.id} down`}
+          data-testid={`move-ticket-down-${ticket.id}`}
+        >
+          <ArrowDown className="h-3.5 w-3.5" />
+        </button>
       </div>
-    </button>
+    </div>
   );
 }
 
 export default function ProjectBoard() {
   const [tickets, setTickets] = useState(loadTickets);
+  const [columnOrder, setColumnOrder] = useState(loadColumnOrder);
   const [search, setSearch] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("all");
-  const [sortBy, setSortBy] = useState("newest");
+  const [sortBy, setSortBy] = useState("manual");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [activeTicket, setActiveTicket] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -196,6 +229,14 @@ export default function ProjectBoard() {
     }
   }, [tickets]);
 
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(COLUMN_ORDER_STORAGE_KEY, JSON.stringify(columnOrder));
+    } catch (error) {
+      console.error("Could not save project board column order.", error);
+    }
+  }, [columnOrder]);
+
   const visibleTickets = useMemo(() => {
     const query = search.trim().toLowerCase();
     return tickets.filter((ticket) => {
@@ -210,11 +251,12 @@ export default function ProjectBoard() {
   const orderedTickets = useMemo(() => {
     const priorityRank = Object.fromEntries(PRIORITIES.map((priority, index) => [priority, index]));
     return [...visibleTickets].sort((a, b) => {
+      if (sortBy === "manual") return tickets.indexOf(a) - tickets.indexOf(b);
       if (sortBy === "priority") return priorityRank[a.priority] - priorityRank[b.priority];
       if (sortBy === "alphabetical") return a.title.localeCompare(b.title);
       return (b.createdAt || "").localeCompare(a.createdAt || "");
     });
-  }, [visibleTickets, sortBy]);
+  }, [tickets, visibleTickets, sortBy]);
 
   const openNewTicket = (status = "todo") => {
     setActiveTicket(null);
@@ -284,6 +326,36 @@ export default function ProjectBoard() {
       ticket.id === ticketId ? { ...ticket, status } : ticket
     )));
   }, []);
+
+  const moveTicketWithinColumn = (ticketId, direction) => {
+    setSortBy("manual");
+    setTickets((current) => {
+      const ticketIndex = current.findIndex((ticket) => ticket.id === ticketId);
+      if (ticketIndex < 0) return current;
+      const status = current[ticketIndex].status;
+      const columnIndexes = current
+        .map((ticket, index) => (ticket.status === status ? index : -1))
+        .filter((index) => index >= 0);
+      const position = columnIndexes.indexOf(ticketIndex);
+      const nextPosition = position + direction;
+      if (position < 0 || nextPosition < 0 || nextPosition >= columnIndexes.length) return current;
+      const next = [...current];
+      const nextIndex = columnIndexes[nextPosition];
+      [next[ticketIndex], next[nextIndex]] = [next[nextIndex], next[ticketIndex]];
+      return next;
+    });
+  };
+
+  const moveColumn = (columnId, direction) => {
+    setColumnOrder((current) => {
+      const currentIndex = current.indexOf(columnId);
+      const nextIndex = currentIndex + direction;
+      if (currentIndex < 0 || nextIndex < 0 || nextIndex >= current.length) return current;
+      const next = [...current];
+      [next[currentIndex], next[nextIndex]] = [next[nextIndex], next[currentIndex]];
+      return next;
+    });
+  };
 
   const beginCardDrag = (event, ticketId) => {
     if (event.button !== 0) return;
@@ -441,6 +513,7 @@ export default function ProjectBoard() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="manual">Manual order</SelectItem>
                 <SelectItem value="newest">Recently added</SelectItem>
                 <SelectItem value="priority">Priority</SelectItem>
                 <SelectItem value="alphabetical">Alphabetical</SelectItem>
@@ -456,7 +529,8 @@ export default function ProjectBoard() {
 
       <div className="-mx-1 overflow-x-auto px-1 pb-3" data-testid="project-board-scroll">
         <div className="grid min-h-[min(64vh,720px)] grid-flow-col auto-cols-[minmax(248px,1fr)] gap-3">
-          {COLUMNS.map((column) => {
+          {columnOrder.map((columnId, columnIndex) => {
+            const column = COLUMNS.find((item) => item.id === columnId);
             const columnTickets = orderedTickets.filter((ticket) => ticket.status === column.id);
             return (
               <section
@@ -483,6 +557,26 @@ export default function ProjectBoard() {
                     </button>
                     <button
                       type="button"
+                      onClick={() => moveColumn(column.id, -1)}
+                      disabled={columnIndex === 0}
+                      className="rounded-md p-1 text-muted-foreground transition hover:bg-card hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30"
+                      aria-label={`Move ${column.name} left`}
+                      data-testid={`move-column-left-${column.id}`}
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveColumn(column.id, 1)}
+                      disabled={columnIndex === columnOrder.length - 1}
+                      className="rounded-md p-1 text-muted-foreground transition hover:bg-card hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30"
+                      aria-label={`Move ${column.name} right`}
+                      data-testid={`move-column-right-${column.id}`}
+                    >
+                      <ArrowRight className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
                       className="rounded-md p-1 text-muted-foreground transition hover:bg-card hover:text-foreground"
                       aria-label={`${column.name} options`}
                       onClick={() => toast.info(`${column.name} contains ${columnTickets.length} tickets.`)}
@@ -493,12 +587,15 @@ export default function ProjectBoard() {
                 </div>
 
                 <div className="flex flex-1 flex-col gap-2.5">
-                  {columnTickets.map((ticket) => (
+                  {columnTickets.map((ticket, ticketIndex) => (
                     <TicketCard
                       key={ticket.id}
                       ticket={ticket}
                       onPointerDown={beginCardDrag}
                       onClick={handleCardClick}
+                      onMove={moveTicketWithinColumn}
+                      canMoveUp={ticketIndex > 0}
+                      canMoveDown={ticketIndex < columnTickets.length - 1}
                     />
                   ))}
                   {columnTickets.length === 0 ? (
