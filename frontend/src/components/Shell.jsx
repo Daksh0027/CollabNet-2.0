@@ -1,0 +1,315 @@
+import { lazy, Suspense, useRef, useState } from "react";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { motion, useReducedMotion } from "motion/react";
+import {
+  LayoutDashboard,
+  Compass,
+  MessagesSquare,
+  Megaphone,
+  Columns3,
+  Users,
+  FileSignature,
+  CalendarDays,
+  CircleUserRound,
+  Download,
+  LogOut,
+  Menu,
+  ShieldCheck,
+} from "lucide-react";
+import api from "@/lib/api";
+import { useAuth } from "@/lib/auth";
+import { UserAvatar } from "@/components/common";
+import { DashboardSidebar } from "@/components/application/dashboard/dashboard-sidebar";
+import { AccountSettingsTrigger } from "@/components/application/settings/AccountSettingsTrigger";
+import { NotificationBell } from "@/components/application/notifications/notification-bell";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+const LazySettingsModal = lazy(() =>
+  import("@/components/application/settings/settings-modal").then((module) => ({
+    default: module.SettingsModal,
+  })),
+);
+
+const navId = (label) => label.toLowerCase().replace(/[^a-z]+/g, "-");
+
+const NAV = [
+  { to: "/app/overview", label: "Overview", icon: LayoutDashboard },
+  { to: "/app/explore", label: "Explore", icon: Compass },
+  {
+    to: "/app/collaborators",
+    label: "Connect",
+    icon: Users,
+    creatorOnly: true,
+  },
+  {
+    to: "/app/messages",
+    label: "Messages",
+    icon: MessagesSquare,
+    badgeType: "messages",
+  },
+  { to: "/app/campaigns", label: "Campaigns & Events", icon: Megaphone },
+  { to: "/app/contracts", label: "Contracts", icon: FileSignature },
+  { to: "/app/calendar", label: "Calendar", icon: CalendarDays },
+  { to: "/app/project-board", label: "Project Board", icon: Columns3 },
+  { to: "/app/moderation", label: "Moderation", icon: ShieldCheck, adminOnly: true },
+];
+
+export default function Shell() {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsMounted, setSettingsMounted] = useState(false);
+  const shouldReduceMotion = useReducedMotion();
+  const { user, logout } = useAuth();
+  const accountMenuTriggerRef = useRef(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { data: modMe } = useQuery({
+    queryKey: ["moderation-me"],
+    queryFn: async () => (await api.get("/moderation/me")).data,
+    staleTime: 5 * 60 * 1000,
+  });
+  const visibleNav = NAV.filter(
+    (item) =>
+      (!item.creatorOnly || user?.role === "creator") &&
+      (!item.adminOnly || modMe?.is_admin),
+  ).map((item) => {
+    if (user?.role !== "creator") return item;
+    if (item.to === "/app/overview") return { ...item, label: "Dashboard" };
+    if (item.to === "/app/campaigns")
+      return { ...item, label: "My Applications" };
+    return item;
+  });
+  const isFullBleed = location.pathname.startsWith("/app/messages");
+  const isProjectBoard = location.pathname === "/app/project-board";
+  const { data: threads } = useQuery({
+    queryKey: ["threads"],
+    queryFn: async () => (await api.get("/threads")).data,
+    refetchInterval: 20000,
+  });
+
+  const unreadChatsCount =
+    threads?.filter((t) => (t.unread || 0) > 0).length || 0;
+  const activeNav = visibleNav.find(
+    ({ to }) =>
+      location.pathname === to || location.pathname.startsWith(`${to}/`),
+  );
+  const sidebarItems = visibleNav.map(
+    ({ to, label, icon: Icon, badgeType }) => {
+      const badge = badgeType === "messages" ? unreadChatsCount : 0;
+      return {
+        key: to,
+        label,
+        icon: Icon,
+        href: to,
+        testId: `nav-${navId(label)}`,
+        ...(badge > 0 && {
+          badge,
+          badgeTestId: "nav-messages-badge",
+        }),
+      };
+    },
+  );
+
+  return (
+    <div className="min-h-screen lg:flex">
+      <DashboardSidebar
+        className="fixed inset-y-3 left-3 z-30 hidden h-[calc(100dvh-1.5rem)] lg:flex"
+        items={sidebarItems}
+        selected={activeNav?.to}
+        onCollapsedChange={setSidebarCollapsed}
+        headerContent={
+          <div className="flex items-center gap-2 px-1">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary font-display text-sm font-bold text-primary-foreground">
+              C
+            </div>
+            <span className="truncate font-display text-sm font-semibold tracking-wide">
+              CollaboNet
+            </span>
+          </div>
+        }
+        footerContent={
+          <div className="w-full border-t border-border pt-3">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  ref={accountMenuTriggerRef}
+                  className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-secondary"
+                  data-testid="sidebar-user-menu"
+                >
+                  <UserAvatar user={user} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">
+                      {user?.display_name}
+                    </p>
+                    <p className="truncate text-xs capitalize text-muted-foreground">
+                      {user?.role === "company"
+                        ? "Company / Sponsor"
+                        : "Creator"}
+                    </p>
+                  </div>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-52">
+                <DropdownMenuItem
+                  onClick={() => navigate("/app/account")}
+                  data-testid="menu-profile"
+                >
+                  <CircleUserRound className="mr-2 h-4 w-4" /> Profile
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild data-testid="menu-download-source">
+                  <a
+                    href={`${process.env.REACT_APP_BACKEND_URL}/api/download/source`}
+                    download="collabonet-code.zip"
+                  >
+                    <Download className="mr-2 h-4 w-4" /> Download code (.zip)
+                  </a>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild data-testid="menu-account">
+                  <AccountSettingsTrigger
+                    onClick={() => {
+                      setSettingsMounted(true);
+                      setSettingsOpen(true);
+                    }}
+                  />
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={logout}
+                  className="text-red-600 dark:text-red-400"
+                  data-testid="menu-logout"
+                >
+                  <LogOut className="mr-2 h-4 w-4" /> Log out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        }
+      />
+
+      <header
+        className="sticky top-0 z-20 flex items-center justify-between border-b border-border bg-background px-4 py-3 lg:hidden"
+        data-testid="mobile-header"
+      >
+        <div className="flex items-center gap-2">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary font-display text-xs font-bold text-primary-foreground">
+            C
+          </div>
+          <span className="font-display text-xs font-semibold tracking-wide">
+            CollaboNet
+          </span>
+        </div>
+        <div className="flex items-center gap-1">
+          <NotificationBell />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className="rounded-lg p-2 hover:bg-secondary"
+                data-testid="mobile-menu-button"
+              >
+                <Menu className="h-5 w-5" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="w-56"
+              data-testid="mobile-menu-content"
+            >
+              {visibleNav.map(({ to, label, icon: Icon }) => (
+                <DropdownMenuItem
+                  key={to}
+                  onClick={() => navigate(to)}
+                  data-testid={`mobile-menu-${navId(label)}`}
+                >
+                  <Icon className="mr-2 h-4 w-4" /> {label}
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuItem
+                onClick={() => navigate("/app/account")}
+                data-testid="mobile-menu-profile"
+              >
+                <CircleUserRound className="mr-2 h-4 w-4" /> Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild data-testid="mobile-menu-download-source">
+                <a
+                  href={`${process.env.REACT_APP_BACKEND_URL}/api/download/source`}
+                  download="collabonet-code.zip"
+                >
+                  <Download className="mr-2 h-4 w-4" /> Download code (.zip)
+                </a>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={logout}
+                className="text-red-600 dark:text-red-400"
+                data-testid="mobile-menu-logout"
+              >
+                <LogOut className="mr-2 h-4 w-4" /> Log out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </header>
+
+      <motion.div
+        className="hidden shrink-0 lg:block"
+        aria-hidden="true"
+        initial={false}
+        animate={{ width: sidebarCollapsed ? 84 : 284 }}
+        transition={{
+          duration: shouldReduceMotion ? 0 : 0.3,
+          ease: [0.32, 0.72, 0, 1],
+        }}
+        data-testid="sidebar-content-spacer"
+      />
+
+      <main
+        className={`min-w-0 flex-1 ${
+          isFullBleed
+            ? "h-[calc(100dvh-57px)] lg:h-screen overflow-hidden p-0"
+            : isProjectBoard
+              ? "px-4 py-5 sm:px-6 lg:px-6 lg:py-6"
+              : "px-4 py-6 sm:px-6 lg:px-8 lg:py-8"
+        }`}
+        data-testid="app-main"
+      >
+        {isFullBleed ? (
+          <div className="h-full w-full">
+            <Outlet />
+          </div>
+        ) : (
+          <>
+            <div className="mb-2 hidden justify-end lg:flex">
+              <NotificationBell />
+            </div>
+            <div
+              className={
+                isProjectBoard
+                  ? "w-full max-w-none rise"
+                  : "mx-auto max-w-6xl rise"
+              }
+            >
+              <Outlet />
+            </div>
+          </>
+        )}
+      </main>
+      {settingsMounted ? (
+        <Suspense fallback={null}>
+          <LazySettingsModal
+            isOpen={settingsOpen}
+            onClose={() => {
+              setSettingsOpen(false);
+              requestAnimationFrame(() =>
+                accountMenuTriggerRef.current?.focus(),
+              );
+            }}
+          />
+        </Suspense>
+      ) : null}
+    </div>
+  );
+}

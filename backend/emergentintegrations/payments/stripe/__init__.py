@@ -1,0 +1,1 @@
+"""Stripe integration compatibility layer."""
