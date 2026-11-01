@@ -399,6 +399,7 @@ async def list_creators(request: Request, search: str = "", niche: str = "", pla
             "rates": rates, "stats": c.get("stats", {}),
             "rate_from": min([v for v in rates.values() if v], default=0),
             "top_followers": followers,
+            "content": c.get("content", []),
         })
     out.sort(key=lambda x: x["top_followers"], reverse=True)
     return out
@@ -1421,12 +1422,12 @@ async def seed():
     if await db.users.count_documents({}) > 0:
         return
 
-    def creator_doc(name, email, niche, platforms, rates, location, stats, bio, pitch):
+    def creator_doc(name, email, niche, platforms, rates, location, stats, bio, pitch, content=None):
         return build_new_user(email, name, "") | {
             "role": "creator", "verified": True, "verified_at": iso_offset(-20),
             "creator": {"niche": niche, "bio": bio, "pitch": pitch, "location": location,
                         "platforms": [{"platform": p, "handle": h, "followers": f} for p, h, f in platforms],
-                        "rates": rates, "stats": stats}}
+                        "rates": rates, "stats": stats, "content": content or []}}
 
     def company_doc(name, email, rep, company, industry, employees, about, req):
         return build_new_user(email, rep, "") | {
@@ -1442,37 +1443,55 @@ async def seed():
                     {"post": 800, "video": 2500, "story": 350}, "Austin, USA",
                     {"avg_views": 240000, "engagement": 4.8},
                     "Hands-on reviews of consumer tech and smart-home gear.",
-                    "I turn product launches into stories people actually finish watching."),
+                    "I turn product launches into stories people actually finish watching.",
+                    [{"content_id": uid("cnt"), "type": "reel", "duration_seconds": 42,
+                      "caption": "Less clutter. More focus.",
+                      "media_url": "https://picsum.photos/seed/maya-focus/640/800"}]),
         creator_doc("Dario Velez", "dario.velez@collabonet.demo", "Travel",
                     [("YouTube", "@darioabroad", 420000), ("Instagram", "@dario.velez", 95000)],
                     {"post": 600, "video": 1800, "story": 250}, "Lisbon, Portugal",
                     {"avg_views": 150000, "engagement": 5.6},
                     "Slow-travel films and hidden-city guides.",
-                    "Cinematic travel films that put brands inside the journey."),
+                    "Cinematic travel films that put brands inside the journey.",
+                    [{"content_id": uid("cnt"), "type": "video", "duration_seconds": 184,
+                      "caption": "The slower side of summer",
+                      "media_url": "https://picsum.photos/seed/dario-summer/640/800"}]),
         creator_doc("Priya Nair", "priya.nair@collabonet.demo", "Beauty & Skincare",
                     [("Instagram", "@priyaglow", 950000), ("YouTube", "@priyanair", 210000)],
                     {"post": 1200, "video": 3000, "story": 500}, "Mumbai, India",
                     {"avg_views": 180000, "engagement": 6.2},
                     "Skincare science, ingredient breakdowns and routines.",
-                    "Ingredient-first beauty content with a loyal, high-trust audience."),
+                    "Ingredient-first beauty content with a loyal, high-trust audience.",
+                    [{"content_id": uid("cnt"), "type": "reel", "duration_seconds": 125,
+                      "caption": "A little glow goes a long way",
+                      "media_url": "https://picsum.photos/seed/priya-glow/640/800"}]),
         creator_doc("Jonas Weber", "jonas.weber@collabonet.demo", "Fitness",
                     [("YouTube", "@jonaslifts", 310000), ("Instagram", "@jonas.weber", 180000)],
                     {"post": 550, "video": 1400, "story": 200}, "Berlin, Germany",
                     {"avg_views": 120000, "engagement": 5.1},
                     "Strength training, running and recovery.",
-                    "Evidence-based fitness with a community that shows up daily."),
+                    "Evidence-based fitness with a community that shows up daily.",
+                    [{"content_id": uid("cnt"), "type": "video", "duration_seconds": 356,
+                      "caption": "Find your everyday pace",
+                      "media_url": "https://picsum.photos/seed/jonas-pace/640/800"}]),
         creator_doc("Sofia Ramos", "sofia.ramos@collabonet.demo", "Food & Cooking",
                     [("Instagram", "@sofiacooks", 540000), ("TikTok", "@sofiacooks", 700000)],
                     {"post": 700, "video": 1900, "story": 300}, "Mexico City, Mexico",
                     {"avg_views": 300000, "engagement": 7.0},
                     "Home cooking, street food and kitchen gadgets.",
-                    "Food content that makes audiences cook, not just scroll."),
+                    "Food content that makes audiences cook, not just scroll.",
+                    [{"content_id": uid("cnt"), "type": "photo",
+                      "caption": "Sunday, served fresh",
+                      "media_url": "https://picsum.photos/seed/sofia-sunday/640/800"}]),
         creator_doc("Leo Tanaka", "leo.tanaka@collabonet.demo", "Gaming",
                     [("Twitch", "@leoplays", 220000), ("YouTube", "@leoplays", 190000)],
                     {"post": 400, "video": 1100, "story": 180}, "Osaka, Japan",
                     {"avg_views": 90000, "engagement": 8.3},
                     "Competitive play, reviews and live streams.",
-                    "High-energy streams with the most chat-active audience on Twitch."),
+                    "High-energy streams with the most chat-active audience on Twitch.",
+                    [{"content_id": uid("cnt"), "type": "reel", "duration_seconds": 58,
+                      "caption": "Ready for the next level",
+                      "media_url": "https://picsum.photos/seed/leo-nextlevel/640/800"}]),
     ]
     companies = [
         company_doc("Elena Brand", "elena.brand@collabonet.demo", "Elena Brand", "Nova Athletics",
