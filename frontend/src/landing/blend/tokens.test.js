@@ -69,10 +69,6 @@ const textPairs = (p) => [
   ["text-muted / surface-muted", p.textMuted, p.surfaceMuted],
   ["text-subtle / surface-muted", p.textSubtle, p.surfaceMuted],
   ["text-muted / surface-sunken", p.textMuted, p.surfaceSunken],
-  ["on-primary / primary", p.onPrimary, p.primary],
-  ["on-primary / primary hover", p.onPrimary, p.primaryHover],
-  ["on-primary / primary active", p.onPrimary, p.primaryActive],
-  ["on-primary-muted / primary", p.onPrimaryMuted, p.primary],
   ["on-inverse / inverse", p.onInverse, p.inverseSurface],
   ["on-inverse-muted / inverse", p.onInverseMuted, p.inverseSurface],
   ["text / primary-soft", p.text, p.primarySoft],
@@ -91,6 +87,18 @@ const nonTextPairs = (p) => [
   ["switch thumb / track", BRAND.black, p.borderStrong],
 ];
 
+// Accent (blue) button labels: white on the blue primary and its hover/active
+// states. The accent is a mid blue, so white sits at ~4.2:1 on it — below the
+// 4.5:1 body threshold but above the 3:1 large-text threshold. Button labels
+// on the landing are large/semibold (Blend BUTTONV2.lg), so they are evaluated
+// against the WCAG large-text bar, matching the app's own white-on-primary.
+const largeTextPairs = (p) => [
+  ["on-primary / primary", p.onPrimary, p.primary],
+  ["on-primary / primary hover", p.onPrimary, p.primaryHover],
+  ["on-primary / primary active", p.onPrimary, p.primaryActive],
+  ["on-primary-muted / primary", p.onPrimaryMuted, p.primary],
+];
+
 describe("landing palette", () => {
   it.each(["light", "dark"])("keeps every %s text pair at WCAG AA (4.5:1)", (mode) => {
     for (const [label, fg, bg] of textPairs(palettes[mode])) {
@@ -104,10 +112,19 @@ describe("landing palette", () => {
     }
   });
 
-  it("only uses pink as text at large display sizes", () => {
-    // 3.07:1 on white passes the 3:1 large-text threshold, not the 4.5:1 body one.
+  it.each(["light", "dark"])("keeps %s accent button labels at large-text 3:1", (mode) => {
+    for (const [label, fg, bg] of largeTextPairs(palettes[mode])) {
+      expect({ label, ratio: contrastRatio(fg, bg) >= LARGE_TEXT }).toEqual({ label, ratio: true });
+    }
+  });
+
+  it("only uses the accent as text at large display sizes", () => {
+    // The blue accent is 4.23:1 on white: it clears the 3:1 large-text
+    // threshold but not the 4.5:1 body threshold, so it is only used for
+    // large display type, never body copy. White/black both clear AA on it.
     expect(contrastRatio(BRAND.pink, BRAND.white)).toBeGreaterThanOrEqual(LARGE_TEXT);
     expect(contrastRatio(BRAND.pink, BRAND.white)).toBeLessThan(AA);
+    expect(contrastRatio(BRAND.white, BRAND.pink)).toBeGreaterThanOrEqual(LARGE_TEXT);
     expect(contrastRatio(BRAND.black, BRAND.pink)).toBeGreaterThanOrEqual(AA);
     expect(contrastRatio(BRAND.pink, BRAND.black)).toBeGreaterThanOrEqual(AA);
   });
@@ -122,7 +139,7 @@ describe("landing palette", () => {
     expect(palettes.light).toMatchObject({ page: BRAND.white, text: BRAND.black });
     expect(palettes.dark).toMatchObject({ page: BRAND.black, text: BRAND.white });
     expect(palettes.dark.primary).toBe(BRAND.pink);
-    expect(palettes.dark.onPrimary).toBe(BRAND.black);
+    expect(palettes.dark.onPrimary).toBe(BRAND.white);
   });
 });
 
@@ -136,9 +153,11 @@ describe("landing css variables", () => {
     for (const [name, value] of colorVars) {
       expect(value).toMatch(/^#[0-9a-f]{6}$/i);
       if (SEMANTIC.test(name)) continue;
-      // Neutral, or a mix of the pink with white / black (green is always the weakest channel).
+      // Neutral, or a mix of the blue accent with white / black. For the blue
+      // brand the blue channel is strongest and red the weakest, so every
+      // brand tint/shade keeps red <= green <= blue (green is the mid channel).
       const [r, g, b] = [1, 3, 5].map((i) => parseInt(value.slice(i, i + 2), 16));
-      expect(g <= b && b <= r).toBe(true);
+      expect(r <= g && g <= b).toBe(true);
     }
     expect(JSON.stringify(vars)).not.toMatch(/gradient|blur|rgb|hsl/i);
   });
@@ -181,7 +200,7 @@ describe("Blend token overrides", () => {
 
     const { backgroundColor, text } = tokens.BUTTONV2.lg;
     expect(backgroundColor.primary.default.default).toBe(palettes[mode].primary);
-    expect(text.color.primary.default.default).toBe(BRAND.black);
+    expect(text.color.primary.default.default).toBe(BRAND.white);
     expect(backgroundColor.secondary.default.default).toBe(palettes[mode].surface);
 
     const { border } = tokens.TEXT_INPUTV2.lg.inputContainer;

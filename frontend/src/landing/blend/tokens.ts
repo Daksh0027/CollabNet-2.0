@@ -18,7 +18,11 @@ import {
 export const BRAND = {
   white: "#ffffff",
   black: "#000000",
-  pink: "#ff45bc",
+  // Brand accent. Set to the app-wide Blend primary blue
+  // (oklch(0.592704 0.222246 260.830) == #2273ff) so the landing page
+  // matches the rest of the application's design system. The key name is
+  // kept as `pink` only to avoid churning the ~30 internal references below.
+  pink: "#2273ff",
 } as const;
 
 export const foundationToken = FOUNDATION_THEME;
@@ -157,8 +161,10 @@ const lightPalette: Palette = {
   primarySoft: mix(BRAND.white, BRAND.pink, 0.12),
   primaryMuted: mix(BRAND.white, BRAND.pink, 0.3),
   primaryLine: BRAND.pink,
-  onPrimary: BRAND.black,
-  onPrimaryMuted: mix(BRAND.pink, BRAND.black, 0.78),
+  // Blue brand: white reads on the accent (and on its darker hover/active
+  // states), matching the app's `--primary-foreground: white`.
+  onPrimary: BRAND.white,
+  onPrimaryMuted: mix(BRAND.pink, BRAND.white, 0.82),
   accentDisplay: BRAND.pink,
 
   inverseSurface: BRAND.black,
@@ -194,13 +200,15 @@ const darkPalette: Palette = {
   focus: BRAND.white,
 
   primary: BRAND.pink,
-  primaryHover: mix(BRAND.pink, BRAND.white, 0.12),
-  primaryActive: mix(BRAND.pink, BRAND.white, 0.22),
+  primaryHover: mix(BRAND.pink, BRAND.black, 0.1),
+  primaryActive: mix(BRAND.pink, BRAND.black, 0.18),
   primarySoft: mix(BRAND.black, BRAND.pink, 0.2),
   primaryMuted: mix(BRAND.black, BRAND.pink, 0.38),
   primaryLine: BRAND.pink,
-  onPrimary: BRAND.black,
-  onPrimaryMuted: mix(BRAND.pink, BRAND.black, 0.78),
+  // Blue brand: keep white on the accent in dark mode too, and darken the
+  // hover/active states (toward black) so white text stays >= AA.
+  onPrimary: BRAND.white,
+  onPrimaryMuted: mix(BRAND.pink, BRAND.white, 0.82),
   accentDisplay: BRAND.pink,
 
   inverseSurface: BRAND.white,
