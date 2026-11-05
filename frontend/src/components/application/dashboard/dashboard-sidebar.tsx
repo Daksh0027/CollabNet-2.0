@@ -123,14 +123,14 @@ function NavItem({
         "flex items-center justify-between overflow-hidden rounded-2lg p-2",
         "transition-[width,background-color] duration-300 ease-in-out",
         collapsed ? "w-9" : "w-full",
-        isSelected ? "bg-accent" : "hover:bg-sidebar-accent",
+        isSelected ? "bg-primary text-primary-foreground" : "hover:bg-sidebar-accent",
       )}
     >
       <span className="flex min-w-0 items-center gap-2">
         <Icon
           className={cx(
             "size-5 shrink-0",
-            isSelected ? "text-foreground" : "text-foreground-icon-secondary",
+            isSelected ? "text-primary-foreground" : "text-foreground-icon-secondary",
           )}
           aria-hidden
         />
@@ -139,7 +139,7 @@ function NavItem({
             className={cx(
               "text-body-medium whitespace-nowrap",
               isSelected
-                ? "font-semibold text-foreground"
+                ? "font-semibold text-primary-foreground"
                 : "text-text-secondary",
             )}
           >

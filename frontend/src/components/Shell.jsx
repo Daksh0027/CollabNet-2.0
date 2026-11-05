@@ -126,7 +126,7 @@ export default function Shell() {
   );
 
   return (
-    <div className="min-h-screen lg:flex">
+    <div className="app-shell min-h-screen lg:flex">
       <DashboardSidebar
         className="fixed inset-y-3 left-3 z-30 hidden h-[calc(100dvh-1.5rem)] lg:flex"
         items={sidebarItems}
@@ -134,7 +134,7 @@ export default function Shell() {
         onCollapsedChange={setSidebarCollapsed}
         headerContent={
           <div className="flex items-center gap-2 px-1">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary font-display text-sm font-bold text-primary-foreground">
+            <div className="collabonet-logo flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary font-display text-sm font-bold text-primary-foreground">
               C
             </div>
             <span className="truncate font-display text-sm font-semibold tracking-wide">
@@ -191,7 +191,7 @@ export default function Shell() {
         data-testid="mobile-header"
       >
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary font-display text-xs font-bold text-primary-foreground">
+          <div className="collabonet-logo flex h-7 w-7 items-center justify-center rounded-lg bg-primary font-display text-xs font-bold text-primary-foreground">
             C
           </div>
           <span className="font-display text-xs font-semibold tracking-wide">

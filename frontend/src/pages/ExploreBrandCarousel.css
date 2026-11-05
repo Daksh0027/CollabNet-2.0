@@ -1,0 +1,52 @@
+.explore-brand-carousel {
+  position: relative;
+  isolation: isolate;
+}
+
+.explore-brand-carousel::before {
+  position: absolute;
+  z-index: -1;
+  inset: 12% 12% 18%;
+  border-radius: 999px;
+  background: radial-gradient(ellipse, oklch(var(--primary) / 0.075), transparent 68%);
+  content: "";
+  pointer-events: none;
+}
+
+.explore-brand-rail {
+  perspective: 1200px;
+  perspective-origin: center 42%;
+  scrollbar-width: none;
+  scroll-padding-inline: max(0px, calc((100% - min(86vw, 340px)) / 2));
+  touch-action: pan-x pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
+.explore-brand-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.explore-brand-track {
+  display: flex;
+  align-items: stretch;
+  gap: 0.75rem;
+  padding: 1.25rem max(0px, calc((100% - min(86vw, 340px)) / 2)) 1.5rem;
+  transform-style: preserve-3d;
+}
+
+.explore-brand-card {
+  flex: 0 0 min(86vw, 340px);
+  backface-visibility: hidden;
+  transform-origin: center 55%;
+  transition:
+    transform 420ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 320ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .explore-brand-card {
+    transition: none;
+  }
+}

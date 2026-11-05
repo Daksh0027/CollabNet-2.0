@@ -333,9 +333,23 @@ describe("Explore Page Serious Filters and Stats System", () => {
           total_spend: 42000,
         },
       },
+      {
+        camp_id: "cmp_2",
+        title: "Everyday Carry Stories",
+        brief: "Show how our new collection fits into your daily routine.",
+        deadline: "2026-12-20",
+        niches: ["Lifestyle"],
+        deliverables: ["1 Instagram reel"],
+        company: {
+          user_id: "usr_sora",
+          display_name: "Sora Goods",
+          industry: "Accessories",
+          connections_count: 7,
+        },
+      },
     ];
 
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
     qc.setQueryData(["campaigns", "", "all", "all", "all"], mockCampaigns);
     qc.setQueryData(["applications"], []);
     qc.setQueryData(["saved-opportunities"], []);
@@ -354,9 +368,18 @@ describe("Explore Page Serious Filters and Stats System", () => {
     expect(container.querySelector('[data-testid="opportunities-recommended-tab"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="my-applications-shortcut"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="campaign-card-cmp_1"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="brand-card-carousel"]')?.className).toContain("overflow-x-auto");
+    expect(container.querySelector('[data-testid="brand-carousel-prev"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="brand-carousel-next"]')).not.toBeNull();
     expect(container.textContent).toContain("Nova Athletics");
+    expect(container.querySelectorAll("[data-brand-card]")).toHaveLength(2);
     expect(container.textContent).toContain("15 connections");
     expect(container.textContent).toContain("Sponsorship opportunity");
+    expect(container.querySelector('[data-testid="campaign-card-cmp_1"]').getAttribute("aria-current")).toBe("true");
+    await act(async () => {
+      container.querySelector('[data-testid="brand-carousel-next"]').click();
+    });
+    expect(container.querySelector('[data-testid="campaign-card-cmp_2"]').getAttribute("aria-current")).toBe("true");
     expect(container.textContent).not.toContain("12,000");
     // Public budget inputs are cleanly removed
     expect(container.querySelector('[data-testid="campaign-min-budget-input"]')).toBeNull();

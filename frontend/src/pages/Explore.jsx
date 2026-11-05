@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import {
   Bookmark, Check, Loader2, MessageSquare, Search, Sparkles, Users, SlidersHorizontal,
   X, RotateCcw, TrendingUp, Eye, Star, Layers, ShieldCheck, DollarSign,
   Building2, Video, CheckCircle2, ChevronDown, ExternalLink, Briefcase,
-  Pin, FolderGit2, BookOpen, Hash, Tag
+  Pin, FolderGit2, BookOpen, Hash, Tag, ChevronLeft, ChevronRight
 } from "lucide-react";
 import { toast } from "sonner";
 import api, { fmtMoney, fmtNum, fmtDate } from "@/lib/api";
@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CreatorFiltersDrawer from "./CreatorFiltersDrawer";
+import "./ExploreBrandCarousel.css";
 
 export const NICHES = [
   "Tech & Gadgets",
@@ -651,7 +652,7 @@ function CompanyExplore() {
                     {c.platforms?.map((p) => (
                       <span
                         key={p.platform}
-                        className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground"
+                        className="creator-platform-badge inline-flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground"
                       >
                         <span className="font-semibold text-foreground">{p.platform}:</span>
                         <span className="font-num text-primary">{fmtNum(p.followers)}</span>
@@ -1209,6 +1210,9 @@ function CompanyExplore() {
 function CreatorExplore() {
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const brandCardsRef = useRef(null);
+  const brandScrollTimeoutRef = useRef(null);
+  const [activeBrandIndex, setActiveBrandIndex] = useState(0);
 
   const [search, setSearch] = useState("");
   const [niche, setNiche] = useState("all");
@@ -1263,6 +1267,73 @@ function CreatorExplore() {
       : campaigns || [],
     [campaigns, opportunityTab, savedIds]
   );
+  const visibleCampaignKey = visibleCampaigns.map((campaign) => campaign.camp_id).join("|");
+
+  useEffect(() => {
+    setActiveBrandIndex(0);
+    if (brandCardsRef.current) brandCardsRef.current.scrollLeft = 0;
+  }, [visibleCampaignKey]);
+
+  useEffect(
+    () => () => window.clearTimeout(brandScrollTimeoutRef.current),
+    []
+  );
+
+  const scrollToBrand = (index) => {
+    const rail = brandCardsRef.current;
+    const cards = rail?.querySelectorAll("[data-brand-card]");
+    if (!rail || !cards?.length) return;
+
+    const nextIndex = (index + cards.length) % cards.length;
+    setActiveBrandIndex(nextIndex);
+    const card = cards[nextIndex];
+    const railBounds = rail.getBoundingClientRect();
+    const cardBounds = card.getBoundingClientRect();
+    const left =
+      rail.scrollLeft +
+      cardBounds.left -
+      railBounds.left -
+      (rail.clientWidth - cardBounds.width) / 2;
+    if (typeof rail.scrollTo === "function") {
+      rail.scrollTo({ left: Math.max(0, left), behavior: "smooth" });
+    } else {
+      rail.scrollLeft = Math.max(0, left);
+    }
+  };
+
+  const handleBrandRailScroll = () => {
+    window.clearTimeout(brandScrollTimeoutRef.current);
+    brandScrollTimeoutRef.current = window.setTimeout(() => {
+      const rail = brandCardsRef.current;
+      const cards = rail?.querySelectorAll("[data-brand-card]");
+      if (!rail || !cards?.length) return;
+
+      const railCenter = rail.getBoundingClientRect().left + rail.clientWidth / 2;
+      let closestIndex = 0;
+      let closestDistance = Infinity;
+      cards.forEach((card, index) => {
+        const bounds = card.getBoundingClientRect();
+        const distance = Math.abs(bounds.left + bounds.width / 2 - railCenter);
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestIndex = index;
+        }
+      });
+      setActiveBrandIndex((current) =>
+        current === closestIndex ? current : closestIndex
+      );
+    }, 90);
+  };
+
+  const handleBrandRailKeyDown = (event) => {
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      scrollToBrand(activeBrandIndex + 1);
+    } else if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      scrollToBrand(activeBrandIndex - 1);
+    }
+  };
 
   const apply = async () => {
     if (!applyFor) return;
@@ -1421,98 +1492,151 @@ function CreatorExplore() {
           testId="campaigns-empty"
         />
       ) : (
-        <div className="grid gap-4" data-testid="campaigns-feed">
-          {visibleCampaigns.map((c) => (
-            <div
-              key={c.camp_id}
-              className="rounded-2xl border border-border bg-card p-6 shadow-xs transition-colors hover:border-primary/40"
-              data-testid={`campaign-card-${c.camp_id}`}
-            >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <UserAvatar user={c.company} className="h-12 w-12 rounded-xl ring-1 ring-border" />
-                  <div>
-                    <h3 className="font-display text-base font-semibold text-foreground">{c.title}</h3>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                      <span className="font-medium text-foreground">{c.company?.display_name}</span>
-                      {c.company?.industry && <span>· {c.company.industry}</span>}
-                      <span>· apply by {fmtDate(c.deadline)}</span>
-                    </div>
-
-                    <div className="mt-1.5 flex items-center gap-3 text-[11px] text-muted-foreground">
-                      <span className="inline-flex items-center gap-1 font-medium text-foreground">
-                        <Users className="h-3 w-3 text-primary" />
-                        {c.company?.connections_count || 0} connections
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-2">
-                  <span className="inline-flex items-center rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-semibold text-primary">
-                    Sponsorship opportunity
-                  </span>
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    aria-label={savedIds.has(c.camp_id) ? `Unsave ${c.title}` : `Save ${c.title}`}
-                    onClick={() => toggleSaved(c)}
-                    data-testid={`save-opportunity-${c.camp_id}`}
-                  >
-                    <Bookmark className={`h-4 w-4 ${savedIds.has(c.camp_id) ? "fill-current text-primary" : ""}`} />
-                  </Button>
-                </div>
-                <div className="text-right">
-                  <div className="mt-1 flex justify-end">
-                    {appliedCampIds.has(c.camp_id) ? <StatusPill status={applicationByCampaign.get(c.camp_id)?.status} /> : null}
-                  </div>
-                </div>
-              </div>
-
-              <p className="mt-4 line-clamp-3 text-sm leading-relaxed text-muted-foreground">{c.brief}</p>
-
-              {/* Deliverables and Niches */}
-              <div className="mt-4 flex flex-wrap gap-1.5">
-                {c.deliverables.map((d, i) => (
-                  <span
-                    key={i}
-                    className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-3 py-1 text-[11px] font-medium text-muted-foreground"
-                  >
-                    <CheckCircle2 className="h-3 w-3 text-primary" />
-                    {d}
-                  </span>
-                ))}
-                {c.niches.map((n) => (
-                  <span
-                    key={n}
-                    className="rounded-full bg-primary/10 px-3 py-1 text-[11px] font-semibold text-primary"
-                  >
-                    {n}
-                  </span>
-                ))}
-              </div>
-
-              <div className="mt-5 flex items-center justify-between border-t border-border/50 pt-4">
-                <span className="text-xs text-muted-foreground">Deadline: {fmtDate(c.deadline)}</span>
-                <div className="flex gap-2">
-                  <Button type="button" variant="outline" size="sm" onClick={() => setDetailFor(c)} data-testid={`details-button-${c.camp_id}`}>
-                    View details
-                  </Button>
-                  {appliedCampIds.has(c.camp_id) ? (
-                    <Button variant="secondary" size="sm" className="rounded-full" disabled data-testid={`applied-button-${c.camp_id}`}>
-                      <Check className="mr-1 h-3.5 w-3.5" /> Applied
-                    </Button>
-                  ) : (
-                    <Button size="sm" className="rounded-full px-5" onClick={() => { setApplyFor(c); setReviewApplication(false); }} data-testid={`apply-button-${c.camp_id}`}>
-                      Apply
-                    </Button>
-                  )}
-                </div>
-              </div>
+        <section aria-label="Brand opportunities" data-testid="campaigns-feed">
+          <div className="mb-1 flex items-end justify-between gap-3">
+            <div>
+              <h2 className="font-display text-base font-semibold">Brands to explore</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {visibleCampaigns.length} {visibleCampaigns.length === 1 ? "opportunity" : "opportunities"} matching your filters
+              </p>
             </div>
-          ))}
-        </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <span className="font-num text-[11px] tabular-nums text-muted-foreground" aria-label={`Brand ${activeBrandIndex + 1} of ${visibleCampaigns.length}`}>
+                {String(activeBrandIndex + 1).padStart(2, "0")}
+                <span className="mx-1 text-border">/</span>
+                {String(visibleCampaigns.length).padStart(2, "0")}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 rounded-full"
+                aria-label="Scroll brand cards left"
+                onClick={() => scrollToBrand(activeBrandIndex - 1)}
+                data-testid="brand-carousel-prev"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 rounded-full"
+                aria-label="Scroll brand cards right"
+                onClick={() => scrollToBrand(activeBrandIndex + 1)}
+                data-testid="brand-carousel-next"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+          <div
+            ref={brandCardsRef}
+            className="explore-brand-carousel explore-brand-rail -mx-1 overflow-x-auto px-1 pb-3 snap-x snap-mandatory"
+            data-testid="brand-card-carousel"
+            aria-label="Brand opportunity carousel"
+            aria-roledescription="carousel"
+            role="list"
+            tabIndex={0}
+            onScroll={handleBrandRailScroll}
+            onKeyDown={handleBrandRailKeyDown}
+          >
+            <div className="explore-brand-track">
+              {visibleCampaigns.map((c, index) => {
+                const distance = index - activeBrandIndex;
+                const depth = Math.min(Math.abs(distance), 3);
+                return (
+                  <div
+                    key={c.camp_id}
+                    className="explore-brand-card group snap-center rounded-2xl border border-border bg-card p-4 shadow-xs hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-sm"
+                    data-testid={`campaign-card-${c.camp_id}`}
+                    data-brand-card
+                    aria-current={activeBrandIndex === index ? "true" : undefined}
+                    aria-label={`${c.company?.display_name || "Brand"}: ${c.title}`}
+                    style={{
+                      transform: `translateY(${depth * 5}px) translateZ(-${depth * 12}px) rotateY(${Math.sign(-distance) * Math.min(depth, 2) * 7}deg) scale(${1 - depth * 0.045})`,
+                      opacity: 1 - depth * 0.14,
+                      zIndex: 10 - depth,
+                    }}
+                    role="listitem"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <UserAvatar user={c.company} className="h-11 w-11 shrink-0 rounded-xl ring-1 ring-border" />
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-foreground">{c.company?.display_name || "Verified brand"}</p>
+                          <p className="mt-0.5 truncate text-xs text-muted-foreground">{c.company?.industry || "Brand partnership"}</p>
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1">
+                        {appliedCampIds.has(c.camp_id) ? <StatusPill status={applicationByCampaign.get(c.camp_id)?.status} /> : null}
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8"
+                          aria-label={savedIds.has(c.camp_id) ? `Unsave ${c.title}` : `Save ${c.title}`}
+                          onClick={() => toggleSaved(c)}
+                          data-testid={`save-opportunity-${c.camp_id}`}
+                        >
+                          <Bookmark className={`h-4 w-4 ${savedIds.has(c.camp_id) ? "fill-current text-primary" : ""}`} />
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 border-t border-border/70 pt-3">
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <span className="inline-flex items-center rounded-full border border-primary/20 bg-primary/5 px-2.5 py-1 text-[10px] font-semibold text-primary">
+                          Sponsorship opportunity
+                        </span>
+                        <span className="text-[11px] text-muted-foreground">
+                          {c.company?.connections_count || 0} connections
+                        </span>
+                      </div>
+                      <h3 className="line-clamp-2 min-h-10 font-display text-sm font-semibold text-foreground">{c.title}</h3>
+                      <p className="mt-2 line-clamp-3 min-h-[3.75rem] text-xs leading-relaxed text-muted-foreground">{c.brief}</p>
+
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {(c.deliverables || []).slice(0, 2).map((d, i) => (
+                          <span
+                            key={i}
+                            className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 text-[10px] font-medium text-muted-foreground"
+                          >
+                            <CheckCircle2 className="h-3 w-3 text-primary" />
+                            {d}
+                          </span>
+                        ))}
+                        {(c.niches || []).slice(0, 2).map((n) => (
+                          <span key={n} className="rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-semibold text-primary">
+                            {n}
+                          </span>
+                        ))}
+                      </div>
+
+                      <div className="mt-4 flex items-center justify-between gap-2 border-t border-border/50 pt-3">
+                        <span className="text-[11px] text-muted-foreground">Apply by {fmtDate(c.deadline)}</span>
+                        <div className="flex shrink-0 gap-1.5">
+                          <Button type="button" variant="outline" size="sm" className="h-8 px-2.5 text-xs" onClick={() => setDetailFor(c)} data-testid={`details-button-${c.camp_id}`}>
+                            Details
+                          </Button>
+                          {appliedCampIds.has(c.camp_id) ? (
+                            <Button variant="secondary" size="sm" className="h-8 rounded-full px-3 text-xs" disabled data-testid={`applied-button-${c.camp_id}`}>
+                              <Check className="mr-1 h-3.5 w-3.5" /> Applied
+                            </Button>
+                          ) : (
+                            <Button size="sm" className="h-8 rounded-full px-3 text-xs" onClick={() => { setApplyFor(c); setReviewApplication(false); }} data-testid={`apply-button-${c.camp_id}`}>
+                              Apply
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
       )}
 
       {/* Apply Dialog */}

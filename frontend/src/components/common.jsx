@@ -9,8 +9,14 @@ export function UserAvatar({ user, className = "h-9 w-9" }) {
     .slice(0, 2)
     .join("")
     .toUpperCase();
+  const avatarTone =
+    user?.display_name === "Maya Chen"
+      ? "avatar-tone-maya"
+      : user?.display_name === "Sofia Ramos"
+        ? "avatar-tone-sofia"
+        : "avatar-tone-blue";
   return (
-    <Avatar className={className}>
+    <Avatar className={`${className} collab-avatar ${avatarTone}`}>
       {user?.picture ? <AvatarImage src={user.picture} alt={initials} /> : null}
       <AvatarFallback className="bg-primary text-primary-foreground font-semibold text-xs">
         {initials}

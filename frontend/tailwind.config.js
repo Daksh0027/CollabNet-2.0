@@ -38,19 +38,21 @@ module.exports = {
       },
       colors: {
         "background-full": "oklch(var(--background) / <alpha-value>)",
-        "background-primary-default": "oklch(var(--card) / <alpha-value>)",
+        "background-primary-default": "rgb(var(--card-rgb) / <alpha-value>)",
         "background-primary-hover": "oklch(var(--accent) / <alpha-value>)",
         "background-secondary-default":
           "oklch(var(--secondary) / <alpha-value>)",
         "background-secondary-hover": "oklch(var(--secondary) / <alpha-value>)",
         "background-tertiary-default": "oklch(var(--muted) / <alpha-value>)",
         "background-tertiary-hover": "oklch(var(--accent) / <alpha-value>)",
-        "border-button-default": "oklch(var(--border) / <alpha-value>)",
-        "border-button-white": "oklch(var(--border) / <alpha-value>)",
+        "border-button-default":
+          "rgb(var(--line-rgb) / calc(0.12 * <alpha-value>))",
+        "border-button-white":
+          "rgb(var(--line-rgb) / calc(0.12 * <alpha-value>))",
         "border-button-hover": "oklch(var(--ring) / <alpha-value>)",
         "border-button-active": "oklch(var(--ring) / <alpha-value>)",
         "border-focus-ring": "oklch(var(--ring) / <alpha-value>)",
-        "text-primary": "oklch(var(--foreground) / <alpha-value>)",
+        "text-primary": "oklch(var(--primary-text) / <alpha-value>)",
         "text-secondary": "oklch(var(--muted-foreground) / <alpha-value>)",
         "text-tertiary": "oklch(var(--muted-foreground) / <alpha-value>)",
         "foreground-icon-secondary":
@@ -70,7 +72,7 @@ module.exports = {
         background: "oklch(var(--background) / <alpha-value>)",
         foreground: "oklch(var(--foreground) / <alpha-value>)",
         card: {
-          DEFAULT: "oklch(var(--card) / <alpha-value>)",
+          DEFAULT: "rgb(var(--card-rgb) / <alpha-value>)",
           foreground: "oklch(var(--card-foreground) / <alpha-value>)",
         },
         popover: {
@@ -93,8 +95,8 @@ module.exports = {
           DEFAULT: "oklch(var(--destructive) / <alpha-value>)",
           foreground: "oklch(var(--destructive-foreground) / <alpha-value>)",
         },
-        border: "oklch(var(--border) / <alpha-value>)",
-        input: "oklch(var(--input) / <alpha-value>)",
+        border: "rgb(var(--line-rgb) / calc(0.12 * <alpha-value>))",
+        input: "rgb(var(--line-rgb) / calc(0.12 * <alpha-value>))",
         ring: "oklch(var(--ring) / <alpha-value>)",
         chart: {
           1: "oklch(var(--chart-1) / <alpha-value>)",
@@ -112,7 +114,7 @@ module.exports = {
           accent: "oklch(var(--sidebar-accent) / <alpha-value>)",
           "accent-foreground":
             "oklch(var(--sidebar-accent-foreground) / <alpha-value>)",
-          border: "oklch(var(--sidebar-border) / <alpha-value>)",
+          border: "rgb(var(--line-rgb) / calc(0.12 * <alpha-value>))",
           ring: "oklch(var(--sidebar-ring) / <alpha-value>)",
         },
       },
@@ -121,7 +123,7 @@ module.exports = {
       // and ring-primary stay pink.
       textColor: {
         primary: {
-          DEFAULT: "oklch(var(--primary-text) / <alpha-value>)",
+          DEFAULT: "oklch(var(--primary) / <alpha-value>)",
         },
       },
       keyframes: {

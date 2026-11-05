@@ -1,0 +1,287 @@
+
+> frontend@0.1.0 start
+> craco start
+
+Starting the development server...
+
+Compiled with warnings.
+
+Failed to parse source map from 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),' file: Error: ENOENT: no such file or directory, open 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),'
+
+Search for the keywords to learn more about each warning.
+To ignore, add // eslint-disable-next-line to the line before.
+
+[1m[33mWARNING[39m[22m in [1m./node_modules/@juspay/blend-design-system/dist/assets/ts.worker-BI3Si-Nw.js[39m[22m
+[1mModule Warning (from ./node_modules/source-map-loader/dist/cjs.js):
+[1m[31mFailed[39m[22m[1m to parse source map from 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),' file: [1m[31mError[39m[22m[1m: ENOENT: no such file or directory, open 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),'[39m[22m
+
+webpack compiled with [1m[33m1 warning[39m[22m
+No issues found.
+Compiling...
+Compiled with warnings.
+
+Failed to parse source map from 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),' file: Error: ENOENT: no such file or directory, open 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),'
+
+Search for the keywords to learn more about each warning.
+To ignore, add // eslint-disable-next-line to the line before.
+
+[1m[33mWARNING[39m[22m in [1m./node_modules/@juspay/blend-design-system/dist/assets/ts.worker-BI3Si-Nw.js[39m[22m
+[1mModule Warning (from ./node_modules/source-map-loader/dist/cjs.js):
+[1m[31mFailed[39m[22m[1m to parse source map from 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),' file: [1m[31mError[39m[22m[1m: ENOENT: no such file or directory, open 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),'[39m[22m
+
+webpack compiled with [1m[33m1 warning[39m[22m
+Compiling...
+No issues found.
+Compiled with warnings.
+
+Failed to parse source map from 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),' file: Error: ENOENT: no such file or directory, open 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),'
+
+Search for the keywords to learn more about each warning.
+To ignore, add // eslint-disable-next-line to the line before.
+
+[1m[33mWARNING[39m[22m in [1m./node_modules/@juspay/blend-design-system/dist/assets/ts.worker-BI3Si-Nw.js[39m[22m
+[1mModule Warning (from ./node_modules/source-map-loader/dist/cjs.js):
+[1m[31mFailed[39m[22m[1m to parse source map from 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),' file: [1m[31mError[39m[22m[1m: ENOENT: no such file or directory, open 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),'[39m[22m
+
+webpack compiled with [1m[33m1 warning[39m[22m
+No issues found.
+Compiling...
+Compiled with warnings.
+
+Failed to parse source map from 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),' file: Error: ENOENT: no such file or directory, open 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),'
+
+Search for the keywords to learn more about each warning.
+To ignore, add // eslint-disable-next-line to the line before.
+
+[1m[33mWARNING[39m[22m in [1m./node_modules/@juspay/blend-design-system/dist/assets/ts.worker-BI3Si-Nw.js[39m[22m
+[1mModule Warning (from ./node_modules/source-map-loader/dist/cjs.js):
+[1m[31mFailed[39m[22m[1m to parse source map from 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),' file: [1m[31mError[39m[22m[1m: ENOENT: no such file or directory, open 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),'[39m[22m
+
+webpack compiled with [1m[33m1 warning[39m[22m
+No issues found.
+Compiling...
+Compiled with warnings.
+
+Failed to parse source map from 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),' file: Error: ENOENT: no such file or directory, open 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),'
+
+Search for the keywords to learn more about each warning.
+To ignore, add // eslint-disable-next-line to the line before.
+
+[1m[33mWARNING[39m[22m in [1m./node_modules/@juspay/blend-design-system/dist/assets/ts.worker-BI3Si-Nw.js[39m[22m
+[1mModule Warning (from ./node_modules/source-map-loader/dist/cjs.js):
+[1m[31mFailed[39m[22m[1m to parse source map from 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),' file: [1m[31mError[39m[22m[1m: ENOENT: no such file or directory, open 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),'[39m[22m
+
+webpack compiled with [1m[33m1 warning[39m[22m
+No issues found.
+Compiling...
+Compiled with warnings.
+
+Failed to parse source map from 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),' file: Error: ENOENT: no such file or directory, open 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),'
+
+Search for the keywords to learn more about each warning.
+To ignore, add // eslint-disable-next-line to the line before.
+
+[1m[33mWARNING[39m[22m in [1m./node_modules/@juspay/blend-design-system/dist/assets/ts.worker-BI3Si-Nw.js[39m[22m
+[1mModule Warning (from ./node_modules/source-map-loader/dist/cjs.js):
+[1m[31mFailed[39m[22m[1m to parse source map from 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),' file: [1m[31mError[39m[22m[1m: ENOENT: no such file or directory, open 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),'[39m[22m
+
+webpack compiled with [1m[33m1 warning[39m[22m
+No issues found.
+Compiling...
+Compiled with warnings.
+
+Failed to parse source map from 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),' file: Error: ENOENT: no such file or directory, open 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),'
+
+Search for the keywords to learn more about each warning.
+To ignore, add // eslint-disable-next-line to the line before.
+
+[1m[33mWARNING[39m[22m in [1m./node_modules/@juspay/blend-design-system/dist/assets/ts.worker-BI3Si-Nw.js[39m[22m
+[1mModule Warning (from ./node_modules/source-map-loader/dist/cjs.js):
+[1m[31mFailed[39m[22m[1m to parse source map from 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),' file: [1m[31mError[39m[22m[1m: ENOENT: no such file or directory, open 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),'[39m[22m
+
+webpack compiled with [1m[33m1 warning[39m[22m
+No issues found.
+Compiling...
+Compiled with warnings.
+
+Failed to parse source map from 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),' file: Error: ENOENT: no such file or directory, open 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),'
+
+Search for the keywords to learn more about each warning.
+To ignore, add // eslint-disable-next-line to the line before.
+
+[1m[33mWARNING[39m[22m in [1m./node_modules/@juspay/blend-design-system/dist/assets/ts.worker-BI3Si-Nw.js[39m[22m
+[1mModule Warning (from ./node_modules/source-map-loader/dist/cjs.js):
+[1m[31mFailed[39m[22m[1m to parse source map from 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),' file: [1m[31mError[39m[22m[1m: ENOENT: no such file or directory, open 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),'[39m[22m
+
+webpack compiled with [1m[33m1 warning[39m[22m
+No issues found.
+Compiling...
+Compiled with warnings.
+
+Failed to parse source map from 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),' file: Error: ENOENT: no such file or directory, open 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),'
+
+Search for the keywords to learn more about each warning.
+To ignore, add // eslint-disable-next-line to the line before.
+
+[1m[33mWARNING[39m[22m in [1m./node_modules/@juspay/blend-design-system/dist/assets/ts.worker-BI3Si-Nw.js[39m[22m
+[1mModule Warning (from ./node_modules/source-map-loader/dist/cjs.js):
+[1m[31mFailed[39m[22m[1m to parse source map from 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),' file: [1m[31mError[39m[22m[1m: ENOENT: no such file or directory, open 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),'[39m[22m
+
+webpack compiled with [1m[33m1 warning[39m[22m
+No issues found.
+Compiling...
+Compiled with warnings.
+
+Failed to parse source map from 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),' file: Error: ENOENT: no such file or directory, open 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),'
+
+Search for the keywords to learn more about each warning.
+To ignore, add // eslint-disable-next-line to the line before.
+
+[1m[33mWARNING[39m[22m in [1m./node_modules/@juspay/blend-design-system/dist/assets/ts.worker-BI3Si-Nw.js[39m[22m
+[1mModule Warning (from ./node_modules/source-map-loader/dist/cjs.js):
+[1m[31mFailed[39m[22m[1m to parse source map from 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),' file: [1m[31mError[39m[22m[1m: ENOENT: no such file or directory, open 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),'[39m[22m
+
+webpack compiled with [1m[33m1 warning[39m[22m
+No issues found.
+Compiling...
+Compiled with warnings.
+
+Failed to parse source map from 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),' file: Error: ENOENT: no such file or directory, open 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),'
+
+Search for the keywords to learn more about each warning.
+To ignore, add // eslint-disable-next-line to the line before.
+
+[1m[33mWARNING[39m[22m in [1m./node_modules/@juspay/blend-design-system/dist/assets/ts.worker-BI3Si-Nw.js[39m[22m
+[1mModule Warning (from ./node_modules/source-map-loader/dist/cjs.js):
+[1m[31mFailed[39m[22m[1m to parse source map from 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),' file: [1m[31mError[39m[22m[1m: ENOENT: no such file or directory, open 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),'[39m[22m
+
+webpack compiled with [1m[33m1 warning[39m[22m
+No issues found.
+Compiling...
+Compiled with warnings.
+
+Failed to parse source map from 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),' file: Error: ENOENT: no such file or directory, open 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),'
+
+Search for the keywords to learn more about each warning.
+To ignore, add // eslint-disable-next-line to the line before.
+
+[1m[33mWARNING[39m[22m in [1m./node_modules/@juspay/blend-design-system/dist/assets/ts.worker-BI3Si-Nw.js[39m[22m
+[1mModule Warning (from ./node_modules/source-map-loader/dist/cjs.js):
+[1m[31mFailed[39m[22m[1m to parse source map from 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),' file: [1m[31mError[39m[22m[1m: ENOENT: no such file or directory, open 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),'[39m[22m
+
+webpack compiled with [1m[33m1 warning[39m[22m
+No issues found.
+Compiling...
+Compiled with warnings.
+
+Failed to parse source map from 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),' file: Error: ENOENT: no such file or directory, open 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),'
+
+Search for the keywords to learn more about each warning.
+To ignore, add // eslint-disable-next-line to the line before.
+
+[1m[33mWARNING[39m[22m in [1m./node_modules/@juspay/blend-design-system/dist/assets/ts.worker-BI3Si-Nw.js[39m[22m
+[1mModule Warning (from ./node_modules/source-map-loader/dist/cjs.js):
+[1m[31mFailed[39m[22m[1m to parse source map from 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),' file: [1m[31mError[39m[22m[1m: ENOENT: no such file or directory, open 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),'[39m[22m
+
+webpack compiled with [1m[33m1 warning[39m[22m
+No issues found.
+Compiling...
+Compiled with warnings.
+
+Failed to parse source map from 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),' file: Error: ENOENT: no such file or directory, open 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),'
+
+Search for the keywords to learn more about each warning.
+To ignore, add // eslint-disable-next-line to the line before.
+
+[1m[33mWARNING[39m[22m in [1m./node_modules/@juspay/blend-design-system/dist/assets/ts.worker-BI3Si-Nw.js[39m[22m
+[1mModule Warning (from ./node_modules/source-map-loader/dist/cjs.js):
+[1m[31mFailed[39m[22m[1m to parse source map from 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),' file: [1m[31mError[39m[22m[1m: ENOENT: no such file or directory, open 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),'[39m[22m
+
+webpack compiled with [1m[33m1 warning[39m[22m
+Compiling...
+No issues found.
+Compiled with warnings.
+
+Failed to parse source map from 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),' file: Error: ENOENT: no such file or directory, open 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),'
+
+Search for the keywords to learn more about each warning.
+To ignore, add // eslint-disable-next-line to the line before.
+
+[1m[33mWARNING[39m[22m in [1m./node_modules/@juspay/blend-design-system/dist/assets/ts.worker-BI3Si-Nw.js[39m[22m
+[1mModule Warning (from ./node_modules/source-map-loader/dist/cjs.js):
+[1m[31mFailed[39m[22m[1m to parse source map from 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),' file: [1m[31mError[39m[22m[1m: ENOENT: no such file or directory, open 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),'[39m[22m
+
+webpack compiled with [1m[33m1 warning[39m[22m
+Files successfully emitted, waiting for typecheck results...
+Issues checking in progress...
+No issues found.
+Compiling...
+Compiled with warnings.
+
+Failed to parse source map from 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),' file: Error: ENOENT: no such file or directory, open 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),'
+
+Search for the keywords to learn more about each warning.
+To ignore, add // eslint-disable-next-line to the line before.
+
+[1m[33mWARNING[39m[22m in [1m./node_modules/@juspay/blend-design-system/dist/assets/ts.worker-BI3Si-Nw.js[39m[22m
+[1mModule Warning (from ./node_modules/source-map-loader/dist/cjs.js):
+[1m[31mFailed[39m[22m[1m to parse source map from 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),' file: [1m[31mError[39m[22m[1m: ENOENT: no such file or directory, open 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),'[39m[22m
+
+webpack compiled with [1m[33m1 warning[39m[22m
+No issues found.
+Compiling...
+Compiled with warnings.
+
+Failed to parse source map from 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),' file: Error: ENOENT: no such file or directory, open 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),'
+
+Search for the keywords to learn more about each warning.
+To ignore, add // eslint-disable-next-line to the line before.
+
+[1m[33mWARNING[39m[22m in [1m./node_modules/@juspay/blend-design-system/dist/assets/ts.worker-BI3Si-Nw.js[39m[22m
+[1mModule Warning (from ./node_modules/source-map-loader/dist/cjs.js):
+[1m[31mFailed[39m[22m[1m to parse source map from 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),' file: [1m[31mError[39m[22m[1m: ENOENT: no such file or directory, open 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),'[39m[22m
+
+webpack compiled with [1m[33m1 warning[39m[22m
+No issues found.
+Compiling...
+Compiled with warnings.
+
+Failed to parse source map from 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),' file: Error: ENOENT: no such file or directory, open 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),'
+
+Search for the keywords to learn more about each warning.
+To ignore, add // eslint-disable-next-line to the line before.
+
+[1m[33mWARNING[39m[22m in [1m./node_modules/@juspay/blend-design-system/dist/assets/ts.worker-BI3Si-Nw.js[39m[22m
+[1mModule Warning (from ./node_modules/source-map-loader/dist/cjs.js):
+[1m[31mFailed[39m[22m[1m to parse source map from 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),' file: [1m[31mError[39m[22m[1m: ENOENT: no such file or directory, open 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),'[39m[22m
+
+webpack compiled with [1m[33m1 warning[39m[22m
+No issues found.
+Compiling...
+Compiled with warnings.
+
+Failed to parse source map from 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),' file: Error: ENOENT: no such file or directory, open 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),'
+
+Search for the keywords to learn more about each warning.
+To ignore, add // eslint-disable-next-line to the line before.
+
+[1m[33mWARNING[39m[22m in [1m./node_modules/@juspay/blend-design-system/dist/assets/ts.worker-BI3Si-Nw.js[39m[22m
+[1mModule Warning (from ./node_modules/source-map-loader/dist/cjs.js):
+[1m[31mFailed[39m[22m[1m to parse source map from 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),' file: [1m[31mError[39m[22m[1m: ENOENT: no such file or directory, open 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),'[39m[22m
+
+webpack compiled with [1m[33m1 warning[39m[22m
+No issues found.
+Compiling...
+Compiled with warnings.
+
+Failed to parse source map from 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),' file: Error: ENOENT: no such file or directory, open 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),'
+
+Search for the keywords to learn more about each warning.
+To ignore, add // eslint-disable-next-line to the line before.
+
+[1m[33mWARNING[39m[22m in [1m./node_modules/@juspay/blend-design-system/dist/assets/ts.worker-BI3Si-Nw.js[39m[22m
+[1mModule Warning (from ./node_modules/source-map-loader/dist/cjs.js):
+[1m[31mFailed[39m[22m[1m to parse source map from 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),' file: [1m[31mError[39m[22m[1m: ENOENT: no such file or directory, open 'C:\Users\sharm\OneDrive\Desktop\cloab\new collab\CollabNet-2.0\frontend\node_modules\@juspay\blend-design-system\dist\assets\${Fe}`)),'[39m[22m
+
+webpack compiled with [1m[33m1 warning[39m[22m
+No issues found.
