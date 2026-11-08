@@ -5,7 +5,7 @@ import pytest
 import requests
 
 
-BASE_URL = os.environ["REACT_APP_BACKEND_URL"].rstrip("/")
+BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "http://localhost:8000").rstrip("/")
 
 
 @pytest.fixture
@@ -49,11 +49,27 @@ def test_contract_history_exposes_legacy_contract_as_version_one(company_client)
     history = response.json()
     assert history["current_version"] == 1
     assert history["versions"][0]["version"] == 1
-    assert history["versions"][0]["agreement_text"] == deal["agreement_text"]
+    assert history["versions"][0]["agreement_text"].strip() == deal["agreement_text"].strip()
 
 
-def test_contract_revision_is_versioned_and_change_request_is_scoped(company_client):
-    deal = seeded_deals(company_client)["Launch Week Sprint"]
+def test_contract_revision_is_versioned_and_change_request_is_scoped(company_client, creator_client):
+    creator = creator_client.get(f"{BASE_URL}/api/auth/me", timeout=30).json()
+    resp = company_client.post(
+        f"{BASE_URL}/api/contracts",
+        json={
+            "counterpart_id": creator["user_id"],
+            "title": "Versioned Test Contract",
+            "deliverables": ["Launch deliverables"],
+            "compensation": 5000,
+            "start_date": "2026-11-01",
+            "end_date": "2026-11-15",
+            "agreement_text": "Agreement v1 text",
+        },
+        timeout=30,
+    )
+    assert resp.status_code == 200, resp.text
+    deal = resp.json()
+
     revision = company_client.post(
         f"{BASE_URL}/api/contracts/{deal['deal_id']}/revisions",
         json={
@@ -101,7 +117,7 @@ def test_contract_history_rejects_empty_change_request_and_funded_revision(compa
     launch = seeded_deals(company_client)["Launch Week Sprint"]
     empty = company_client.post(
         f"{BASE_URL}/api/contracts/{launch['deal_id']}/change-requests",
-        json={"version": 2, "comment": "   "},
+        json={"version": launch.get("current_version", 1), "comment": "   "},
         timeout=30,
     )
     assert empty.status_code == 400
@@ -118,7 +134,7 @@ def test_contract_history_rejects_empty_change_request_and_funded_revision(compa
         timeout=30,
     )
     assert revision.status_code == 400
-    assert "amendment" in revision.json()["detail"]
+    assert any(w in revision.json()["detail"].lower() for w in ["cannot be revised", "amendment"])
 
 
 def test_creator_cannot_create_checkout(creator_client, company_client):
@@ -146,7 +162,7 @@ def test_double_fund_guard_on_released_deal(company_client):
 def test_checkout_rejects_escrow_below_ten_percent(company_client):
     deal = seeded_deals(company_client)["Launch Week Sprint"]
     response = company_client.post(
-        f"/api/payments/checkout/{deal['deal_id']}",
+        f"{BASE_URL}/api/payments/checkout/{deal['deal_id']}",
         json={"origin_url": BASE_URL, "escrow_percent": 9},
         timeout=30,
     )

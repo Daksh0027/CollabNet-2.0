@@ -1,6 +1,22 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { STATUS_STYLES } from "@/lib/api";
+import { STATUS_STYLES } from "@/constants/statusStyles";
+
+const AVATAR_TONES = ["avatar-tone-blue", "avatar-tone-maya", "avatar-tone-sofia"];
+
+function getAvatarTone(user) {
+  const name = user?.display_name || user?.name || "";
+  if (name === "Maya Chen") return "avatar-tone-maya";
+  if (name === "Sofia Ramos") return "avatar-tone-sofia";
+  const idStr = user?.id || user?.user_id || name;
+  if (!idStr) return "avatar-tone-blue";
+  let hash = 0;
+  for (let i = 0; i < idStr.length; i++) {
+    hash = (hash << 5) - hash + idStr.charCodeAt(i);
+    hash |= 0;
+  }
+  return AVATAR_TONES[Math.abs(hash) % AVATAR_TONES.length];
+}
 
 export function UserAvatar({ user, className = "h-9 w-9" }) {
   const initials = (user?.display_name || user?.name || "?")
@@ -9,12 +25,7 @@ export function UserAvatar({ user, className = "h-9 w-9" }) {
     .slice(0, 2)
     .join("")
     .toUpperCase();
-  const avatarTone =
-    user?.display_name === "Maya Chen"
-      ? "avatar-tone-maya"
-      : user?.display_name === "Sofia Ramos"
-        ? "avatar-tone-sofia"
-        : "avatar-tone-blue";
+  const avatarTone = getAvatarTone(user);
   return (
     <Avatar className={`${className} collab-avatar ${avatarTone}`}>
       {user?.picture ? <AvatarImage src={user.picture} alt={initials} /> : null}

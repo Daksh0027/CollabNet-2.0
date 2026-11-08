@@ -19,43 +19,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CreatorFiltersDrawer from "./CreatorFiltersDrawer";
 import "./ExploreBrandCarousel.css";
+import {
+  NICHES,
+  GENRE_COLORS,
+  CONTENT_TYPES,
+  PLATFORMS,
+} from "@/constants/marketplace";
 
-export const NICHES = [
-  "Tech & Gadgets",
-  "Beauty & Skincare",
-  "Health & Fitness",
-  "Food & Cooking",
-  "Gaming",
-  "Travel",
-  "Finance & Business",
-  "Lifestyle",
-  "Wellness"
-];
-
-export const GENRE_COLORS = {
-  // Monochrome + accent identifiers; the genre name is always shown as text too.
-  "Tech & Gadgets": "bg-primary",
-  "Beauty & Skincare": "bg-foreground",
-  "Health & Fitness": "bg-muted-foreground",
-  "Food & Cooking": "bg-primary/60",
-  "Gaming": "bg-foreground/70",
-  "Travel": "bg-muted-foreground/60",
-  "Finance & Business": "bg-primary/35",
-  "Lifestyle": "bg-foreground/45",
-  "Wellness": "bg-muted-foreground/35",
-};
-
-export const CONTENT_TYPES = [
-  "Short-Form Video",
-  "Dedicated Long-Form Video",
-  "Integrated Segment",
-  "Live Stream Placement",
-  "Podcast Episode / Audio Read",
-  "Carousel / Thought Leadership",
-  "UGC Ad Production"
-];
-
-export const PLATFORMS = ["YouTube", "Instagram", "TikTok", "Twitch"];
+export { NICHES, GENRE_COLORS, CONTENT_TYPES, PLATFORMS };
 
 const SORT_OPTIONS = [
   { value: "followers", label: "Top Followers" },

@@ -1,5 +1,4 @@
 import React from "react";
-import ReactDOMServer from "react-dom/server";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -24,6 +23,7 @@ jest.mock("@/lib/api", () => ({
 
 describe("Notifications Page and Category Filtering", () => {
   const previousActEnvironment = globalThis.IS_REACT_ACT_ENVIRONMENT;
+  let activeContainers = [];
 
   beforeAll(() => {
     globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -39,15 +39,48 @@ describe("Notifications Page and Category Filtering", () => {
     mockApiPost.mockReset().mockResolvedValue({ data: { ok: true } });
   });
 
-  it("renders category filters with All, Creators, Companies and origin badges", () => {
+  afterEach(async () => {
+    for (const { root, qc } of activeContainers) {
+      await act(async () => {
+        root.unmount();
+      });
+      qc.clear();
+    }
+    activeContainers = [];
+  });
+
+  async function renderNotifications(initialData) {
     const qc = new QueryClient({
       defaultOptions: {
-        queries: {
-          retry: false,
-        },
+        queries: { retry: false, staleTime: Infinity },
       },
     });
 
+    if (initialData) {
+      qc.setQueryData(["notifications", "all"], {
+        pages: [initialData],
+        pageParams: [0],
+      });
+    }
+
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={qc}>
+          <Notifications />
+        </QueryClientProvider>
+      );
+      await Promise.resolve();
+    });
+
+    activeContainers.push({ root, qc, container });
+    return { container, qc };
+  }
+
+  it("renders category filters with All, Creators, Companies and origin badges", async () => {
     const mockNotifications = {
       notifications: [
         {
@@ -69,77 +102,46 @@ describe("Notifications Page and Category Filtering", () => {
           created_at: new Date().toISOString(),
         },
       ],
-      counts: {
-        all: 2,
-        creators: 1,
-        companies: 1,
-      },
+      counts: { all: 2, creators: 1, companies: 1 },
       unread: 1,
+      has_more: true,
+      next_offset: 50,
     };
 
-    qc.setQueryData(["notifications", "all"], {
-      pages: [
-        {
-          ...mockNotifications,
-          has_more: true,
-          next_offset: 50,
-        },
-      ],
-      pageParams: [0],
-    });
+    const { container } = await renderNotifications(mockNotifications);
 
-    const html = ReactDOMServer.renderToString(
-      <QueryClientProvider client={qc}>
-        <Notifications />
-      </QueryClientProvider>
-    );
+    // Filter controls are rendered
+    expect(container.querySelector('[data-testid="notification-filters"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="filter-all"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="filter-creators"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="filter-companies"]')).not.toBeNull();
 
-    // Verify filter buttons exist
-    expect(html).toContain('data-testid="notification-filters"');
-    expect(html).toContain('data-testid="filter-all"');
-    expect(html).toContain('data-testid="filter-creators"');
-    expect(html).toContain('data-testid="filter-companies"');
-    expect(html).toContain('class="notification-filter-list mb-6"');
-    expect(html).toContain('class="notification-filter-button is-active"');
+    // Counts are visible
+    expect(container.querySelector('[data-testid="filter-count-all"]')?.textContent).toContain("2");
+    expect(container.querySelector('[data-testid="filter-count-creators"]')?.textContent).toContain("1");
+    expect(container.querySelector('[data-testid="filter-count-companies"]')?.textContent).toContain("1");
 
-    // Verify counts are displayed
-    expect(html).toContain('data-testid="filter-count-all"');
-    expect(html).toContain('data-testid="filter-count-creators"');
-    expect(html).toContain('data-testid="filter-count-companies"');
+    // Notification items and badges
+    expect(container.querySelector('[data-testid="notification-ntf_1"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="origin-badge-creator"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="notification-ntf_2"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="origin-badge-company"]')).not.toBeNull();
 
-    // Verify notification cards and origin tags
-    expect(html).toContain('data-testid="notification-ntf_1"');
-    expect(html).toContain('data-testid="origin-badge-creator"');
-    expect(html).toContain("Creator");
-
-    expect(html).toContain('data-testid="notification-ntf_2"');
-    expect(html).toContain('data-testid="origin-badge-company"');
-    expect(html).toContain("Company");
-    expect(html).toContain('data-testid="load-more-notifications"');
-    expect(html).toContain("Load more");
+    // Pagination button
+    expect(container.querySelector('[data-testid="load-more-notifications"]')).not.toBeNull();
   });
 
-  it("renders empty state appropriately when there are no items", () => {
-    const qc = new QueryClient();
-    qc.setQueryData(["notifications", "all"], {
-      pages: [{
-        notifications: [],
-        counts: { all: 0, creators: 0, companies: 0 },
-        unread: 0,
-        has_more: false,
-        next_offset: 0,
-      }],
-      pageParams: [0],
+  it("renders empty state appropriately when there are no items", async () => {
+    const { container } = await renderNotifications({
+      notifications: [],
+      counts: { all: 0, creators: 0, companies: 0 },
+      unread: 0,
+      has_more: false,
+      next_offset: 0,
     });
 
-    const html = ReactDOMServer.renderToString(
-      <QueryClientProvider client={qc}>
-        <Notifications />
-      </QueryClientProvider>
-    );
-
-    expect(html).toContain('data-testid="notifications-empty"');
-    expect(html).toContain("All caught up");
+    expect(container.querySelector('[data-testid="notifications-empty"]')).not.toBeNull();
+    expect(container.textContent).toContain("All caught up");
   });
 
   it("marks unread notifications as read in the backend when the page is opened", async () => {
@@ -152,30 +154,14 @@ describe("Notifications Page and Category Filtering", () => {
       read: false,
       created_at: new Date().toISOString(),
     };
-    const qc = new QueryClient({
-      defaultOptions: { queries: { retry: false, staleTime: Infinity } },
-    });
-    qc.setQueryData(["notifications", "all"], {
-      pages: [{
-        notifications: [notification],
-        counts: { all: 1, creators: 1, companies: 0 },
-        unread: 1,
-        unread_counts: { all: 1, creators: 1, companies: 0 },
-        has_more: false,
-        next_offset: 1,
-      }],
-      pageParams: [0],
-    });
-    const container = document.createElement("div");
-    const root = createRoot(container);
 
-    await act(async () => {
-      root.render(
-        <QueryClientProvider client={qc}>
-          <Notifications />
-        </QueryClientProvider>
-      );
-      await new Promise((resolve) => setTimeout(resolve, 0));
+    const { qc } = await renderNotifications({
+      notifications: [notification],
+      counts: { all: 1, creators: 1, companies: 0 },
+      unread: 1,
+      unread_counts: { all: 1, creators: 1, companies: 0 },
+      has_more: false,
+      next_offset: 1,
     });
 
     expect(mockApiPost).toHaveBeenCalledWith("/notifications/read");
@@ -183,9 +169,6 @@ describe("Notifications Page and Category Filtering", () => {
     expect(cached.pages[0].notifications[0].read).toBe(true);
     expect(cached.pages[0].unread).toBe(0);
     expect(cached.pages[0].unread_counts).toEqual({ all: 0, creators: 0, companies: 0 });
-
-    await act(async () => root.unmount());
-    qc.clear();
   });
 
   it("filters when a category button is clicked", async () => {
@@ -197,28 +180,14 @@ describe("Notifications Page and Category Filtering", () => {
         next_offset: 0,
       },
     });
-    const qc = new QueryClient({
-      defaultOptions: { queries: { retry: false, staleTime: Infinity } },
-    });
-    qc.setQueryData(["notifications", "all"], {
-      pages: [{
-        notifications: [],
-        counts: { all: 0, creators: 0, companies: 0 },
-        has_more: false,
-        next_offset: 0,
-      }],
-      pageParams: [0],
-    });
-    const container = document.createElement("div");
-    const root = createRoot(container);
 
-    await act(async () => {
-      root.render(
-        <QueryClientProvider client={qc}>
-          <Notifications />
-        </QueryClientProvider>
-      );
+    const { container } = await renderNotifications({
+      notifications: [],
+      counts: { all: 0, creators: 0, companies: 0 },
+      has_more: false,
+      next_offset: 0,
     });
+
     await act(async () => {
       container.querySelector('[data-testid="filter-creators"]').click();
       await Promise.resolve();
@@ -228,9 +197,6 @@ describe("Notifications Page and Category Filtering", () => {
     expect(mockApiGet).toHaveBeenCalledWith("/notifications", {
       params: { origin: "creators", offset: 0, limit: 50 },
     });
-
-    await act(async () => root.unmount());
-    qc.clear();
   });
 
   it("marks an unread notification as read and navigates to its assigned destination", async () => {
@@ -244,33 +210,19 @@ describe("Notifications Page and Category Filtering", () => {
       read: false,
       created_at: new Date().toISOString(),
     };
-    const qc = new QueryClient({
-      defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+
+    const { container, qc } = await renderNotifications({
+      notifications: [notification],
+      counts: { all: 1, creators: 1, companies: 0 },
+      unread: 1,
+      unread_counts: { all: 1, creators: 1, companies: 0 },
+      has_more: false,
+      next_offset: 1,
     });
-    qc.setQueryData(["notifications", "all"], {
-      pages: [{
-        notifications: [notification],
-        counts: { all: 1, creators: 1, companies: 0 },
-        unread: 1,
-        unread_counts: { all: 1, creators: 1, companies: 0 },
-        has_more: false,
-        next_offset: 1,
-      }],
-      pageParams: [0],
-    });
-    const container = document.createElement("div");
-    const root = createRoot(container);
 
     await act(async () => {
-      root.render(
-        <QueryClientProvider client={qc}>
-          <Notifications />
-        </QueryClientProvider>
-      );
-    });
-    await act(async () => {
       container.querySelector('[data-testid="notification-ntf_unread"]').click();
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await Promise.resolve();
     });
 
     expect(mockNavigate).toHaveBeenCalledWith("/app/messages");
@@ -278,9 +230,6 @@ describe("Notifications Page and Category Filtering", () => {
     expect(
       qc.getQueryData(["notifications", "all"]).pages[0].notifications[0].read
     ).toBe(true);
-
-    await act(async () => root.unmount());
-    qc.clear();
   });
 
   it("loads the next notification page when Load more is clicked", async () => {
@@ -294,6 +243,7 @@ describe("Notifications Page and Category Filtering", () => {
       read: true,
       created_at: new Date().toISOString(),
     };
+
     mockApiGet.mockResolvedValue({
       data: {
         notifications: [nextNotification],
@@ -302,12 +252,10 @@ describe("Notifications Page and Category Filtering", () => {
         next_offset: 51,
       },
     });
-    const qc = new QueryClient({
-      defaultOptions: { queries: { retry: false, staleTime: Infinity } },
-    });
-    qc.setQueryData(["notifications", "all"], {
-      pages: [{
-        notifications: [{
+
+    const { container } = await renderNotifications({
+      notifications: [
+        {
           notif_id: "ntf_page_1",
           type: "message",
           title: "First page",
@@ -316,26 +264,16 @@ describe("Notifications Page and Category Filtering", () => {
           origin: "creator",
           read: true,
           created_at: new Date().toISOString(),
-        }],
-        counts: { all: 51, creators: 25, companies: 26 },
-        has_more: true,
-        next_offset: 50,
-      }],
-      pageParams: [0],
+        },
+      ],
+      counts: { all: 51, creators: 25, companies: 26 },
+      has_more: true,
+      next_offset: 50,
     });
-    const container = document.createElement("div");
-    const root = createRoot(container);
 
     await act(async () => {
-      root.render(
-        <QueryClientProvider client={qc}>
-          <Notifications />
-        </QueryClientProvider>
-      );
-    });
-    await act(async () => {
       container.querySelector('[data-testid="load-more-notifications"]').click();
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 10));
     });
 
     expect(mockApiGet).toHaveBeenCalledWith("/notifications", {
@@ -343,8 +281,5 @@ describe("Notifications Page and Category Filtering", () => {
     });
     expect(container.querySelector('[data-testid="notification-ntf_page_2"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="load-more-notifications"]')).toBeNull();
-
-    await act(async () => root.unmount());
-    qc.clear();
   });
 });

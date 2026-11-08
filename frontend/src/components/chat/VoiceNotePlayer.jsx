@@ -1,12 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { Play, Pause, Mic } from "lucide-react";
+import { formatDuration } from "@/lib/chatMedia";
 
-export function formatTime(seconds) {
-  if (!seconds || isNaN(seconds)) return "0:00";
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${s < 10 ? "0" : ""}${s}`;
-}
+export const formatTime = formatDuration;
 
 export function getVoiceNoteProgress(currentTime, totalDuration, isPlaying) {
   if (!totalDuration) return 0;
@@ -113,10 +109,8 @@ export function VoiceNotePlayer({ src, duration = 0, mine = false }) {
         )}
       </button>
 
-      {/* Waveform / Scrubber Area */}
       <div className="flex-1 min-w-0 flex flex-col justify-center gap-1.5">
         <div className="relative flex items-center h-6 cursor-pointer">
-          {/* Simulated audio waveform */}
           <div className="absolute inset-0 flex items-center justify-between gap-1 pointer-events-none">
             {barHeights.map((h, i) => {
               const barPct = (i / (barHeights.length - 1)) * 100;
@@ -139,7 +133,6 @@ export function VoiceNotePlayer({ src, duration = 0, mine = false }) {
             })}
           </div>
 
-          {/* Interactive range input */}
           <input
             type="range"
             min={0}
@@ -152,7 +145,6 @@ export function VoiceNotePlayer({ src, duration = 0, mine = false }) {
           />
         </div>
 
-        {/* Timers & Mic icon */}
         <div
           className={`flex items-center justify-between text-[10px] font-num ${
             mine ? "text-primary-foreground/80" : "text-muted-foreground"

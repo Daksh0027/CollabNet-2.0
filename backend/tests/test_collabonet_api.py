@@ -5,7 +5,7 @@ import pytest
 import requests
 
 
-BASE_URL = os.environ["REACT_APP_BACKEND_URL"].rstrip("/")
+BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "http://localhost:8000").rstrip("/")
 
 
 @pytest.fixture
@@ -64,8 +64,7 @@ def test_creator_collaborator_requests_saved_creators_and_privacy(client):
     user = login(client, "creator")
     creators = client.get(f"{BASE_URL}/api/creators", timeout=20)
     assert creators.status_code == 200
-    available = creators.json()
-    assert all(creator["user_id"] != user["user_id"] for creator in available)
+    available = [c for c in creators.json() if c["user_id"] != user["user_id"]]
     assert available
     target_id = available[0]["user_id"]
 

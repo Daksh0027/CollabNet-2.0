@@ -50,22 +50,18 @@ export default function Messages() {
   const [showProfile, setShowProfile] = useState(false);
   const [mobileThreadOpen, setMobileThreadOpen] = useState(false);
 
-  // In-chat message search
   const [showChatSearch, setShowChatSearch] = useState(false);
   const [chatSearchQuery, setChatSearchQuery] = useState("");
   const [activeMatchIndex, setActiveMatchIndex] = useState(0);
 
-  // Emoji Picker
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const emojiPickerRef = useRef(null);
   const inputRef = useRef(null);
 
-  // Attachments
   const [stagedFiles, setStagedFiles] = useState([]);
   const [showUploadDropzone, setShowUploadDropzone] = useState(false);
   const fileInputRef = useRef(null);
 
-  // Voice note recording
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const mediaRecorderRef = useRef(null);
@@ -123,7 +119,6 @@ export default function Messages() {
     }
   }, [detail?.thread?.thread_id, qc]);
 
-  // Click outside to close emoji picker
   useEffect(() => {
     function handleClickOutside(event) {
       if (
@@ -142,7 +137,6 @@ export default function Messages() {
     };
   }, [showEmojiPicker]);
 
-  // File attachments handler
   const handleFiles = (files) => {
     if (!files.length) return;
     files.forEach((file) => {
@@ -176,7 +170,6 @@ export default function Messages() {
     setStagedFiles((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  // Voice note recording handlers
   const startRecording = async () => {
     try {
       if (!navigator?.mediaDevices?.getUserMedia) {
@@ -289,7 +282,6 @@ export default function Messages() {
     }
   };
 
-  // In-chat search indexing
   const matchedMessageIds = useMemo(() => {
     if (!chatSearchQuery.trim() || !detail?.messages) return [];
     const q = chatSearchQuery.toLowerCase();
