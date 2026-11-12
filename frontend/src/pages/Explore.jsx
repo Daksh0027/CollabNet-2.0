@@ -1,16 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import {
   Bookmark, Check, Loader2, MessageSquare, Search, Sparkles, Users, SlidersHorizontal,
   X, RotateCcw, TrendingUp, Eye, Star, Layers, ShieldCheck, DollarSign,
   Building2, Video, CheckCircle2, ChevronDown, ExternalLink, Briefcase,
-  Pin, FolderGit2, BookOpen, Hash, Tag, ChevronLeft, ChevronRight
+  Pin, FolderGit2, BookOpen, Hash, Tag
 } from "lucide-react";
 import { toast } from "sonner";
 import api, { fmtMoney, fmtNum, fmtDate } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { PageHead, UserAvatar, VerifiedBadge, EmptyState, StatusPill } from "@/components/common";
+import FlipCard from "@/components/FlipCard";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,7 +19,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CreatorFiltersDrawer from "./CreatorFiltersDrawer";
-import "./ExploreBrandCarousel.css";
 import {
   NICHES,
   GENRE_COLORS,
@@ -1181,16 +1181,12 @@ function CompanyExplore() {
 function CreatorExplore() {
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const brandCardsRef = useRef(null);
-  const brandScrollTimeoutRef = useRef(null);
-  const [activeBrandIndex, setActiveBrandIndex] = useState(0);
 
   const [search, setSearch] = useState("");
   const [niche, setNiche] = useState("all");
   const [deliverable, setDeliverable] = useState("all");
   const [opportunityTab, setOpportunityTab] = useState("all");
   const [applyFor, setApplyFor] = useState(null);
-  const [detailFor, setDetailFor] = useState(null);
   const [message, setMessage] = useState("");
   const [reviewApplication, setReviewApplication] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -1238,74 +1234,6 @@ function CreatorExplore() {
       : campaigns || [],
     [campaigns, opportunityTab, savedIds]
   );
-  const visibleCampaignKey = visibleCampaigns.map((campaign) => campaign.camp_id).join("|");
-
-  useEffect(() => {
-    setActiveBrandIndex(0);
-    if (brandCardsRef.current) brandCardsRef.current.scrollLeft = 0;
-  }, [visibleCampaignKey]);
-
-  useEffect(
-    () => () => window.clearTimeout(brandScrollTimeoutRef.current),
-    []
-  );
-
-  const scrollToBrand = (index) => {
-    const rail = brandCardsRef.current;
-    const cards = rail?.querySelectorAll("[data-brand-card]");
-    if (!rail || !cards?.length) return;
-
-    const nextIndex = (index + cards.length) % cards.length;
-    setActiveBrandIndex(nextIndex);
-    const card = cards[nextIndex];
-    const railBounds = rail.getBoundingClientRect();
-    const cardBounds = card.getBoundingClientRect();
-    const left =
-      rail.scrollLeft +
-      cardBounds.left -
-      railBounds.left -
-      (rail.clientWidth - cardBounds.width) / 2;
-    if (typeof rail.scrollTo === "function") {
-      rail.scrollTo({ left: Math.max(0, left), behavior: "smooth" });
-    } else {
-      rail.scrollLeft = Math.max(0, left);
-    }
-  };
-
-  const handleBrandRailScroll = () => {
-    window.clearTimeout(brandScrollTimeoutRef.current);
-    brandScrollTimeoutRef.current = window.setTimeout(() => {
-      const rail = brandCardsRef.current;
-      const cards = rail?.querySelectorAll("[data-brand-card]");
-      if (!rail || !cards?.length) return;
-
-      const railCenter = rail.getBoundingClientRect().left + rail.clientWidth / 2;
-      let closestIndex = 0;
-      let closestDistance = Infinity;
-      cards.forEach((card, index) => {
-        const bounds = card.getBoundingClientRect();
-        const distance = Math.abs(bounds.left + bounds.width / 2 - railCenter);
-        if (distance < closestDistance) {
-          closestDistance = distance;
-          closestIndex = index;
-        }
-      });
-      setActiveBrandIndex((current) =>
-        current === closestIndex ? current : closestIndex
-      );
-    }, 90);
-  };
-
-  const handleBrandRailKeyDown = (event) => {
-    if (event.key === "ArrowRight") {
-      event.preventDefault();
-      scrollToBrand(activeBrandIndex + 1);
-    } else if (event.key === "ArrowLeft") {
-      event.preventDefault();
-      scrollToBrand(activeBrandIndex - 1);
-    }
-  };
-
   const apply = async () => {
     if (!applyFor) return;
     setBusy(true);
@@ -1471,72 +1399,29 @@ function CreatorExplore() {
                 {visibleCampaigns.length} {visibleCampaigns.length === 1 ? "opportunity" : "opportunities"} matching your filters
               </p>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
-              <span className="font-num text-[11px] tabular-nums text-muted-foreground" aria-label={`Brand ${activeBrandIndex + 1} of ${visibleCampaigns.length}`}>
-                {String(activeBrandIndex + 1).padStart(2, "0")}
-                <span className="mx-1 text-border">/</span>
-                {String(visibleCampaigns.length).padStart(2, "0")}
-              </span>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="h-8 w-8 rounded-full"
-                aria-label="Scroll brand cards left"
-                onClick={() => scrollToBrand(activeBrandIndex - 1)}
-                data-testid="brand-carousel-prev"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="h-8 w-8 rounded-full"
-                aria-label="Scroll brand cards right"
-                onClick={() => scrollToBrand(activeBrandIndex + 1)}
-                data-testid="brand-carousel-next"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
           </div>
           <div
-            ref={brandCardsRef}
-            className="explore-brand-carousel explore-brand-rail -mx-1 overflow-x-auto px-1 pb-3 snap-x snap-mandatory"
-            data-testid="brand-card-carousel"
-            aria-label="Brand opportunity carousel"
-            aria-roledescription="carousel"
+            className="mx-auto flex max-w-3xl flex-col gap-6 py-4"
+            data-testid="brand-opportunity-feed"
+            aria-label="Brand opportunities"
             role="list"
-            tabIndex={0}
-            onScroll={handleBrandRailScroll}
-            onKeyDown={handleBrandRailKeyDown}
           >
-            <div className="explore-brand-track">
-              {visibleCampaigns.map((c, index) => {
-                const distance = index - activeBrandIndex;
-                const depth = Math.min(Math.abs(distance), 3);
-                return (
-                  <div
-                    key={c.camp_id}
-                    className="explore-brand-card group snap-center rounded-2xl border border-border bg-card p-4 shadow-xs hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-sm"
+            {visibleCampaigns.map((c) => (
+              <FlipCard
+                key={c.camp_id}
+                role="listitem"
+                front={
+                  <article
+                    className="group rounded-2xl border border-border bg-card p-6 shadow-xs transition-shadow hover:border-primary/40 hover:shadow-sm sm:p-7"
                     data-testid={`campaign-card-${c.camp_id}`}
-                    data-brand-card
-                    aria-current={activeBrandIndex === index ? "true" : undefined}
                     aria-label={`${c.company?.display_name || "Brand"}: ${c.title}`}
-                    style={{
-                      transform: `translateY(${depth * 5}px) translateZ(-${depth * 12}px) rotateY(${Math.sign(-distance) * Math.min(depth, 2) * 7}deg) scale(${1 - depth * 0.045})`,
-                      opacity: 1 - depth * 0.14,
-                      zIndex: 10 - depth,
-                    }}
-                    role="listitem"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex min-w-0 items-center gap-3">
-                        <UserAvatar user={c.company} className="h-11 w-11 shrink-0 rounded-xl ring-1 ring-border" />
+                        <UserAvatar user={c.company} className="h-14 w-14 shrink-0 rounded-2xl ring-1 ring-border" />
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-foreground">{c.company?.display_name || "Verified brand"}</p>
-                          <p className="mt-0.5 truncate text-xs text-muted-foreground">{c.company?.industry || "Brand partnership"}</p>
+                          <p className="truncate text-base font-semibold text-foreground">{c.company?.display_name || "Verified brand"}</p>
+                          <p className="mt-1 truncate text-sm text-muted-foreground">{c.company?.industry || "Brand partnership"}</p>
                         </div>
                       </div>
                       <div className="flex shrink-0 items-center gap-1">
@@ -1564,21 +1449,21 @@ function CreatorExplore() {
                           {c.company?.connections_count || 0} connections
                         </span>
                       </div>
-                      <h3 className="line-clamp-2 min-h-10 font-display text-sm font-semibold text-foreground">{c.title}</h3>
-                      <p className="mt-2 line-clamp-3 min-h-[3.75rem] text-xs leading-relaxed text-muted-foreground">{c.brief}</p>
+                      <h3 className="line-clamp-2 min-h-12 font-display text-lg font-semibold text-foreground">{c.title}</h3>
+                      <p className="mt-3 line-clamp-4 min-h-20 text-sm leading-relaxed text-muted-foreground">{c.brief}</p>
 
-                      <div className="mt-3 flex flex-wrap gap-1.5">
+                      <div className="mt-4 flex flex-wrap gap-2">
                         {(c.deliverables || []).slice(0, 2).map((d, i) => (
                           <span
                             key={i}
-                            className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 text-[10px] font-medium text-muted-foreground"
+                            className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground"
                           >
                             <CheckCircle2 className="h-3 w-3 text-primary" />
                             {d}
                           </span>
                         ))}
                         {(c.niches || []).slice(0, 2).map((n) => (
-                          <span key={n} className="rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-semibold text-primary">
+                          <span key={n} className="rounded-full bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary">
                             {n}
                           </span>
                         ))}
@@ -1587,7 +1472,14 @@ function CreatorExplore() {
                       <div className="mt-4 flex items-center justify-between gap-2 border-t border-border/50 pt-3">
                         <span className="text-[11px] text-muted-foreground">Apply by {fmtDate(c.deadline)}</span>
                         <div className="flex shrink-0 gap-1.5">
-                          <Button type="button" variant="outline" size="sm" className="h-8 px-2.5 text-xs" onClick={() => setDetailFor(c)} data-testid={`details-button-${c.camp_id}`}>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-8 px-2.5 text-xs"
+                            data-flip-card-trigger
+                            data-testid={`details-button-${c.camp_id}`}
+                          >
                             Details
                           </Button>
                           {appliedCampIds.has(c.camp_id) ? (
@@ -1602,10 +1494,64 @@ function CreatorExplore() {
                         </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  </article>
+                }
+                back={
+                  <article className="flex h-full min-h-64 flex-col rounded-2xl border border-border bg-card p-6 shadow-xs sm:p-8">
+                    <div className="flex items-center gap-4 border-b border-border pb-5">
+                      <UserAvatar user={c.company} className="h-14 w-14 rounded-2xl" />
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Campaign details</p>
+                        <h3 className="mt-1 text-lg font-semibold">{c.title}</h3>
+                        <p className="mt-1 text-sm text-muted-foreground">{c.company?.display_name || "Verified brand"}</p>
+                      </div>
+                    </div>
+                    <p className="mt-5 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
+                      {c.brief || "The brand has not provided a campaign brief yet."}
+                    </p>
+                    {c.deliverables?.length ? (
+                      <div className="mt-5">
+                        <h4 className="text-sm font-semibold">Deliverables</h4>
+                        <ul className="mt-2 space-y-2">
+                          {c.deliverables.map((deliverable, index) => (
+                            <li key={`${deliverable}-${index}`} className="flex items-start gap-2 text-sm text-muted-foreground">
+                              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                              {deliverable}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                    {c.niches?.length ? (
+                      <div className="mt-5 flex flex-wrap gap-2">
+                        {c.niches.map((niche) => (
+                          <span key={niche} className="rounded-full bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary">
+                            {niche}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                    <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
+                      <span className="text-xs text-muted-foreground">Apply by {fmtDate(c.deadline)}</span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        data-flip-card-trigger
+                        data-testid={`back-button-${c.camp_id}`}
+                      >
+                        Back
+                      </Button>
+                    </div>
+                  </article>
+                }
+                axis="y"
+                flipOnClick={false}
+                perspective={1600}
+                stiffness={170}
+                damping={20}
+              />
+            ))}
           </div>
         </section>
       )}
@@ -1649,39 +1595,6 @@ function CreatorExplore() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={Boolean(detailFor)} onOpenChange={(open) => !open && setDetailFor(null)}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl" data-testid="opportunity-details-dialog">
-          <DialogHeader><DialogTitle>{detailFor?.title}</DialogTitle></DialogHeader>
-          {detailFor ? (
-            <div className="space-y-5">
-              <div className="flex items-center gap-3">
-                <UserAvatar user={detailFor.company} className="h-12 w-12 rounded-xl" />
-                <div>
-                  <p className="font-semibold">{detailFor.company?.display_name}</p>
-                  <p className="text-xs text-muted-foreground">{detailFor.company?.industry || "Brand"} · Apply by {fmtDate(detailFor.deadline)}</p>
-                </div>
-              </div>
-              <p className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{detailFor.brief}</p>
-              <div>
-                <h3 className="mb-2 text-sm font-semibold">Deliverables</h3>
-                <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
-                  {(detailFor.deliverables || []).map((deliverable, index) => <li key={`${deliverable}-${index}`}>{deliverable}</li>)}
-                </ul>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {(detailFor.niches || []).map((value) => <span key={value} className="rounded-full bg-primary/10 px-2.5 py-1 text-xs text-primary">{value}</span>)}
-              </div>
-              <p className="text-xs text-muted-foreground">Compensation details are handled directly with the brand.</p>
-            </div>
-          ) : null}
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setDetailFor(null)}>Close</Button>
-            {detailFor && !appliedCampIds.has(detailFor.camp_id) ? (
-              <Button type="button" onClick={() => { setApplyFor(detailFor); setDetailFor(null); setReviewApplication(false); }}>Apply</Button>
-            ) : null}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

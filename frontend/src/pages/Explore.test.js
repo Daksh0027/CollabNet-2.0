@@ -270,6 +270,37 @@ describe("Explore Page Serious Filters and Stats System", () => {
       selectAllNiches.click();
     });
     expect(document.querySelectorAll('[data-testid="active-filter-chip"]')).toHaveLength(0);
+
+    const addCustomFilter = async (inputTestId, buttonTestId, value) => {
+      const input = document.querySelector(`[data-testid="${inputTestId}"]`);
+      const setter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        "value"
+      ).set;
+      await act(async () => {
+        setter.call(input, value);
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+      await act(async () => {
+        document.querySelector(`[data-testid="${buttonTestId}"]`).click();
+      });
+    };
+
+    await addCustomFilter(
+      "creator-custom-niche-filter",
+      "creator-custom-niche-filter-add",
+      "Indie Film"
+    );
+    await addCustomFilter(
+      "creator-custom-content-type-filter",
+      "creator-custom-content-type-filter-add",
+      "Behind-the-scenes series"
+    );
+
+    expect(document.querySelector('[aria-label="Remove filter Indie Film"]')).not.toBeNull();
+    expect(document.querySelector('[aria-label="Remove filter Behind-the-scenes series"]')).not.toBeNull();
+    expect(document.querySelector('[data-testid="creator-niche-options"]').textContent).toContain("Indie Film");
+    expect(document.querySelector('[data-testid="creator-content-type-options"]').textContent).toContain("Behind-the-scenes series");
   });
 
   it("shows removable chips for selected creator filters", async () => {
@@ -368,18 +399,31 @@ describe("Explore Page Serious Filters and Stats System", () => {
     expect(container.querySelector('[data-testid="opportunities-recommended-tab"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="my-applications-shortcut"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="campaign-card-cmp_1"]')).not.toBeNull();
-    expect(container.querySelector('[data-testid="brand-card-carousel"]')?.className).toContain("overflow-x-auto");
-    expect(container.querySelector('[data-testid="brand-carousel-prev"]')).not.toBeNull();
-    expect(container.querySelector('[data-testid="brand-carousel-next"]')).not.toBeNull();
+    const opportunityFeed = container.querySelector('[data-testid="brand-opportunity-feed"]');
+    expect(opportunityFeed?.className).toContain("flex-col");
+    expect(opportunityFeed?.className).toContain("max-w-3xl");
+    expect(opportunityFeed?.getAttribute("role")).toBe("list");
     expect(container.textContent).toContain("Nova Athletics");
-    expect(container.querySelectorAll("[data-brand-card]")).toHaveLength(2);
+    expect(opportunityFeed.querySelectorAll('[role="listitem"]')).toHaveLength(2);
     expect(container.textContent).toContain("15 connections");
     expect(container.textContent).toContain("Sponsorship opportunity");
-    expect(container.querySelector('[data-testid="campaign-card-cmp_1"]').getAttribute("aria-current")).toBe("true");
-    await act(async () => {
-      container.querySelector('[data-testid="brand-carousel-next"]').click();
-    });
-    expect(container.querySelector('[data-testid="campaign-card-cmp_2"]').getAttribute("aria-current")).toBe("true");
+    expect(opportunityFeed.querySelector('[data-testid="campaign-card-cmp_1"]')).not.toBeNull();
+    expect(opportunityFeed.querySelector('[data-testid="campaign-card-cmp_2"]')).not.toBeNull();
+    expect(opportunityFeed.querySelector('[data-testid="campaign-card-cmp_1"]').className).toContain("p-6");
+    const flipCard = opportunityFeed.querySelector('[data-testid="flip-card"]');
+    expect(flipCard.classList.contains("flip-card--tilt")).toBe(false);
+    expect(flipCard.classList.contains("flip-card--scale")).toBe(false);
+    expect(flipCard.querySelector(".flip-card-glare")).toBeNull();
+    expect(container.querySelector('[data-testid="details-button-cmp_1"]')).not.toBeNull();
+    await act(async () => flipCard.click());
+    expect(flipCard.getAttribute("aria-expanded")).toBe("false");
+    await act(async () => container.querySelector('[data-testid="details-button-cmp_1"]').click());
+    expect(flipCard.getAttribute("aria-expanded")).toBe("true");
+    expect(flipCard.textContent).toContain("Campaign details");
+    expect(flipCard.textContent).toContain("Deliverables");
+    await act(async () => container.querySelector('[data-testid="back-button-cmp_1"]').click());
+    expect(flipCard.getAttribute("aria-expanded")).toBe("false");
+    expect(container.querySelector('[data-testid="opportunity-details-dialog"]')).toBeNull();
     expect(container.textContent).not.toContain("12,000");
     // Public budget inputs are cleanly removed
     expect(container.querySelector('[data-testid="campaign-min-budget-input"]')).toBeNull();

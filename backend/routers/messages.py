@@ -3,9 +3,8 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from core.database import db
 from core.dependencies import enrich_user, get_user
-from core.security import display_name, now
+from core.security import now
 from services.chat_service import create_chat_message
-from services.notification_service import notify
 
 router = APIRouter(tags=["messages"])
 
@@ -82,16 +81,4 @@ async def send_message(thread_id: str, payload: MsgIn, request: Request):
         audio_duration=payload.audio_duration or 0,
     )
 
-    other_id = next((p for p in t.get("participants", []) if p != user["user_id"]), "")
-    if other_id:
-        preview = clean_text or ("🎤 Voice message" if clean_audio else "📎 Attachment")
-        await notify(
-            other_id,
-            "message",
-            f"New message from {display_name(user)}",
-            preview[:80],
-            "/app/messages",
-            origin=user.get("role", "creator"),
-            actor_id=user["user_id"],
-        )
     return msg

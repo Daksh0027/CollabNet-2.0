@@ -85,7 +85,9 @@ describe("Collaborators page", () => {
       bio: "Travel video creator.",
       platforms: [{ platform: "YouTube", followers: 12000 }],
     };
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+    });
     queryClient.setQueryData(["collaborators", filters], {
       pages: [[creator]],
       pageParams: [0],
@@ -103,8 +105,28 @@ describe("Collaborators page", () => {
     });
 
     expect(container.querySelector('[data-testid="collaborators-page"]')).not.toBeNull();
+    const collaboratorFeed = container.querySelector('[data-testid="collaborator-discover-feed"]');
+    expect(collaboratorFeed?.className).toContain("flex-col");
+    expect(collaboratorFeed?.className).toContain("max-w-3xl");
     expect(container.querySelector('[data-testid="collaborator-card-creator_jules"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="collaborator-card-creator_jules"]').className).toContain("p-6");
     expect(container.textContent).toContain("Jules Rivera");
+    const flipCard = container.querySelector('[data-testid="flip-card"]');
+    await act(async () => {
+      flipCard.click();
+    });
+    expect(flipCard.getAttribute("aria-expanded")).toBe("false");
+    await act(async () => {
+      container.querySelector('[data-testid="collaborator-details-creator_jules"]').click();
+    });
+    expect(flipCard.getAttribute("aria-expanded")).toBe("true");
+    expect(flipCard.textContent).toContain("Creator details");
+    expect(flipCard.textContent).toContain("YouTube");
+    await act(async () => {
+      flipCard.querySelector(".flip-card-back [data-flip-card-trigger]").click();
+    });
+    expect(flipCard.getAttribute("aria-expanded")).toBe("false");
+    expect(container.textContent).toContain("Collaborate");
 
     await act(async () => {
       container.querySelector('[data-testid="request-collaboration-creator_jules"]').click();

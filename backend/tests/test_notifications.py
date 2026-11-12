@@ -21,6 +21,7 @@ def test_notification_category_breakdown_and_filtering(company_client):
     assert "counts" in data
     assert "unread" in data
     assert "unread_counts" in data
+    assert all(n.get("type") != "message" for n in data["notifications"])
 
     counts = data["counts"]
     assert counts["all"] >= counts["creators"] + counts["companies"]
@@ -32,12 +33,14 @@ def test_notification_category_breakdown_and_filtering(company_client):
     assert res_creators.status_code == 200
     creators_data = res_creators.json()
     assert all(n["origin"] == "creator" for n in creators_data["notifications"])
+    assert all(n.get("type") != "message" for n in creators_data["notifications"])
 
     # Filter: companies
     res_companies = company_client.get(f"{BASE_URL}/api/notifications?origin=companies", timeout=20)
     assert res_companies.status_code == 200
     companies_data = res_companies.json()
     assert all(n["origin"] == "company" for n in companies_data["notifications"])
+    assert all(n.get("type") != "message" for n in companies_data["notifications"])
 
 
 def test_mark_single_notification_read(client):

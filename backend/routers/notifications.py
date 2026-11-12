@@ -18,7 +18,7 @@ async def list_notifications(
 
     offset = max(0, offset)
     limit = min(100, max(1, limit))
-    user_query = {"user_id": user_id}
+    user_query = {"user_id": user_id, "type": {"$ne": "message"}}
     creator_query = {**user_query, "origin": "creator"}
     company_query = {**user_query, "origin": "company"}
     unread_query = {**user_query, "read": {"$ne": True}}

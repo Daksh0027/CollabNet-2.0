@@ -1,4 +1,5 @@
-import { X } from "lucide-react";
+import { useState } from "react";
+import { Plus, X } from "lucide-react";
 import { Checkbox } from "@/components/base/checkbox/checkbox";
 import {
   Drawer,
@@ -51,6 +52,36 @@ function FilterChoiceGroup({ title, options, value, onToggle, testId }) {
         ))}
       </div>
     </fieldset>
+  );
+}
+
+function CustomFilterOption({ label, placeholder, testId, onAdd }) {
+  const [value, setValue] = useState("");
+
+  const addOption = (event) => {
+    event.preventDefault();
+    const option = value.trim();
+    if (!option) return;
+    onAdd(option);
+    setValue("");
+  };
+
+  return (
+    <form className="flex gap-2" onSubmit={addOption}>
+      <label className="sr-only" htmlFor={testId}>{label}</label>
+      <Input
+        id={testId}
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        placeholder={placeholder}
+        className="h-9"
+        data-testid={testId}
+      />
+      <Button type="submit" variant="outline" size="sm" disabled={!value.trim()} data-testid={`${testId}-add`}>
+        <Plus className="mr-1 h-3.5 w-3.5" />
+        Add
+      </Button>
+    </form>
   );
 }
 
@@ -113,6 +144,21 @@ export default function CreatorFiltersDrawer({
   onMultiToggle,
   onReset,
 }) {
+  const [customNiches, setCustomNiches] = useState([]);
+  const [customContentTypes, setCustomContentTypes] = useState([]);
+  const nicheOptions = [...new Set([...(options.niches || []), ...customNiches])];
+  const contentTypeOptions = [...new Set([...(options.contentTypes || []), ...customContentTypes])];
+
+  const addCustomOption = (value, optionsList, setOptionsList, field) => {
+    const existing = optionsList.find((option) => option.toLocaleLowerCase() === value.toLocaleLowerCase());
+    if (existing) {
+      if (!selectedValues(filters[field]).includes(existing)) onMultiToggle(field, existing);
+      return;
+    }
+    setOptionsList((current) => [...current, value]);
+    onMultiToggle(field, value);
+  };
+
   return (
     <DirectionProvider locale="en-US">
       <Drawer
@@ -168,10 +214,16 @@ export default function CreatorFiltersDrawer({
 
           <FilterChoiceGroup
             title="Niche"
-            options={options.niches}
+            options={nicheOptions}
             value={filters.niche}
             onToggle={(value) => onMultiToggle("niche", value)}
             testId="creator-niche-options"
+          />
+          <CustomFilterOption
+            label="Add custom niche"
+            placeholder="Add a niche"
+            testId="creator-custom-niche-filter"
+            onAdd={(value) => addCustomOption(value, nicheOptions, setCustomNiches, "niche")}
           />
           <FilterChoiceGroup
             title="Social platforms"
@@ -182,10 +234,16 @@ export default function CreatorFiltersDrawer({
           />
           <FilterChoiceGroup
             title="Content formats"
-            options={options.contentTypes}
+            options={contentTypeOptions}
             value={filters.contentType}
             onToggle={(value) => onMultiToggle("contentType", value)}
             testId="creator-content-type-options"
+          />
+          <CustomFilterOption
+            label="Add custom deliverable"
+            placeholder="Add a deliverable or content format"
+            testId="creator-custom-content-type-filter"
+            onAdd={(value) => addCustomOption(value, contentTypeOptions, setCustomContentTypes, "contentType")}
           />
           <RangeFilter
             label="Followers on selected platforms"

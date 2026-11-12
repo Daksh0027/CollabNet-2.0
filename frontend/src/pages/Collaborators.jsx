@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import api, { fmtNum } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { EmptyState, PageHead, UserAvatar, VerifiedBadge } from "@/components/common";
+import FlipCard from "@/components/FlipCard";
 import CreatorFiltersDrawer from "./CreatorFiltersDrawer";
 import { NICHES, PLATFORMS, CONTENT_TYPES } from "./Explore";
 import { Button } from "@/components/ui/button";
@@ -22,80 +23,198 @@ function platformSummary(platforms = []) {
     .join(" · ");
 }
 
-function CreatorCard({ creator, relationship, saved, onSave, onView, onRequest, onRespond, busy }) {
+function CreatorCardActions({
+  creator,
+  relationship,
+  busy,
+  onView,
+  onRequest,
+  onRespond,
+  className = "mt-6 flex flex-wrap gap-3 border-t border-border pt-5",
+  showProfile = true,
+}) {
   return (
-    <article
-      className="flex h-full flex-col rounded-2xl border border-border bg-card p-5 shadow-xs"
-      data-testid={`collaborator-card-${creator.user_id}`}
-    >
-      <div className="flex items-start gap-3">
-        <UserAvatar user={creator} className="h-11 w-11 rounded-xl" />
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <h2 className="truncate text-sm font-semibold">{creator.display_name}</h2>
-            <VerifiedBadge show={creator.verified} />
-          </div>
-          {creator.location ? (
-            <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-              <MapPin className="h-3 w-3" /> {creator.location}
-            </p>
-          ) : null}
-        </div>
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          aria-label={saved ? `Remove ${creator.display_name} from saved creators` : `Save ${creator.display_name}`}
-          onClick={() => onSave(creator)}
-          data-testid={`save-collaborator-${creator.user_id}`}
-        >
-          <Bookmark className={`h-4 w-4 ${saved ? "fill-current text-primary" : ""}`} />
-        </Button>
-      </div>
-
-      <div className="mt-4 flex flex-wrap gap-1.5">
-        {[creator.niche, ...(creator.sub_niches || [])].filter(Boolean).map((niche) => (
-          <span key={niche} className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary">
-            {niche}
-          </span>
-        ))}
-      </div>
-
-      <p className="mt-3 line-clamp-3 min-h-12 text-xs leading-5 text-muted-foreground">
-        {creator.bio || "This creator hasn't added a bio yet."}
-      </p>
-      <p className="mt-3 min-h-4 text-[11px] text-muted-foreground">
-        {platformSummary(creator.platforms) || "Social channels not listed"}
-      </p>
-
-      <div className="mt-auto flex flex-wrap gap-2 border-t border-border pt-4">
+    <div className={className}>
+      {showProfile ? (
         <Button type="button" variant="outline" size="sm" onClick={() => onView(creator.user_id)}>
           View profile
         </Button>
-        {relationship?.status === "pending" && relationship.direction === "outgoing" ? (
-          <Button type="button" size="sm" variant="secondary" disabled>
-            Request sent
-          </Button>
-        ) : relationship?.status === "pending" && relationship.direction === "incoming" ? (
-          <>
-            <Button type="button" size="sm" disabled={busy} onClick={() => onRespond(relationship.request_id, "accept")}>
-              Accept
+      ) : null}
+      {relationship?.status === "pending" && relationship.direction === "outgoing" ? (
+        <Button type="button" size="sm" variant="secondary" disabled>Request sent</Button>
+      ) : relationship?.status === "pending" && relationship.direction === "incoming" ? (
+        <>
+          <Button type="button" size="sm" disabled={busy} onClick={() => onRespond(relationship.request_id, "accept")}>Accept</Button>
+          <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={() => onRespond(relationship.request_id, "reject")}>Decline</Button>
+        </>
+      ) : relationship?.status === "accepted" ? (
+        <Button type="button" size="sm" variant="secondary" disabled>Connected</Button>
+      ) : (
+        <Button type="button" size="sm" onClick={() => onRequest(creator)} data-testid={`request-collaboration-${creator.user_id}`}>
+          Collaborate
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function CreatorCard({ creator, relationship, saved, onSave, onView, onRequest, onRespond, busy }) {
+  return (
+    <>
+      <FlipCard
+        front={
+          <article
+            className="group rounded-2xl border border-border bg-card p-6 shadow-xs transition-shadow hover:border-primary/40 hover:shadow-sm sm:p-7"
+            data-testid={`collaborator-card-${creator.user_id}`}
+            aria-label={`${creator.display_name} creator profile`}
+          >
+          <div className="flex items-start gap-3">
+            <UserAvatar user={creator} className="h-14 w-14 shrink-0 rounded-2xl ring-1 ring-border" />
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <h2 className="truncate text-base font-semibold text-foreground">{creator.display_name}</h2>
+                <VerifiedBadge show={creator.verified} />
+              </div>
+              {creator.location ? (
+                <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
+                  <MapPin className="h-3 w-3" /> {creator.location}
+                </p>
+              ) : null}
+            </div>
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              aria-label={saved ? `Remove ${creator.display_name} from saved creators` : `Save ${creator.display_name}`}
+              onClick={() => onSave(creator)}
+              data-testid={`save-collaborator-${creator.user_id}`}
+            >
+              <Bookmark className={`h-4 w-4 ${saved ? "fill-current text-primary" : ""}`} />
             </Button>
-            <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={() => onRespond(relationship.request_id, "reject")}>
-              Decline
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            {[creator.niche, ...(creator.sub_niches || [])].filter(Boolean).map((niche) => (
+              <span key={niche} className="rounded-full bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary">
+                {niche}
+              </span>
+            ))}
+          </div>
+
+          <p className="mt-3 line-clamp-4 min-h-20 text-sm leading-relaxed text-muted-foreground">
+            {creator.bio || "This creator hasn't added a bio yet."}
+          </p>
+          <p className="mt-3 min-h-5 text-xs text-muted-foreground">
+            {platformSummary(creator.platforms) || "Social channels not listed"}
+          </p>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-border/50 pt-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 px-2.5 text-xs"
+              data-flip-card-trigger
+              data-testid={`collaborator-details-${creator.user_id}`}
+            >
+              Details
             </Button>
-          </>
-        ) : relationship?.status === "accepted" ? (
-          <Button type="button" size="sm" variant="secondary" disabled>
-            Connected
-          </Button>
-        ) : (
-          <Button type="button" size="sm" onClick={() => onRequest(creator)} data-testid={`request-collaboration-${creator.user_id}`}>
-            Collaborate
-          </Button>
-        )}
-      </div>
-    </article>
+            <div className="flex flex-wrap gap-1.5">
+              <Button type="button" variant="outline" size="sm" className="h-8 px-2.5 text-xs" onClick={() => onView(creator.user_id)}>
+                View profile
+              </Button>
+              <CreatorCardActions
+                creator={creator}
+                relationship={relationship}
+                busy={busy}
+                onView={onView}
+                onRequest={onRequest}
+                onRespond={onRespond}
+                className="flex flex-wrap gap-1.5"
+                showProfile={false}
+              />
+            </div>
+          </div>
+        </article>
+        }
+        back={
+          <article className="flex h-full min-h-64 flex-col rounded-2xl border border-border bg-card p-6 shadow-xs sm:p-7">
+            <div className="flex items-center gap-4 border-b border-border/70 pb-4">
+              <UserAvatar user={creator} className="h-14 w-14 rounded-2xl ring-1 ring-border" />
+              <div className="min-w-0">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Creator details</p>
+                <h2 className="mt-1 truncate text-lg font-semibold">{creator.display_name}</h2>
+                {creator.location ? <p className="mt-1 text-sm text-muted-foreground">{creator.location}</p> : null}
+              </div>
+              <VerifiedBadge show={creator.verified} />
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              {[creator.niche, ...(creator.sub_niches || [])].filter(Boolean).map((niche) => (
+                <span key={niche} className="rounded-full bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary">
+                  {niche}
+                </span>
+              ))}
+            </div>
+            <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
+              {creator.bio || "This creator hasn't added a bio yet."}
+            </p>
+            {creator.platforms?.length ? (
+              <div className="mt-5">
+                <h3 className="text-sm font-semibold">Platforms and audience</h3>
+                <div className="mt-2 space-y-2">
+                  {creator.platforms.map((platform) => (
+                    <div key={platform.platform} className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background/60 px-3 py-2.5 text-sm">
+                      <span className="min-w-0 truncate font-medium">
+                        {platform.platform}{platform.handle ? ` · ${platform.handle}` : ""}
+                      </span>
+                      <span className="shrink-0 text-muted-foreground">{fmtNum(platform.followers || 0)} followers</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            {creator.projects?.length ? (
+              <div className="mt-5">
+                <h3 className="text-sm font-semibold">Featured work</h3>
+                <div className="mt-2 space-y-2">
+                  {creator.projects.slice(0, 3).map((project) => (
+                    <div key={project.project_id || project.title} className="rounded-xl border border-border bg-background/60 p-3">
+                      <p className="text-sm font-medium">{project.title}</p>
+                      {project.bio || project.description ? (
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">{project.bio || project.description}</p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-border/50 pt-4">
+              <CreatorCardActions
+                creator={creator}
+                relationship={relationship}
+                busy={busy}
+                onView={onView}
+                onRequest={onRequest}
+                onRespond={onRespond}
+              />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              data-flip-card-trigger
+            >
+              Back
+            </Button>
+            </div>
+          </article>
+        }
+        axis="y"
+        flipOnClick={false}
+        perspective={1600}
+        stiffness={170}
+        damping={20}
+      />
+    </>
   );
 }
 
@@ -486,7 +605,7 @@ function CollaboratorsContent() {
             <EmptyState icon={Users} title="No creators match these filters" body="Try clearing a filter or broadening your search." testId="collaborators-empty" />
           ) : (
             <>
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="mx-auto flex max-w-3xl flex-col gap-6" data-testid="collaborator-discover-feed">
                 {allCreators.map((creator) => (
                   <CreatorCard
                     key={creator.user_id}
@@ -518,7 +637,7 @@ function CollaboratorsContent() {
           ) : !visibleCreators.length ? (
             <EmptyState icon={Bookmark} title="No saved creators match" body="Save a creator from Discover, or adjust the current filters." testId="saved-creators-empty" />
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="mx-auto flex max-w-3xl flex-col gap-6" data-testid="collaborator-saved-feed">
               {visibleCreators.map((creator) => (
                 <CreatorCard key={creator.user_id} creator={creator} relationship={connectionMap.get(creator.user_id)} saved onSave={saveCreator} onView={setProfileId} onRequest={setRequestFor} onRespond={respondToRequest} busy={busy} />
               ))}
@@ -530,7 +649,7 @@ function CollaboratorsContent() {
           {!connectionsContent.length ? (
             <EmptyState icon={Users} title="No creator connections yet" body="Accept a collaboration request to connect and open a chat." testId="creator-connections-empty" />
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="mx-auto flex max-w-3xl flex-col gap-6" data-testid="collaborator-connections-feed">
               {connectionsContent.map((creator) => (
                 <CreatorCard key={creator.user_id} creator={creator} relationship={{ status: "accepted" }} saved={savedIds.has(creator.user_id)} onSave={saveCreator} onView={setProfileId} onRequest={setRequestFor} onRespond={respondToRequest} busy={busy} />
               ))}

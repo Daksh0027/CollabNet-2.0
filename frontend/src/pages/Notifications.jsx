@@ -7,7 +7,6 @@ import {
   FileSignature,
   Handshake,
   Heart,
-  MessageSquare,
   Megaphone,
   Sparkles,
   Users,
@@ -18,7 +17,6 @@ import { PageHead, EmptyState } from "@/components/common";
 
 const ICONS = {
   connection: Handshake,
-  message: MessageSquare,
   application: FileSignature,
   invitation: Megaphone,
   contract: FileSignature,
@@ -100,7 +98,10 @@ export default function Notifications() {
     initialPageParam: 0,
   });
 
-  const items = data?.pages.flatMap((page) => page.notifications || []) || [];
+  const items =
+    data?.pages
+      .flatMap((page) => page.notifications || [])
+      .filter((notification) => notification.type !== "message") || [];
   const counts = data?.pages[0]?.counts;
 
   useEffect(() => {

@@ -102,7 +102,7 @@ describe("Notifications Page and Category Filtering", () => {
           created_at: new Date().toISOString(),
         },
       ],
-      counts: { all: 2, creators: 1, companies: 1 },
+      counts: { all: 1, creators: 0, companies: 1 },
       unread: 1,
       has_more: true,
       next_offset: 50,
@@ -117,13 +117,13 @@ describe("Notifications Page and Category Filtering", () => {
     expect(container.querySelector('[data-testid="filter-companies"]')).not.toBeNull();
 
     // Counts are visible
-    expect(container.querySelector('[data-testid="filter-count-all"]')?.textContent).toContain("2");
-    expect(container.querySelector('[data-testid="filter-count-creators"]')?.textContent).toContain("1");
+    expect(container.querySelector('[data-testid="filter-count-all"]')?.textContent).toContain("1");
+    expect(container.querySelector('[data-testid="filter-count-creators"]')?.textContent).toContain("0");
     expect(container.querySelector('[data-testid="filter-count-companies"]')?.textContent).toContain("1");
 
     // Notification items and badges
-    expect(container.querySelector('[data-testid="notification-ntf_1"]')).not.toBeNull();
-    expect(container.querySelector('[data-testid="origin-badge-creator"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="notification-ntf_1"]')).toBeNull();
+    expect(container.querySelector('[data-testid="origin-badge-creator"]')).toBeNull();
     expect(container.querySelector('[data-testid="notification-ntf_2"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="origin-badge-company"]')).not.toBeNull();
 
@@ -147,9 +147,9 @@ describe("Notifications Page and Category Filtering", () => {
   it("marks unread notifications as read in the backend when the page is opened", async () => {
     const notification = {
       notif_id: "ntf_auto_read",
-      type: "message",
-      title: "New message",
-      body: "A new message arrived",
+      type: "connection",
+      title: "New connection",
+      body: "A connection request arrived",
       origin: "creator",
       read: false,
       created_at: new Date().toISOString(),
@@ -202,10 +202,10 @@ describe("Notifications Page and Category Filtering", () => {
   it("marks an unread notification as read and navigates to its assigned destination", async () => {
     const notification = {
       notif_id: "ntf_unread",
-      type: "message",
-      title: "New message",
-      body: "A new message arrived",
-      link: "/app/messages",
+      type: "connection",
+      title: "New connection",
+      body: "A connection request arrived",
+      link: "/app/connections",
       origin: "creator",
       read: false,
       created_at: new Date().toISOString(),
@@ -225,7 +225,7 @@ describe("Notifications Page and Category Filtering", () => {
       await Promise.resolve();
     });
 
-    expect(mockNavigate).toHaveBeenCalledWith("/app/messages");
+    expect(mockNavigate).toHaveBeenCalledWith("/app/connections");
     expect(mockApiPost).toHaveBeenCalledWith("/notifications/ntf_unread/read");
     expect(
       qc.getQueryData(["notifications", "all"]).pages[0].notifications[0].read
@@ -257,7 +257,7 @@ describe("Notifications Page and Category Filtering", () => {
       notifications: [
         {
           notif_id: "ntf_page_1",
-          type: "message",
+          type: "contract",
           title: "First page",
           body: "Earlier notification",
           link: "/app/messages",
